@@ -1,0 +1,3233 @@
+[
+ {
+  "word": "analyse",
+  "ipa": "/ˈænəlaɪz/",
+  "pos": "v.",
+  "meaning": "分析",
+  "examples": [
+   "Researchers analysed data from over two thousand households."
+  ]
+ },
+ {
+  "word": "approach",
+  "ipa": "/əˈprəʊtʃ/",
+  "pos": "n.",
+  "meaning": "方法；途径",
+  "examples": [
+   "The study adopts a new approach to measuring urban poverty."
+  ]
+ },
+ {
+  "word": "area",
+  "ipa": "/ˈeəriə/",
+  "pos": "n.",
+  "meaning": "领域；地区",
+  "examples": [
+   "Funding for this area of research has increased steadily."
+  ]
+ },
+ {
+  "word": "assess",
+  "ipa": "/əˈses/",
+  "pos": "v.",
+  "meaning": "评估；评定",
+  "examples": [
+   "Teachers assess students' progress at the end of each term."
+  ]
+ },
+ {
+  "word": "assume",
+  "ipa": "/əˈsjuːm/",
+  "pos": "v.",
+  "meaning": "假定；认为",
+  "examples": [
+   "Many people assume that technology always improves productivity."
+  ]
+ },
+ {
+  "word": "authority",
+  "ipa": "/ɔːˈθɒrəti/",
+  "pos": "n.",
+  "meaning": "权威；当局",
+  "examples": [
+   "Local authorities are responsible for maintaining public parks."
+  ]
+ },
+ {
+  "word": "available",
+  "ipa": "/əˈveɪləbl/",
+  "pos": "adj.",
+  "meaning": "可获得的；可用的",
+  "examples": [
+   "Reliable data on rural incomes is rarely available."
+  ]
+ },
+ {
+  "word": "benefit",
+  "ipa": "/ˈbenɪfɪt/",
+  "pos": "n.",
+  "meaning": "好处；利益",
+  "examples": [
+   "The benefits of regular exercise are widely recognised."
+  ]
+ },
+ {
+  "word": "concept",
+  "ipa": "/ˈkɒnsept/",
+  "pos": "n.",
+  "meaning": "概念",
+  "examples": [
+   "The concept of sustainability is central to modern planning."
+  ]
+ },
+ {
+  "word": "consist",
+  "ipa": "/kənˈsɪst/",
+  "pos": "v.",
+  "meaning": "由……组成",
+  "examples": [
+   "The committee consists of twelve elected members."
+  ]
+ },
+ {
+  "word": "constitute",
+  "ipa": "/ˈkɒnstɪtjuːt/",
+  "pos": "v.",
+  "meaning": "构成；组成",
+  "examples": [
+   "Women constitute nearly half of the workforce in this sector."
+  ]
+ },
+ {
+  "word": "context",
+  "ipa": "/ˈkɒntekst/",
+  "pos": "n.",
+  "meaning": "背景；语境",
+  "examples": [
+   "The results must be interpreted in their historical context."
+  ]
+ },
+ {
+  "word": "contract",
+  "ipa": "/ˈkɒntrækt/",
+  "pos": "n.",
+  "meaning": "合同；契约",
+  "examples": [
+   "The company signed a five-year contract with the supplier."
+  ]
+ },
+ {
+  "word": "create",
+  "ipa": "/kriˈeɪt/",
+  "pos": "v.",
+  "meaning": "创造；创建",
+  "examples": [
+   "The new factory is expected to create over 500 jobs."
+  ]
+ },
+ {
+  "word": "data",
+  "ipa": "/ˈdeɪtə/",
+  "pos": "n.",
+  "meaning": "数据；资料",
+  "examples": [
+   "The data suggest a strong link between diet and health."
+  ]
+ },
+ {
+  "word": "define",
+  "ipa": "/dɪˈfaɪn/",
+  "pos": "v.",
+  "meaning": "定义；界定",
+  "examples": [
+   "It is difficult to define intelligence in a single sentence."
+  ]
+ },
+ {
+  "word": "derive",
+  "ipa": "/dɪˈraɪv/",
+  "pos": "v.",
+  "meaning": "源自；获得",
+  "examples": [
+   "Many English words are derived from Latin."
+  ]
+ },
+ {
+  "word": "distribute",
+  "ipa": "/dɪˈstrɪbjuːt/",
+  "pos": "v.",
+  "meaning": "分配；分发",
+  "examples": [
+   "Food was distributed to families affected by the flood."
+  ]
+ },
+ {
+  "word": "economy",
+  "ipa": "/ɪˈkɒnəmi/",
+  "pos": "n.",
+  "meaning": "经济",
+  "examples": [
+   "Tourism plays a vital role in the island's economy."
+  ]
+ },
+ {
+  "word": "environment",
+  "ipa": "/ɪnˈvaɪrənmənt/",
+  "pos": "n.",
+  "meaning": "环境",
+  "examples": [
+   "Plastic waste poses a serious threat to the marine environment."
+  ]
+ },
+ {
+  "word": "establish",
+  "ipa": "/ɪˈstæblɪʃ/",
+  "pos": "v.",
+  "meaning": "建立；确定",
+  "examples": [
+   "The university was established in the nineteenth century."
+  ]
+ },
+ {
+  "word": "estimate",
+  "ipa": "/ˈestɪmeɪt/",
+  "pos": "v.",
+  "meaning": "估计；估算",
+  "examples": [
+   "Scientists estimate that the glacier will vanish within decades."
+  ]
+ },
+ {
+  "word": "evident",
+  "ipa": "/ˈevɪdənt/",
+  "pos": "adj.",
+  "meaning": "明显的",
+  "examples": [
+   "It was evident that the policy had failed to reduce traffic."
+  ]
+ },
+ {
+  "word": "export",
+  "ipa": "/ˈekspɔːt/",
+  "pos": "n.",
+  "meaning": "出口；出口商品",
+  "examples": [
+   "Coffee remains the country's most important export."
+  ]
+ },
+ {
+  "word": "factor",
+  "ipa": "/ˈfæktə/",
+  "pos": "n.",
+  "meaning": "因素",
+  "examples": [
+   "Cost is a key factor when students choose a university."
+  ]
+ },
+ {
+  "word": "finance",
+  "ipa": "/ˈfaɪnæns/",
+  "pos": "n.",
+  "meaning": "财政；金融",
+  "examples": [
+   "The project was delayed because of problems with finance."
+  ]
+ },
+ {
+  "word": "formula",
+  "ipa": "/ˈfɔːmjələ/",
+  "pos": "n.",
+  "meaning": "公式；方案",
+  "examples": [
+   "There is no simple formula for economic success."
+  ]
+ },
+ {
+  "word": "function",
+  "ipa": "/ˈfʌŋkʃn/",
+  "pos": "n.",
+  "meaning": "功能；作用",
+  "examples": [
+   "One function of the liver is to remove toxins from the blood."
+  ]
+ },
+ {
+  "word": "identify",
+  "ipa": "/aɪˈdentɪfaɪ/",
+  "pos": "v.",
+  "meaning": "识别；确定",
+  "examples": [
+   "The survey aims to identify the causes of student stress."
+  ]
+ },
+ {
+  "word": "income",
+  "ipa": "/ˈɪnkʌm/",
+  "pos": "n.",
+  "meaning": "收入",
+  "examples": [
+   "Households with a low income spend more on food proportionally."
+  ]
+ },
+ {
+  "word": "indicate",
+  "ipa": "/ˈɪndɪkeɪt/",
+  "pos": "v.",
+  "meaning": "表明；指出",
+  "examples": [
+   "Recent figures indicate a sharp rise in online shopping."
+  ]
+ },
+ {
+  "word": "individual",
+  "ipa": "/ˌɪndɪˈvɪdʒuəl/",
+  "pos": "adj.",
+  "meaning": "个人的；个别的",
+  "examples": [
+   "Each individual student receives personal feedback."
+  ]
+ },
+ {
+  "word": "interpret",
+  "ipa": "/ɪnˈtɜːprɪt/",
+  "pos": "v.",
+  "meaning": "解释；理解",
+  "examples": [
+   "Historians interpret these events in very different ways."
+  ]
+ },
+ {
+  "word": "involve",
+  "ipa": "/ɪnˈvɒlv/",
+  "pos": "v.",
+  "meaning": "涉及；包含",
+  "examples": [
+   "The job involves travelling to several countries each year."
+  ]
+ },
+ {
+  "word": "issue",
+  "ipa": "/ˈɪʃuː/",
+  "pos": "n.",
+  "meaning": "问题；议题",
+  "examples": [
+   "Climate change is a global issue that requires cooperation."
+  ]
+ },
+ {
+  "word": "labour",
+  "ipa": "/ˈleɪbə/",
+  "pos": "n.",
+  "meaning": "劳动；劳动力",
+  "examples": [
+   "The shortage of skilled labour has slowed construction."
+  ]
+ },
+ {
+  "word": "legal",
+  "ipa": "/ˈliːɡl/",
+  "pos": "adj.",
+  "meaning": "法律的；合法的",
+  "examples": [
+   "The firm sought legal advice before signing the agreement."
+  ]
+ },
+ {
+  "word": "legislate",
+  "ipa": "/ˈledʒɪsleɪt/",
+  "pos": "v.",
+  "meaning": "立法",
+  "examples": [
+   "Governments may legislate to limit carbon emissions."
+  ]
+ },
+ {
+  "word": "major",
+  "ipa": "/ˈmeɪdʒə/",
+  "pos": "adj.",
+  "meaning": "主要的；重大的",
+  "examples": [
+   "Air pollution is a major cause of respiratory illness."
+  ]
+ },
+ {
+  "word": "method",
+  "ipa": "/ˈmeθəd/",
+  "pos": "n.",
+  "meaning": "方法",
+  "examples": [
+   "The traditional method of teaching relied on memorisation."
+  ]
+ },
+ {
+  "word": "occur",
+  "ipa": "/əˈkɜː/",
+  "pos": "v.",
+  "meaning": "发生；出现",
+  "examples": [
+   "Most accidents occur within a few kilometres of home."
+  ]
+ },
+ {
+  "word": "percent",
+  "ipa": "/pəˈsent/",
+  "pos": "n.",
+  "meaning": "百分之……",
+  "examples": [
+   "Around forty percent of graduates work outside their field."
+  ]
+ },
+ {
+  "word": "period",
+  "ipa": "/ˈpɪəriəd/",
+  "pos": "n.",
+  "meaning": "时期；期间",
+  "examples": [
+   "The population doubled over a period of thirty years."
+  ]
+ },
+ {
+  "word": "policy",
+  "ipa": "/ˈpɒləsi/",
+  "pos": "n.",
+  "meaning": "政策；方针",
+  "examples": [
+   "The new housing policy aims to help first-time buyers."
+  ]
+ },
+ {
+  "word": "principle",
+  "ipa": "/ˈprɪnsəpl/",
+  "pos": "n.",
+  "meaning": "原则；原理",
+  "examples": [
+   "The design follows the principle that form should follow function."
+  ]
+ },
+ {
+  "word": "proceed",
+  "ipa": "/prəˈsiːd/",
+  "pos": "v.",
+  "meaning": "继续进行",
+  "examples": [
+   "After a short break, the meeting proceeded as planned."
+  ]
+ },
+ {
+  "word": "process",
+  "ipa": "/ˈprəʊses/",
+  "pos": "n.",
+  "meaning": "过程；工序",
+  "examples": [
+   "Learning a language is a gradual process."
+  ]
+ },
+ {
+  "word": "require",
+  "ipa": "/rɪˈkwaɪə/",
+  "pos": "v.",
+  "meaning": "需要；要求",
+  "examples": [
+   "All applicants are required to submit a personal statement."
+  ]
+ },
+ {
+  "word": "research",
+  "ipa": "/rɪˈsɜːtʃ/",
+  "pos": "n.",
+  "meaning": "研究；调查",
+  "examples": [
+   "Further research is needed to confirm these findings."
+  ]
+ },
+ {
+  "word": "respond",
+  "ipa": "/rɪˈspɒnd/",
+  "pos": "v.",
+  "meaning": "回应；作出反应",
+  "examples": [
+   "Plants respond to light by growing towards it."
+  ]
+ },
+ {
+  "word": "role",
+  "ipa": "/rəʊl/",
+  "pos": "n.",
+  "meaning": "作用；角色",
+  "examples": [
+   "Parents play a crucial role in a child's early education."
+  ]
+ },
+ {
+  "word": "section",
+  "ipa": "/ˈsekʃn/",
+  "pos": "n.",
+  "meaning": "部分；章节",
+  "examples": [
+   "The final section of the report summarises the main findings."
+  ]
+ },
+ {
+  "word": "sector",
+  "ipa": "/ˈsektə/",
+  "pos": "n.",
+  "meaning": "部门；领域",
+  "examples": [
+   "Jobs in the service sector have grown rapidly."
+  ]
+ },
+ {
+  "word": "significant",
+  "ipa": "/sɪɡˈnɪfɪkənt/",
+  "pos": "adj.",
+  "meaning": "重要的；显著的",
+  "examples": [
+   "There has been a significant decline in birth rates."
+  ]
+ },
+ {
+  "word": "similar",
+  "ipa": "/ˈsɪmələ/",
+  "pos": "adj.",
+  "meaning": "相似的",
+  "examples": [
+   "The two species have similar feeding habits."
+  ]
+ },
+ {
+  "word": "source",
+  "ipa": "/sɔːs/",
+  "pos": "n.",
+  "meaning": "来源；源头",
+  "examples": [
+   "Solar power is a clean source of energy."
+  ]
+ },
+ {
+  "word": "specific",
+  "ipa": "/spəˈsɪfɪk/",
+  "pos": "adj.",
+  "meaning": "具体的；特定的",
+  "examples": [
+   "The grant must be used for a specific purpose."
+  ]
+ },
+ {
+  "word": "structure",
+  "ipa": "/ˈstrʌktʃə/",
+  "pos": "n.",
+  "meaning": "结构；构造",
+  "examples": [
+   "The social structure of the village changed after the war."
+  ]
+ },
+ {
+  "word": "theory",
+  "ipa": "/ˈθɪəri/",
+  "pos": "n.",
+  "meaning": "理论；学说",
+  "examples": [
+   "Darwin's theory of evolution transformed biology."
+  ]
+ },
+ {
+  "word": "vary",
+  "ipa": "/ˈveəri/",
+  "pos": "v.",
+  "meaning": "变化；不同",
+  "examples": [
+   "Prices vary considerably from one region to another."
+  ]
+ },
+ {
+  "word": "achieve",
+  "ipa": "/əˈtʃiːv/",
+  "pos": "v.",
+  "meaning": "实现；达到",
+  "examples": [
+   "Few countries have achieved full gender equality in pay."
+  ]
+ },
+ {
+  "word": "acquire",
+  "ipa": "/əˈkwaɪə/",
+  "pos": "v.",
+  "meaning": "获得；习得",
+  "examples": [
+   "Children acquire language with remarkable speed."
+  ]
+ },
+ {
+  "word": "administration",
+  "ipa": "/ədˌmɪnɪˈstreɪʃn/",
+  "pos": "n.",
+  "meaning": "管理；行政",
+  "examples": [
+   "Hospital administration costs have risen sharply."
+  ]
+ },
+ {
+  "word": "affect",
+  "ipa": "/əˈfekt/",
+  "pos": "v.",
+  "meaning": "影响",
+  "examples": [
+   "Lack of sleep can affect concentration and memory."
+  ]
+ },
+ {
+  "word": "appropriate",
+  "ipa": "/əˈprəʊpriət/",
+  "pos": "adj.",
+  "meaning": "适当的；恰当的",
+  "examples": [
+   "Students should wear appropriate clothing in the laboratory."
+  ]
+ },
+ {
+  "word": "aspect",
+  "ipa": "/ˈæspekt/",
+  "pos": "n.",
+  "meaning": "方面",
+  "examples": [
+   "Transport is one aspect of urban planning that is often neglected."
+  ]
+ },
+ {
+  "word": "assist",
+  "ipa": "/əˈsɪst/",
+  "pos": "v.",
+  "meaning": "协助；帮助",
+  "examples": [
+   "Volunteers assist elderly residents with their shopping."
+  ]
+ },
+ {
+  "word": "category",
+  "ipa": "/ˈkætəɡəri/",
+  "pos": "n.",
+  "meaning": "类别；种类",
+  "examples": [
+   "The animals were divided into three categories according to diet."
+  ]
+ },
+ {
+  "word": "chapter",
+  "ipa": "/ˈtʃæptə/",
+  "pos": "n.",
+  "meaning": "章；篇",
+  "examples": [
+   "The second chapter examines the history of the city."
+  ]
+ },
+ {
+  "word": "commission",
+  "ipa": "/kəˈmɪʃn/",
+  "pos": "n.",
+  "meaning": "委员会；佣金",
+  "examples": [
+   "An independent commission investigated the causes of the crisis."
+  ]
+ },
+ {
+  "word": "community",
+  "ipa": "/kəˈmjuːnəti/",
+  "pos": "n.",
+  "meaning": "社区；群体",
+  "examples": [
+   "The library serves as a meeting place for the local community."
+  ]
+ },
+ {
+  "word": "complex",
+  "ipa": "/ˈkɒmpleks/",
+  "pos": "adj.",
+  "meaning": "复杂的",
+  "examples": [
+   "The causes of poverty are complex and interconnected."
+  ]
+ },
+ {
+  "word": "compute",
+  "ipa": "/kəmˈpjuːt/",
+  "pos": "v.",
+  "meaning": "计算",
+  "examples": [
+   "The software can compute the results in seconds."
+  ]
+ },
+ {
+  "word": "conclude",
+  "ipa": "/kənˈkluːd/",
+  "pos": "v.",
+  "meaning": "得出结论；结束",
+  "examples": [
+   "The authors conclude that early intervention is effective."
+  ]
+ },
+ {
+  "word": "conduct",
+  "ipa": "/kənˈdʌkt/",
+  "pos": "v.",
+  "meaning": "实施；进行",
+  "examples": [
+   "The team conducted interviews with over 300 farmers."
+  ]
+ },
+ {
+  "word": "consequent",
+  "ipa": "/ˈkɒnsɪkwənt/",
+  "pos": "adj.",
+  "meaning": "随之发生的",
+  "examples": [
+   "The drought and the consequent food shortage affected millions."
+  ]
+ },
+ {
+  "word": "construct",
+  "ipa": "/kənˈstrʌkt/",
+  "pos": "v.",
+  "meaning": "建造；构建",
+  "examples": [
+   "A new bridge will be constructed across the river."
+  ]
+ },
+ {
+  "word": "consume",
+  "ipa": "/kənˈsjuːm/",
+  "pos": "v.",
+  "meaning": "消耗；消费",
+  "examples": [
+   "Older appliances consume far more electricity."
+  ]
+ },
+ {
+  "word": "credit",
+  "ipa": "/ˈkredɪt/",
+  "pos": "n.",
+  "meaning": "信用；学分",
+  "examples": [
+   "Students need 120 credits to complete the degree."
+  ]
+ },
+ {
+  "word": "culture",
+  "ipa": "/ˈkʌltʃə/",
+  "pos": "n.",
+  "meaning": "文化",
+  "examples": [
+   "Food is an important part of every culture."
+  ]
+ },
+ {
+  "word": "design",
+  "ipa": "/dɪˈzaɪn/",
+  "pos": "n.",
+  "meaning": "设计",
+  "examples": [
+   "The design of the building allows natural light to enter."
+  ]
+ },
+ {
+  "word": "distinct",
+  "ipa": "/dɪˈstɪŋkt/",
+  "pos": "adj.",
+  "meaning": "明显不同的；清楚的",
+  "examples": [
+   "The two dialects are quite distinct from each other."
+  ]
+ },
+ {
+  "word": "element",
+  "ipa": "/ˈelɪmənt/",
+  "pos": "n.",
+  "meaning": "要素；元素",
+  "examples": [
+   "Trust is an essential element of any partnership."
+  ]
+ },
+ {
+  "word": "equate",
+  "ipa": "/ɪˈkweɪt/",
+  "pos": "v.",
+  "meaning": "等同；使相等",
+  "examples": [
+   "Many people equate wealth with happiness."
+  ]
+ },
+ {
+  "word": "evaluate",
+  "ipa": "/ɪˈvæljueɪt/",
+  "pos": "v.",
+  "meaning": "评价；评估",
+  "examples": [
+   "The programme will be evaluated after twelve months."
+  ]
+ },
+ {
+  "word": "feature",
+  "ipa": "/ˈfiːtʃə/",
+  "pos": "n.",
+  "meaning": "特征；特点",
+  "examples": [
+   "A key feature of the region is its dry climate."
+  ]
+ },
+ {
+  "word": "final",
+  "ipa": "/ˈfaɪnl/",
+  "pos": "adj.",
+  "meaning": "最终的；最后的",
+  "examples": [
+   "The final decision rests with the board of directors."
+  ]
+ },
+ {
+  "word": "focus",
+  "ipa": "/ˈfəʊkəs/",
+  "pos": "v.",
+  "meaning": "集中；聚焦",
+  "examples": [
+   "The course focuses on practical writing skills."
+  ]
+ },
+ {
+  "word": "impact",
+  "ipa": "/ˈɪmpækt/",
+  "pos": "n.",
+  "meaning": "影响；冲击",
+  "examples": [
+   "Social media has had a profound impact on politics."
+  ]
+ },
+ {
+  "word": "injure",
+  "ipa": "/ˈɪndʒə/",
+  "pos": "v.",
+  "meaning": "使受伤；伤害",
+  "examples": [
+   "Two workers were injured in the explosion."
+  ]
+ },
+ {
+  "word": "institute",
+  "ipa": "/ˈɪnstɪtjuːt/",
+  "pos": "n.",
+  "meaning": "研究所；学院",
+  "examples": [
+   "She works at a marine research institute."
+  ]
+ },
+ {
+  "word": "invest",
+  "ipa": "/ɪnˈvest/",
+  "pos": "v.",
+  "meaning": "投资",
+  "examples": [
+   "The government plans to invest heavily in public transport."
+  ]
+ },
+ {
+  "word": "item",
+  "ipa": "/ˈaɪtəm/",
+  "pos": "n.",
+  "meaning": "项目；物品",
+  "examples": [
+   "Each item on the list was checked carefully."
+  ]
+ },
+ {
+  "word": "journal",
+  "ipa": "/ˈdʒɜːnl/",
+  "pos": "n.",
+  "meaning": "期刊；日志",
+  "examples": [
+   "The findings were published in a leading medical journal."
+  ]
+ },
+ {
+  "word": "maintain",
+  "ipa": "/meɪnˈteɪn/",
+  "pos": "v.",
+  "meaning": "维持；保养",
+  "examples": [
+   "It is expensive to maintain old buildings."
+  ]
+ },
+ {
+  "word": "normal",
+  "ipa": "/ˈnɔːml/",
+  "pos": "adj.",
+  "meaning": "正常的；常规的",
+  "examples": [
+   "Body temperature returned to normal after a few hours."
+  ]
+ },
+ {
+  "word": "obtain",
+  "ipa": "/əbˈteɪn/",
+  "pos": "v.",
+  "meaning": "获得；得到",
+  "examples": [
+   "Permission must be obtained before filming in the museum."
+  ]
+ },
+ {
+  "word": "participate",
+  "ipa": "/pɑːˈtɪsɪpeɪt/",
+  "pos": "v.",
+  "meaning": "参加；参与",
+  "examples": [
+   "Over 500 students participated in the survey."
+  ]
+ },
+ {
+  "word": "perceive",
+  "ipa": "/pəˈsiːv/",
+  "pos": "v.",
+  "meaning": "察觉；认为",
+  "examples": [
+   "Risks are often perceived as greater than they really are."
+  ]
+ },
+ {
+  "word": "positive",
+  "ipa": "/ˈpɒzətɪv/",
+  "pos": "adj.",
+  "meaning": "积极的；正面的",
+  "examples": [
+   "The new scheme has had a positive effect on attendance."
+  ]
+ },
+ {
+  "word": "potential",
+  "ipa": "/pəˈtenʃl/",
+  "pos": "adj.",
+  "meaning": "潜在的；可能的",
+  "examples": [
+   "Investors were warned about potential losses."
+  ]
+ },
+ {
+  "word": "previous",
+  "ipa": "/ˈpriːviəs/",
+  "pos": "adj.",
+  "meaning": "先前的",
+  "examples": [
+   "Sales this year were lower than in the previous year."
+  ]
+ },
+ {
+  "word": "primary",
+  "ipa": "/ˈpraɪməri/",
+  "pos": "adj.",
+  "meaning": "主要的；初级的",
+  "examples": [
+   "The primary aim of the study was to test the new drug."
+  ]
+ },
+ {
+  "word": "purchase",
+  "ipa": "/ˈpɜːtʃəs/",
+  "pos": "v.",
+  "meaning": "购买",
+  "examples": [
+   "Customers can purchase tickets online."
+  ]
+ },
+ {
+  "word": "range",
+  "ipa": "/reɪndʒ/",
+  "pos": "n.",
+  "meaning": "范围；一系列",
+  "examples": [
+   "The shop offers a wide range of organic products."
+  ]
+ },
+ {
+  "word": "region",
+  "ipa": "/ˈriːdʒən/",
+  "pos": "n.",
+  "meaning": "地区；区域",
+  "examples": [
+   "The northern region receives very little rainfall."
+  ]
+ },
+ {
+  "word": "regulate",
+  "ipa": "/ˈreɡjuleɪt/",
+  "pos": "v.",
+  "meaning": "管理；调节",
+  "examples": [
+   "Sweating helps the body regulate its temperature."
+  ]
+ },
+ {
+  "word": "relevant",
+  "ipa": "/ˈreləvənt/",
+  "pos": "adj.",
+  "meaning": "相关的",
+  "examples": [
+   "Applicants should have relevant work experience."
+  ]
+ },
+ {
+  "word": "reside",
+  "ipa": "/rɪˈzaɪd/",
+  "pos": "v.",
+  "meaning": "居住",
+  "examples": [
+   "Most of the island's population resides near the coast."
+  ]
+ },
+ {
+  "word": "resource",
+  "ipa": "/rɪˈzɔːs/",
+  "pos": "n.",
+  "meaning": "资源",
+  "examples": [
+   "Water is a precious resource in desert areas."
+  ]
+ },
+ {
+  "word": "restrict",
+  "ipa": "/rɪˈstrɪkt/",
+  "pos": "v.",
+  "meaning": "限制；约束",
+  "examples": [
+   "The city restricts the number of cars entering the centre."
+  ]
+ },
+ {
+  "word": "secure",
+  "ipa": "/sɪˈkjʊə/",
+  "pos": "adj.",
+  "meaning": "安全的；稳固的",
+  "examples": [
+   "Passwords help keep personal data secure."
+  ]
+ },
+ {
+  "word": "seek",
+  "ipa": "/siːk/",
+  "pos": "v.",
+  "meaning": "寻求；寻找",
+  "examples": [
+   "Many graduates seek employment abroad."
+  ]
+ },
+ {
+  "word": "select",
+  "ipa": "/sɪˈlekt/",
+  "pos": "v.",
+  "meaning": "选择；挑选",
+  "examples": [
+   "Participants were selected at random."
+  ]
+ },
+ {
+  "word": "site",
+  "ipa": "/saɪt/",
+  "pos": "n.",
+  "meaning": "地点；场所",
+  "examples": [
+   "The site of the ancient city was discovered in 1920."
+  ]
+ },
+ {
+  "word": "strategy",
+  "ipa": "/ˈstrætədʒi/",
+  "pos": "n.",
+  "meaning": "策略；战略",
+  "examples": [
+   "The company needs a clear strategy for growth."
+  ]
+ },
+ {
+  "word": "survey",
+  "ipa": "/ˈsɜːveɪ/",
+  "pos": "n.",
+  "meaning": "调查",
+  "examples": [
+   "A recent survey found that most people support the plan."
+  ]
+ },
+ {
+  "word": "text",
+  "ipa": "/tekst/",
+  "pos": "n.",
+  "meaning": "文本；课文",
+  "examples": [
+   "Read the text carefully before answering the questions."
+  ]
+ },
+ {
+  "word": "tradition",
+  "ipa": "/trəˈdɪʃn/",
+  "pos": "n.",
+  "meaning": "传统",
+  "examples": [
+   "The festival is an ancient tradition in the region."
+  ]
+ },
+ {
+  "word": "transfer",
+  "ipa": "/trænsˈfɜː/",
+  "pos": "v.",
+  "meaning": "转移；转让",
+  "examples": [
+   "Heat is transferred from the warmer object to the cooler one."
+  ]
+ },
+ {
+  "word": "alternative",
+  "ipa": "/ɔːlˈtɜːnətɪv/",
+  "pos": "n.",
+  "meaning": "替代品；选择",
+  "examples": [
+   "Cycling is a healthy alternative to driving."
+  ]
+ },
+ {
+  "word": "circumstance",
+  "ipa": "/ˈsɜːkəmstəns/",
+  "pos": "n.",
+  "meaning": "情况；环境",
+  "examples": [
+   "Under no circumstances should the door be left open."
+  ]
+ },
+ {
+  "word": "comment",
+  "ipa": "/ˈkɒment/",
+  "pos": "n.",
+  "meaning": "评论；意见",
+  "examples": [
+   "The manager made several comments on the draft."
+  ]
+ },
+ {
+  "word": "compensate",
+  "ipa": "/ˈkɒmpenseɪt/",
+  "pos": "v.",
+  "meaning": "补偿；弥补",
+  "examples": [
+   "Farmers were compensated for the loss of their crops."
+  ]
+ },
+ {
+  "word": "component",
+  "ipa": "/kəmˈpəʊnənt/",
+  "pos": "n.",
+  "meaning": "组成部分；部件",
+  "examples": [
+   "Vocabulary is a key component of language ability."
+  ]
+ },
+ {
+  "word": "consent",
+  "ipa": "/kənˈsent/",
+  "pos": "n.",
+  "meaning": "同意；许可",
+  "examples": [
+   "Participants gave written consent before the experiment."
+  ]
+ },
+ {
+  "word": "considerable",
+  "ipa": "/kənˈsɪdərəbl/",
+  "pos": "adj.",
+  "meaning": "相当大的",
+  "examples": [
+   "The project required a considerable amount of time."
+  ]
+ },
+ {
+  "word": "constant",
+  "ipa": "/ˈkɒnstənt/",
+  "pos": "adj.",
+  "meaning": "持续的；不变的",
+  "examples": [
+   "The machine must be kept at a constant temperature."
+  ]
+ },
+ {
+  "word": "constrain",
+  "ipa": "/kənˈstreɪn/",
+  "pos": "v.",
+  "meaning": "限制；约束",
+  "examples": [
+   "Growth has been constrained by a lack of investment."
+  ]
+ },
+ {
+  "word": "contribute",
+  "ipa": "/kənˈtrɪbjuːt/",
+  "pos": "v.",
+  "meaning": "贡献；促成",
+  "examples": [
+   "Many factors contribute to obesity."
+  ]
+ },
+ {
+  "word": "convene",
+  "ipa": "/kənˈviːn/",
+  "pos": "v.",
+  "meaning": "召集；召开",
+  "examples": [
+   "The panel will convene again next month."
+  ]
+ },
+ {
+  "word": "coordinate",
+  "ipa": "/kəʊˈɔːdɪneɪt/",
+  "pos": "v.",
+  "meaning": "协调",
+  "examples": [
+   "A central office coordinates the relief effort."
+  ]
+ },
+ {
+  "word": "core",
+  "ipa": "/kɔː/",
+  "pos": "adj.",
+  "meaning": "核心的",
+  "examples": [
+   "Reading and writing are core skills in the curriculum."
+  ]
+ },
+ {
+  "word": "corporate",
+  "ipa": "/ˈkɔːpərət/",
+  "pos": "adj.",
+  "meaning": "公司的；企业的",
+  "examples": [
+   "Corporate profits rose by eight percent."
+  ]
+ },
+ {
+  "word": "correspond",
+  "ipa": "/ˌkɒrəˈspɒnd/",
+  "pos": "v.",
+  "meaning": "相符；通信",
+  "examples": [
+   "The figures do not correspond with our earlier estimates."
+  ]
+ },
+ {
+  "word": "criteria",
+  "ipa": "/kraɪˈtɪəriə/",
+  "pos": "n.",
+  "meaning": "标准（复数）",
+  "examples": [
+   "Projects are judged against a set of clear criteria."
+  ]
+ },
+ {
+  "word": "deduce",
+  "ipa": "/dɪˈdjuːs/",
+  "pos": "v.",
+  "meaning": "推断；演绎",
+  "examples": [
+   "From the evidence, we can deduce that the site was a market."
+  ]
+ },
+ {
+  "word": "demonstrate",
+  "ipa": "/ˈdemənstreɪt/",
+  "pos": "v.",
+  "meaning": "证明；演示",
+  "examples": [
+   "The experiment demonstrates how sound travels through water."
+  ]
+ },
+ {
+  "word": "document",
+  "ipa": "/ˈdɒkjumənt/",
+  "pos": "n.",
+  "meaning": "文件；文档",
+  "examples": [
+   "Please bring an official document proving your identity."
+  ]
+ },
+ {
+  "word": "dominate",
+  "ipa": "/ˈdɒmɪneɪt/",
+  "pos": "v.",
+  "meaning": "支配；占主导地位",
+  "examples": [
+   "A few large firms dominate the market."
+  ]
+ },
+ {
+  "word": "emphasis",
+  "ipa": "/ˈemfəsɪs/",
+  "pos": "n.",
+  "meaning": "强调；重点",
+  "examples": [
+   "The course places great emphasis on speaking practice."
+  ]
+ },
+ {
+  "word": "ensure",
+  "ipa": "/ɪnˈʃʊə/",
+  "pos": "v.",
+  "meaning": "确保；保证",
+  "examples": [
+   "Regular checks ensure that the equipment is safe."
+  ]
+ },
+ {
+  "word": "exclude",
+  "ipa": "/ɪkˈskluːd/",
+  "pos": "v.",
+  "meaning": "排除；不包括",
+  "examples": [
+   "Children under twelve were excluded from the study."
+  ]
+ },
+ {
+  "word": "framework",
+  "ipa": "/ˈfreɪmwɜːk/",
+  "pos": "n.",
+  "meaning": "框架；结构",
+  "examples": [
+   "The report provides a framework for future research."
+  ]
+ },
+ {
+  "word": "fund",
+  "ipa": "/fʌnd/",
+  "pos": "n.",
+  "meaning": "资金；基金",
+  "examples": [
+   "The charity raised funds to build a new school."
+  ]
+ },
+ {
+  "word": "illustrate",
+  "ipa": "/ˈɪləstreɪt/",
+  "pos": "v.",
+  "meaning": "说明；阐明",
+  "examples": [
+   "The graph illustrates changes in population over time."
+  ]
+ },
+ {
+  "word": "immigrate",
+  "ipa": "/ˈɪmɪɡreɪt/",
+  "pos": "v.",
+  "meaning": "移居（入境）",
+  "examples": [
+   "His family immigrated to Canada in the 1990s."
+  ]
+ },
+ {
+  "word": "imply",
+  "ipa": "/ɪmˈplaɪ/",
+  "pos": "v.",
+  "meaning": "暗示；意味着",
+  "examples": [
+   "A fall in sales does not necessarily imply a weak economy."
+  ]
+ },
+ {
+  "word": "initial",
+  "ipa": "/ɪˈnɪʃl/",
+  "pos": "adj.",
+  "meaning": "最初的；开始的",
+  "examples": [
+   "Initial results from the trial are encouraging."
+  ]
+ },
+ {
+  "word": "instance",
+  "ipa": "/ˈɪnstəns/",
+  "pos": "n.",
+  "meaning": "实例；例子",
+  "examples": [
+   "There have been several instances of fraud this year."
+  ]
+ },
+ {
+  "word": "interact",
+  "ipa": "/ˌɪntərˈækt/",
+  "pos": "v.",
+  "meaning": "互动；相互作用",
+  "examples": [
+   "Children learn by interacting with others."
+  ]
+ },
+ {
+  "word": "justify",
+  "ipa": "/ˈdʒʌstɪfaɪ/",
+  "pos": "v.",
+  "meaning": "证明……合理",
+  "examples": [
+   "It is hard to justify the high cost of the project."
+  ]
+ },
+ {
+  "word": "layer",
+  "ipa": "/ˈleɪə/",
+  "pos": "n.",
+  "meaning": "层；层次",
+  "examples": [
+   "A thin layer of dust covered the furniture."
+  ]
+ },
+ {
+  "word": "link",
+  "ipa": "/lɪŋk/",
+  "pos": "n.",
+  "meaning": "联系；关联",
+  "examples": [
+   "Scientists have found a link between noise and stress."
+  ]
+ },
+ {
+  "word": "locate",
+  "ipa": "/ləʊˈkeɪt/",
+  "pos": "v.",
+  "meaning": "位于；找到",
+  "examples": [
+   "The museum is located in the old town."
+  ]
+ },
+ {
+  "word": "maximise",
+  "ipa": "/ˈmæksɪmaɪz/",
+  "pos": "v.",
+  "meaning": "使最大化",
+  "examples": [
+   "Farmers use fertiliser to maximise crop yields."
+  ]
+ },
+ {
+  "word": "minor",
+  "ipa": "/ˈmaɪnə/",
+  "pos": "adj.",
+  "meaning": "较小的；次要的",
+  "examples": [
+   "The car suffered only minor damage."
+  ]
+ },
+ {
+  "word": "negate",
+  "ipa": "/nɪˈɡeɪt/",
+  "pos": "v.",
+  "meaning": "否定；使无效",
+  "examples": [
+   "The extra costs could negate the benefits of the scheme."
+  ]
+ },
+ {
+  "word": "outcome",
+  "ipa": "/ˈaʊtkʌm/",
+  "pos": "n.",
+  "meaning": "结果；成果",
+  "examples": [
+   "The outcome of the election surprised many observers."
+  ]
+ },
+ {
+  "word": "partner",
+  "ipa": "/ˈpɑːtnə/",
+  "pos": "n.",
+  "meaning": "伙伴；合作者",
+  "examples": [
+   "China is a major trading partner of Australia."
+  ]
+ },
+ {
+  "word": "philosophy",
+  "ipa": "/fəˈlɒsəfi/",
+  "pos": "n.",
+  "meaning": "哲学；理念",
+  "examples": [
+   "The school's philosophy is that every child can succeed."
+  ]
+ },
+ {
+  "word": "physical",
+  "ipa": "/ˈfɪzɪkl/",
+  "pos": "adj.",
+  "meaning": "身体的；物质的",
+  "examples": [
+   "Regular physical activity reduces the risk of disease."
+  ]
+ },
+ {
+  "word": "proportion",
+  "ipa": "/prəˈpɔːʃn/",
+  "pos": "n.",
+  "meaning": "比例；部分",
+  "examples": [
+   "A large proportion of the budget is spent on health."
+  ]
+ },
+ {
+  "word": "publish",
+  "ipa": "/ˈpʌblɪʃ/",
+  "pos": "v.",
+  "meaning": "出版；发表",
+  "examples": [
+   "The results will be published next spring."
+  ]
+ },
+ {
+  "word": "react",
+  "ipa": "/riˈækt/",
+  "pos": "v.",
+  "meaning": "反应；回应",
+  "examples": [
+   "How did the public react to the announcement?"
+  ]
+ },
+ {
+  "word": "register",
+  "ipa": "/ˈredʒɪstə/",
+  "pos": "v.",
+  "meaning": "登记；注册",
+  "examples": [
+   "All new students must register by Friday."
+  ]
+ },
+ {
+  "word": "rely",
+  "ipa": "/rɪˈlaɪ/",
+  "pos": "v.",
+  "meaning": "依赖；依靠",
+  "examples": [
+   "Many villages rely on tourism for their income."
+  ]
+ },
+ {
+  "word": "remove",
+  "ipa": "/rɪˈmuːv/",
+  "pos": "v.",
+  "meaning": "去除；移走",
+  "examples": [
+   "The filter removes most impurities from the water."
+  ]
+ },
+ {
+  "word": "scheme",
+  "ipa": "/skiːm/",
+  "pos": "n.",
+  "meaning": "计划；方案",
+  "examples": [
+   "A new recycling scheme was introduced last year."
+  ]
+ },
+ {
+  "word": "sequence",
+  "ipa": "/ˈsiːkwəns/",
+  "pos": "n.",
+  "meaning": "顺序；序列",
+  "examples": [
+   "The events are described in chronological sequence."
+  ]
+ },
+ {
+  "word": "shift",
+  "ipa": "/ʃɪft/",
+  "pos": "n.",
+  "meaning": "转变；轮班",
+  "examples": [
+   "There has been a shift towards renewable energy."
+  ]
+ },
+ {
+  "word": "specify",
+  "ipa": "/ˈspesɪfaɪ/",
+  "pos": "v.",
+  "meaning": "具体说明；指定",
+  "examples": [
+   "The contract specifies the date of delivery."
+  ]
+ },
+ {
+  "word": "sufficient",
+  "ipa": "/səˈfɪʃnt/",
+  "pos": "adj.",
+  "meaning": "足够的；充分的",
+  "examples": [
+   "There is not sufficient evidence to support the claim."
+  ]
+ },
+ {
+  "word": "task",
+  "ipa": "/tɑːsk/",
+  "pos": "n.",
+  "meaning": "任务；工作",
+  "examples": [
+   "Cleaning the river was a difficult task."
+  ]
+ },
+ {
+  "word": "technical",
+  "ipa": "/ˈteknɪkl/",
+  "pos": "adj.",
+  "meaning": "技术的；专业的",
+  "examples": [
+   "The report contains too many technical terms."
+  ]
+ },
+ {
+  "word": "technique",
+  "ipa": "/tekˈniːk/",
+  "pos": "n.",
+  "meaning": "技术；技巧",
+  "examples": [
+   "New farming techniques have increased production."
+  ]
+ },
+ {
+  "word": "technology",
+  "ipa": "/tekˈnɒlədʒi/",
+  "pos": "n.",
+  "meaning": "技术；科技",
+  "examples": [
+   "Technology has changed the way we communicate."
+  ]
+ },
+ {
+  "word": "valid",
+  "ipa": "/ˈvælɪd/",
+  "pos": "adj.",
+  "meaning": "有效的；合理的",
+  "examples": [
+   "Your visa is valid for six months."
+  ]
+ },
+ {
+  "word": "volume",
+  "ipa": "/ˈvɒljuːm/",
+  "pos": "n.",
+  "meaning": "体积；量；卷",
+  "examples": [
+   "The volume of traffic has doubled in ten years."
+  ]
+ },
+ {
+  "word": "access",
+  "ipa": "/ˈækses/",
+  "pos": "n.",
+  "meaning": "使用权；通道",
+  "examples": [
+   "Many rural areas lack access to clean water."
+  ]
+ },
+ {
+  "word": "adequate",
+  "ipa": "/ˈædɪkwət/",
+  "pos": "adj.",
+  "meaning": "足够的；适当的",
+  "examples": [
+   "Every child deserves adequate nutrition."
+  ]
+ },
+ {
+  "word": "annual",
+  "ipa": "/ˈænjuəl/",
+  "pos": "adj.",
+  "meaning": "每年的；年度的",
+  "examples": [
+   "The annual rainfall here is less than 200 millimetres."
+  ]
+ },
+ {
+  "word": "apparent",
+  "ipa": "/əˈpærənt/",
+  "pos": "adj.",
+  "meaning": "明显的；表面上的",
+  "examples": [
+   "For no apparent reason, the machine stopped working."
+  ]
+ },
+ {
+  "word": "approximate",
+  "ipa": "/əˈprɒksɪmət/",
+  "pos": "adj.",
+  "meaning": "大约的；近似的",
+  "examples": [
+   "The approximate cost of the trip is 500 dollars."
+  ]
+ },
+ {
+  "word": "attitude",
+  "ipa": "/ˈætɪtjuːd/",
+  "pos": "n.",
+  "meaning": "态度；看法",
+  "examples": [
+   "Public attitudes towards smoking have changed."
+  ]
+ },
+ {
+  "word": "attribute",
+  "ipa": "/əˈtrɪbjuːt/",
+  "pos": "v.",
+  "meaning": "把……归因于",
+  "examples": [
+   "The decline in crime is attributed to better lighting."
+  ]
+ },
+ {
+  "word": "civil",
+  "ipa": "/ˈsɪvl/",
+  "pos": "adj.",
+  "meaning": "公民的；民用的",
+  "examples": [
+   "Civil engineers design roads and bridges."
+  ]
+ },
+ {
+  "word": "code",
+  "ipa": "/kəʊd/",
+  "pos": "n.",
+  "meaning": "代码；规范",
+  "examples": [
+   "All staff must follow the company's code of conduct."
+  ]
+ },
+ {
+  "word": "commit",
+  "ipa": "/kəˈmɪt/",
+  "pos": "v.",
+  "meaning": "承诺；犯（罪）",
+  "examples": [
+   "The government has committed to cutting emissions."
+  ]
+ },
+ {
+  "word": "communicate",
+  "ipa": "/kəˈmjuːnɪkeɪt/",
+  "pos": "v.",
+  "meaning": "交流；传达",
+  "examples": [
+   "Dolphins communicate using a range of sounds."
+  ]
+ },
+ {
+  "word": "concentrate",
+  "ipa": "/ˈkɒnsntreɪt/",
+  "pos": "v.",
+  "meaning": "集中；专注",
+  "examples": [
+   "It is hard to concentrate in a noisy room."
+  ]
+ },
+ {
+  "word": "confer",
+  "ipa": "/kənˈfɜː/",
+  "pos": "v.",
+  "meaning": "授予；商议",
+  "examples": [
+   "The university conferred an honorary degree on her."
+  ]
+ },
+ {
+  "word": "contrast",
+  "ipa": "/ˈkɒntrɑːst/",
+  "pos": "n.",
+  "meaning": "对比；差异",
+  "examples": [
+   "There is a sharp contrast between rich and poor areas."
+  ]
+ },
+ {
+  "word": "cycle",
+  "ipa": "/ˈsaɪkl/",
+  "pos": "n.",
+  "meaning": "循环；周期",
+  "examples": [
+   "The water cycle is driven by energy from the sun."
+  ]
+ },
+ {
+  "word": "debate",
+  "ipa": "/dɪˈbeɪt/",
+  "pos": "n.",
+  "meaning": "辩论；争论",
+  "examples": [
+   "There is ongoing debate about the value of homework."
+  ]
+ },
+ {
+  "word": "despite",
+  "ipa": "/dɪˈspaɪt/",
+  "pos": "prep.",
+  "meaning": "尽管",
+  "examples": [
+   "Despite the rain, the event attracted large crowds."
+  ]
+ },
+ {
+  "word": "dimension",
+  "ipa": "/daɪˈmenʃn/",
+  "pos": "n.",
+  "meaning": "维度；方面",
+  "examples": [
+   "The problem has an important social dimension."
+  ]
+ },
+ {
+  "word": "domestic",
+  "ipa": "/dəˈmestɪk/",
+  "pos": "adj.",
+  "meaning": "国内的；家庭的",
+  "examples": [
+   "Domestic flights are cheaper during the winter."
+  ]
+ },
+ {
+  "word": "emerge",
+  "ipa": "/ɪˈmɜːdʒ/",
+  "pos": "v.",
+  "meaning": "出现；显现",
+  "examples": [
+   "New evidence emerged during the investigation."
+  ]
+ },
+ {
+  "word": "error",
+  "ipa": "/ˈerə/",
+  "pos": "n.",
+  "meaning": "错误；误差",
+  "examples": [
+   "A small error in the calculation led to a wrong result."
+  ]
+ },
+ {
+  "word": "ethnic",
+  "ipa": "/ˈeθnɪk/",
+  "pos": "adj.",
+  "meaning": "种族的；民族的",
+  "examples": [
+   "The city is home to many ethnic groups."
+  ]
+ },
+ {
+  "word": "goal",
+  "ipa": "/ɡəʊl/",
+  "pos": "n.",
+  "meaning": "目标",
+  "examples": [
+   "The main goal of the project is to reduce waste."
+  ]
+ },
+ {
+  "word": "grant",
+  "ipa": "/ɡrɑːnt/",
+  "pos": "n.",
+  "meaning": "拨款；补助金",
+  "examples": [
+   "She received a grant to study marine biology."
+  ]
+ },
+ {
+  "word": "hence",
+  "ipa": "/hens/",
+  "pos": "adv.",
+  "meaning": "因此",
+  "examples": [
+   "The material is light and strong, hence its popularity."
+  ]
+ },
+ {
+  "word": "hypothesis",
+  "ipa": "/haɪˈpɒθəsɪs/",
+  "pos": "n.",
+  "meaning": "假设；假说",
+  "examples": [
+   "The data support the hypothesis that sleep aids memory."
+  ]
+ },
+ {
+  "word": "implement",
+  "ipa": "/ˈɪmplɪment/",
+  "pos": "v.",
+  "meaning": "实施；执行",
+  "examples": [
+   "The new rules will be implemented next year."
+  ]
+ },
+ {
+  "word": "implicate",
+  "ipa": "/ˈɪmplɪkeɪt/",
+  "pos": "v.",
+  "meaning": "牵涉；表明……有关",
+  "examples": [
+   "Smoking is implicated in many types of cancer."
+  ]
+ },
+ {
+  "word": "impose",
+  "ipa": "/ɪmˈpəʊz/",
+  "pos": "v.",
+  "meaning": "强加；征收",
+  "examples": [
+   "The government imposed a tax on sugary drinks."
+  ]
+ },
+ {
+  "word": "integrate",
+  "ipa": "/ˈɪntɪɡreɪt/",
+  "pos": "v.",
+  "meaning": "整合；融入",
+  "examples": [
+   "Immigrants often find it hard to integrate into a new society."
+  ]
+ },
+ {
+  "word": "internal",
+  "ipa": "/ɪnˈtɜːnl/",
+  "pos": "adj.",
+  "meaning": "内部的",
+  "examples": [
+   "An internal review found serious problems."
+  ]
+ },
+ {
+  "word": "investigate",
+  "ipa": "/ɪnˈvestɪɡeɪt/",
+  "pos": "v.",
+  "meaning": "调查；研究",
+  "examples": [
+   "Police are investigating the cause of the fire."
+  ]
+ },
+ {
+  "word": "job",
+  "ipa": "/dʒɒb/",
+  "pos": "n.",
+  "meaning": "工作；职业",
+  "examples": [
+   "Automation may replace many routine jobs."
+  ]
+ },
+ {
+  "word": "label",
+  "ipa": "/ˈleɪbl/",
+  "pos": "n.",
+  "meaning": "标签",
+  "examples": [
+   "Always read the label before taking medicine."
+  ]
+ },
+ {
+  "word": "mechanism",
+  "ipa": "/ˈmekənɪzəm/",
+  "pos": "n.",
+  "meaning": "机制；原理",
+  "examples": [
+   "The body has a natural mechanism for fighting infection."
+  ]
+ },
+ {
+  "word": "obvious",
+  "ipa": "/ˈɒbviəs/",
+  "pos": "adj.",
+  "meaning": "明显的",
+  "examples": [
+   "There is no obvious solution to the problem."
+  ]
+ },
+ {
+  "word": "occupy",
+  "ipa": "/ˈɒkjupaɪ/",
+  "pos": "v.",
+  "meaning": "占据；占用",
+  "examples": [
+   "Farmland occupies most of the valley."
+  ]
+ },
+ {
+  "word": "option",
+  "ipa": "/ˈɒpʃn/",
+  "pos": "n.",
+  "meaning": "选择；选项",
+  "examples": [
+   "Students have the option of studying part-time."
+  ]
+ },
+ {
+  "word": "output",
+  "ipa": "/ˈaʊtpʊt/",
+  "pos": "n.",
+  "meaning": "产量；输出",
+  "examples": [
+   "Industrial output fell by three percent last quarter."
+  ]
+ },
+ {
+  "word": "overall",
+  "ipa": "/ˌəʊvərˈɔːl/",
+  "pos": "adj.",
+  "meaning": "全面的；总体的",
+  "examples": [
+   "The overall cost of the project was lower than expected."
+  ]
+ },
+ {
+  "word": "parallel",
+  "ipa": "/ˈpærəlel/",
+  "pos": "adj.",
+  "meaning": "平行的；类似的",
+  "examples": [
+   "The road runs parallel to the river."
+  ]
+ },
+ {
+  "word": "parameter",
+  "ipa": "/pəˈræmɪtə/",
+  "pos": "n.",
+  "meaning": "参数；界限",
+  "examples": [
+   "The study was carried out within strict parameters."
+  ]
+ },
+ {
+  "word": "phase",
+  "ipa": "/feɪz/",
+  "pos": "n.",
+  "meaning": "阶段",
+  "examples": [
+   "The first phase of construction is now complete."
+  ]
+ },
+ {
+  "word": "predict",
+  "ipa": "/prɪˈdɪkt/",
+  "pos": "v.",
+  "meaning": "预测；预言",
+  "examples": [
+   "It is difficult to predict how the market will change."
+  ]
+ },
+ {
+  "word": "principal",
+  "ipa": "/ˈprɪnsəpl/",
+  "pos": "adj.",
+  "meaning": "主要的",
+  "examples": [
+   "The principal cause of the decline is overfishing."
+  ]
+ },
+ {
+  "word": "prior",
+  "ipa": "/ˈpraɪə/",
+  "pos": "adj.",
+  "meaning": "先前的；优先的",
+  "examples": [
+   "No prior experience is required for this course."
+  ]
+ },
+ {
+  "word": "professional",
+  "ipa": "/prəˈfeʃənl/",
+  "pos": "adj.",
+  "meaning": "专业的；职业的",
+  "examples": [
+   "You should seek professional advice before investing."
+  ]
+ },
+ {
+  "word": "project",
+  "ipa": "/ˈprɒdʒekt/",
+  "pos": "n.",
+  "meaning": "项目；工程",
+  "examples": [
+   "The project aims to restore the old canal."
+  ]
+ },
+ {
+  "word": "promote",
+  "ipa": "/prəˈməʊt/",
+  "pos": "v.",
+  "meaning": "促进；推广",
+  "examples": [
+   "The campaign promotes healthy eating in schools."
+  ]
+ },
+ {
+  "word": "regime",
+  "ipa": "/reɪˈʒiːm/",
+  "pos": "n.",
+  "meaning": "制度；政权；养生法",
+  "examples": [
+   "The athlete follows a strict training regime."
+  ]
+ },
+ {
+  "word": "resolve",
+  "ipa": "/rɪˈzɒlv/",
+  "pos": "v.",
+  "meaning": "解决；决心",
+  "examples": [
+   "The dispute was resolved through negotiation."
+  ]
+ },
+ {
+  "word": "retain",
+  "ipa": "/rɪˈteɪn/",
+  "pos": "v.",
+  "meaning": "保留；保持",
+  "examples": [
+   "Clay soil retains water well."
+  ]
+ },
+ {
+  "word": "series",
+  "ipa": "/ˈsɪəriːz/",
+  "pos": "n.",
+  "meaning": "系列；连续",
+  "examples": [
+   "A series of experiments confirmed the result."
+  ]
+ },
+ {
+  "word": "statistic",
+  "ipa": "/stəˈtɪstɪk/",
+  "pos": "n.",
+  "meaning": "统计数字",
+  "examples": [
+   "Official statistics show a fall in unemployment."
+  ]
+ },
+ {
+  "word": "status",
+  "ipa": "/ˈsteɪtəs/",
+  "pos": "n.",
+  "meaning": "地位；状态",
+  "examples": [
+   "Education is often linked to social status."
+  ]
+ },
+ {
+  "word": "stress",
+  "ipa": "/stres/",
+  "pos": "n.",
+  "meaning": "压力；强调",
+  "examples": [
+   "Exams are a major source of stress for students."
+  ]
+ },
+ {
+  "word": "subsequent",
+  "ipa": "/ˈsʌbsɪkwənt/",
+  "pos": "adj.",
+  "meaning": "随后的",
+  "examples": [
+   "Subsequent studies confirmed the original findings."
+  ]
+ },
+ {
+  "word": "sum",
+  "ipa": "/sʌm/",
+  "pos": "n.",
+  "meaning": "总数；金额",
+  "examples": [
+   "A large sum of money was spent on advertising."
+  ]
+ },
+ {
+  "word": "summary",
+  "ipa": "/ˈsʌməri/",
+  "pos": "n.",
+  "meaning": "摘要；总结",
+  "examples": [
+   "Write a brief summary of the article."
+  ]
+ },
+ {
+  "word": "undertake",
+  "ipa": "/ˌʌndəˈteɪk/",
+  "pos": "v.",
+  "meaning": "承担；着手做",
+  "examples": [
+   "The university will undertake a major review of its courses."
+  ]
+ },
+ {
+  "word": "academy",
+  "ipa": "/əˈkædəmi/",
+  "pos": "n.",
+  "meaning": "学院；研究院",
+  "examples": [
+   "She studied music at a national academy."
+  ]
+ },
+ {
+  "word": "adjust",
+  "ipa": "/əˈdʒʌst/",
+  "pos": "v.",
+  "meaning": "调整；适应",
+  "examples": [
+   "It takes time to adjust to a new climate."
+  ]
+ },
+ {
+  "word": "alter",
+  "ipa": "/ˈɔːltə/",
+  "pos": "v.",
+  "meaning": "改变；修改",
+  "examples": [
+   "Human activity has altered the course of the river."
+  ]
+ },
+ {
+  "word": "amend",
+  "ipa": "/əˈmend/",
+  "pos": "v.",
+  "meaning": "修改；修订",
+  "examples": [
+   "The law was amended to protect workers' rights."
+  ]
+ },
+ {
+  "word": "aware",
+  "ipa": "/əˈweə/",
+  "pos": "adj.",
+  "meaning": "意识到的",
+  "examples": [
+   "Many consumers are not aware of the risks."
+  ]
+ },
+ {
+  "word": "capacity",
+  "ipa": "/kəˈpæsəti/",
+  "pos": "n.",
+  "meaning": "容量；能力",
+  "examples": [
+   "The stadium has a capacity of 60,000 people."
+  ]
+ },
+ {
+  "word": "challenge",
+  "ipa": "/ˈtʃælɪndʒ/",
+  "pos": "n.",
+  "meaning": "挑战",
+  "examples": [
+   "Ageing populations present a serious challenge."
+  ]
+ },
+ {
+  "word": "clause",
+  "ipa": "/klɔːz/",
+  "pos": "n.",
+  "meaning": "条款；从句",
+  "examples": [
+   "A clause in the contract protects the buyer."
+  ]
+ },
+ {
+  "word": "compound",
+  "ipa": "/ˈkɒmpaʊnd/",
+  "pos": "n.",
+  "meaning": "化合物；复合物",
+  "examples": [
+   "Water is a compound of hydrogen and oxygen."
+  ]
+ },
+ {
+  "word": "conflict",
+  "ipa": "/ˈkɒnflɪkt/",
+  "pos": "n.",
+  "meaning": "冲突；矛盾",
+  "examples": [
+   "The conflict over water rights lasted for years."
+  ]
+ },
+ {
+  "word": "consult",
+  "ipa": "/kənˈsʌlt/",
+  "pos": "v.",
+  "meaning": "咨询；查阅",
+  "examples": [
+   "Residents were consulted about the new park."
+  ]
+ },
+ {
+  "word": "contact",
+  "ipa": "/ˈkɒntækt/",
+  "pos": "n.",
+  "meaning": "联系；接触",
+  "examples": [
+   "Keep in contact with your tutor during the course."
+  ]
+ },
+ {
+  "word": "decline",
+  "ipa": "/dɪˈklaɪn/",
+  "pos": "v.",
+  "meaning": "下降；衰退",
+  "examples": [
+   "The number of bees has declined in recent years."
+  ]
+ },
+ {
+  "word": "discrete",
+  "ipa": "/dɪˈskriːt/",
+  "pos": "adj.",
+  "meaning": "分离的；不连续的",
+  "examples": [
+   "The process can be divided into discrete stages."
+  ]
+ },
+ {
+  "word": "draft",
+  "ipa": "/drɑːft/",
+  "pos": "n.",
+  "meaning": "草稿；草案",
+  "examples": [
+   "Please send me the first draft of your essay."
+  ]
+ },
+ {
+  "word": "enable",
+  "ipa": "/ɪˈneɪbl/",
+  "pos": "v.",
+  "meaning": "使能够",
+  "examples": [
+   "The internet enables people to work from home."
+  ]
+ },
+ {
+  "word": "energy",
+  "ipa": "/ˈenədʒi/",
+  "pos": "n.",
+  "meaning": "能源；精力",
+  "examples": [
+   "Wind energy is becoming cheaper every year."
+  ]
+ },
+ {
+  "word": "enforce",
+  "ipa": "/ɪnˈfɔːs/",
+  "pos": "v.",
+  "meaning": "执行；强制实施",
+  "examples": [
+   "It is difficult to enforce the ban on fishing."
+  ]
+ },
+ {
+  "word": "entity",
+  "ipa": "/ˈentəti/",
+  "pos": "n.",
+  "meaning": "实体",
+  "examples": [
+   "The two companies now operate as a single entity."
+  ]
+ },
+ {
+  "word": "equivalent",
+  "ipa": "/ɪˈkwɪvələnt/",
+  "pos": "adj.",
+  "meaning": "相等的；等值的",
+  "examples": [
+   "One mile is equivalent to about 1.6 kilometres."
+  ]
+ },
+ {
+  "word": "evolve",
+  "ipa": "/ɪˈvɒlv/",
+  "pos": "v.",
+  "meaning": "进化；发展",
+  "examples": [
+   "Birds evolved from small dinosaurs."
+  ]
+ },
+ {
+  "word": "expand",
+  "ipa": "/ɪkˈspænd/",
+  "pos": "v.",
+  "meaning": "扩大；扩张",
+  "examples": [
+   "The company plans to expand into Asian markets."
+  ]
+ },
+ {
+  "word": "expose",
+  "ipa": "/ɪkˈspəʊz/",
+  "pos": "v.",
+  "meaning": "使暴露；揭露",
+  "examples": [
+   "Workers were exposed to harmful chemicals."
+  ]
+ },
+ {
+  "word": "external",
+  "ipa": "/ɪkˈstɜːnl/",
+  "pos": "adj.",
+  "meaning": "外部的",
+  "examples": [
+   "External examiners review all final projects."
+  ]
+ },
+ {
+  "word": "facilitate",
+  "ipa": "/fəˈsɪlɪteɪt/",
+  "pos": "v.",
+  "meaning": "促进；使便利",
+  "examples": [
+   "Good lighting facilitates reading."
+  ]
+ },
+ {
+  "word": "fundamental",
+  "ipa": "/ˌfʌndəˈmentl/",
+  "pos": "adj.",
+  "meaning": "基本的；根本的",
+  "examples": [
+   "Freedom of speech is a fundamental right."
+  ]
+ },
+ {
+  "word": "generate",
+  "ipa": "/ˈdʒenəreɪt/",
+  "pos": "v.",
+  "meaning": "产生；发电",
+  "examples": [
+   "The dam generates electricity for the whole region."
+  ]
+ },
+ {
+  "word": "generation",
+  "ipa": "/ˌdʒenəˈreɪʃn/",
+  "pos": "n.",
+  "meaning": "一代人；产生",
+  "examples": [
+   "Each generation faces its own challenges."
+  ]
+ },
+ {
+  "word": "image",
+  "ipa": "/ˈɪmɪdʒ/",
+  "pos": "n.",
+  "meaning": "形象；图像",
+  "examples": [
+   "The scandal damaged the company's public image."
+  ]
+ },
+ {
+  "word": "liberal",
+  "ipa": "/ˈlɪbərəl/",
+  "pos": "adj.",
+  "meaning": "开明的；自由的",
+  "examples": [
+   "The country has liberal laws on immigration."
+  ]
+ },
+ {
+  "word": "licence",
+  "ipa": "/ˈlaɪsns/",
+  "pos": "n.",
+  "meaning": "执照；许可证",
+  "examples": [
+   "You need a licence to sell alcohol."
+  ]
+ },
+ {
+  "word": "logic",
+  "ipa": "/ˈlɒdʒɪk/",
+  "pos": "n.",
+  "meaning": "逻辑",
+  "examples": [
+   "The logic of the argument is hard to follow."
+  ]
+ },
+ {
+  "word": "margin",
+  "ipa": "/ˈmɑːdʒɪn/",
+  "pos": "n.",
+  "meaning": "边缘；差额",
+  "examples": [
+   "The motion was passed by a narrow margin."
+  ]
+ },
+ {
+  "word": "medical",
+  "ipa": "/ˈmedɪkl/",
+  "pos": "adj.",
+  "meaning": "医学的；医疗的",
+  "examples": [
+   "Medical advances have increased life expectancy."
+  ]
+ },
+ {
+  "word": "mental",
+  "ipa": "/ˈmentl/",
+  "pos": "adj.",
+  "meaning": "精神的；心理的",
+  "examples": [
+   "Exercise benefits both physical and mental health."
+  ]
+ },
+ {
+  "word": "modify",
+  "ipa": "/ˈmɒdɪfaɪ/",
+  "pos": "v.",
+  "meaning": "修改；改进",
+  "examples": [
+   "The engine was modified to use less fuel."
+  ]
+ },
+ {
+  "word": "monitor",
+  "ipa": "/ˈmɒnɪtə/",
+  "pos": "v.",
+  "meaning": "监测；监控",
+  "examples": [
+   "Scientists monitor air quality in the city every hour."
+  ]
+ },
+ {
+  "word": "network",
+  "ipa": "/ˈnetwɜːk/",
+  "pos": "n.",
+  "meaning": "网络；网状系统",
+  "examples": [
+   "The country has an extensive rail network."
+  ]
+ },
+ {
+  "word": "notion",
+  "ipa": "/ˈnəʊʃn/",
+  "pos": "n.",
+  "meaning": "观念；概念",
+  "examples": [
+   "The notion that money brings happiness is questionable."
+  ]
+ },
+ {
+  "word": "objective",
+  "ipa": "/əbˈdʒektɪv/",
+  "pos": "n.",
+  "meaning": "目标；目的",
+  "examples": [
+   "The main objective is to improve literacy rates."
+  ]
+ },
+ {
+  "word": "orient",
+  "ipa": "/ˈɔːrient/",
+  "pos": "v.",
+  "meaning": "使适应；以……为方向",
+  "examples": [
+   "The course is oriented towards practical skills."
+  ]
+ },
+ {
+  "word": "perspective",
+  "ipa": "/pəˈspektɪv/",
+  "pos": "n.",
+  "meaning": "观点；视角",
+  "examples": [
+   "The book offers a fresh perspective on history."
+  ]
+ },
+ {
+  "word": "precise",
+  "ipa": "/prɪˈsaɪs/",
+  "pos": "adj.",
+  "meaning": "精确的；准确的",
+  "examples": [
+   "Precise measurements are essential in chemistry."
+  ]
+ },
+ {
+  "word": "prime",
+  "ipa": "/praɪm/",
+  "pos": "adj.",
+  "meaning": "主要的；首要的",
+  "examples": [
+   "Safety is our prime concern."
+  ]
+ },
+ {
+  "word": "psychology",
+  "ipa": "/saɪˈkɒlədʒi/",
+  "pos": "n.",
+  "meaning": "心理学；心理",
+  "examples": [
+   "She is studying child psychology."
+  ]
+ },
+ {
+  "word": "pursue",
+  "ipa": "/pəˈsjuː/",
+  "pos": "v.",
+  "meaning": "追求；从事",
+  "examples": [
+   "Many graduates pursue careers in finance."
+  ]
+ },
+ {
+  "word": "ratio",
+  "ipa": "/ˈreɪʃiəʊ/",
+  "pos": "n.",
+  "meaning": "比率；比例",
+  "examples": [
+   "The ratio of students to teachers is twenty to one."
+  ]
+ },
+ {
+  "word": "reject",
+  "ipa": "/rɪˈdʒekt/",
+  "pos": "v.",
+  "meaning": "拒绝；否决",
+  "examples": [
+   "The council rejected the plan for a new airport."
+  ]
+ },
+ {
+  "word": "revenue",
+  "ipa": "/ˈrevənjuː/",
+  "pos": "n.",
+  "meaning": "收入；税收",
+  "examples": [
+   "Tourism generates significant revenue for the city."
+  ]
+ },
+ {
+  "word": "stable",
+  "ipa": "/ˈsteɪbl/",
+  "pos": "adj.",
+  "meaning": "稳定的",
+  "examples": [
+   "Prices have remained stable for several months."
+  ]
+ },
+ {
+  "word": "style",
+  "ipa": "/staɪl/",
+  "pos": "n.",
+  "meaning": "风格；方式",
+  "examples": [
+   "Teaching styles differ greatly between countries."
+  ]
+ },
+ {
+  "word": "substitute",
+  "ipa": "/ˈsʌbstɪtjuːt/",
+  "pos": "n.",
+  "meaning": "替代品；代替者",
+  "examples": [
+   "There is no substitute for hard work."
+  ]
+ },
+ {
+  "word": "sustain",
+  "ipa": "/səˈsteɪn/",
+  "pos": "v.",
+  "meaning": "维持；支撑",
+  "examples": [
+   "The land cannot sustain such a large population."
+  ]
+ },
+ {
+  "word": "symbol",
+  "ipa": "/ˈsɪmbl/",
+  "pos": "n.",
+  "meaning": "象征；符号",
+  "examples": [
+   "The dove is a symbol of peace."
+  ]
+ },
+ {
+  "word": "target",
+  "ipa": "/ˈtɑːɡɪt/",
+  "pos": "n.",
+  "meaning": "目标；靶子",
+  "examples": [
+   "The company met its sales target for the year."
+  ]
+ },
+ {
+  "word": "transit",
+  "ipa": "/ˈtrænzɪt/",
+  "pos": "n.",
+  "meaning": "运输；中转",
+  "examples": [
+   "Goods were damaged in transit."
+  ]
+ },
+ {
+  "word": "trend",
+  "ipa": "/trend/",
+  "pos": "n.",
+  "meaning": "趋势；潮流",
+  "examples": [
+   "There is a growing trend towards remote working."
+  ]
+ },
+ {
+  "word": "version",
+  "ipa": "/ˈvɜːʃn/",
+  "pos": "n.",
+  "meaning": "版本",
+  "examples": [
+   "The latest version of the software fixes several bugs."
+  ]
+ },
+ {
+  "word": "welfare",
+  "ipa": "/ˈwelfeə/",
+  "pos": "n.",
+  "meaning": "福利；幸福",
+  "examples": [
+   "The charity works to improve animal welfare."
+  ]
+ },
+ {
+  "word": "whereas",
+  "ipa": "/ˌweərˈæz/",
+  "pos": "conj.",
+  "meaning": "然而；但是",
+  "examples": [
+   "Some birds migrate, whereas others stay all year."
+  ]
+ },
+ {
+  "word": "abstract",
+  "ipa": "/ˈæbstrækt/",
+  "pos": "adj.",
+  "meaning": "抽象的",
+  "examples": [
+   "Young children find abstract ideas hard to grasp."
+  ]
+ },
+ {
+  "word": "accurate",
+  "ipa": "/ˈækjərət/",
+  "pos": "adj.",
+  "meaning": "准确的；精确的",
+  "examples": [
+   "Accurate weather forecasts help farmers plan."
+  ]
+ },
+ {
+  "word": "acknowledge",
+  "ipa": "/əkˈnɒlɪdʒ/",
+  "pos": "v.",
+  "meaning": "承认；致谢",
+  "examples": [
+   "The minister acknowledged that mistakes had been made."
+  ]
+ },
+ {
+  "word": "aggregate",
+  "ipa": "/ˈæɡrɪɡət/",
+  "pos": "adj.",
+  "meaning": "总计的；合计的",
+  "examples": [
+   "Aggregate demand fell during the recession."
+  ]
+ },
+ {
+  "word": "allocate",
+  "ipa": "/ˈæləkeɪt/",
+  "pos": "v.",
+  "meaning": "分配；拨出",
+  "examples": [
+   "More money will be allocated to mental health services."
+  ]
+ },
+ {
+  "word": "assign",
+  "ipa": "/əˈsaɪn/",
+  "pos": "v.",
+  "meaning": "分配；指派",
+  "examples": [
+   "Each student was assigned a research topic."
+  ]
+ },
+ {
+  "word": "attach",
+  "ipa": "/əˈtætʃ/",
+  "pos": "v.",
+  "meaning": "附上；贴上",
+  "examples": [
+   "Please attach a copy of your CV to the form."
+  ]
+ },
+ {
+  "word": "author",
+  "ipa": "/ˈɔːθə/",
+  "pos": "n.",
+  "meaning": "作者",
+  "examples": [
+   "The author argues that cities must become greener."
+  ]
+ },
+ {
+  "word": "bond",
+  "ipa": "/bɒnd/",
+  "pos": "n.",
+  "meaning": "纽带；联系",
+  "examples": [
+   "There is a strong bond between mother and child."
+  ]
+ },
+ {
+  "word": "brief",
+  "ipa": "/briːf/",
+  "pos": "adj.",
+  "meaning": "简短的",
+  "examples": [
+   "The speaker gave a brief introduction."
+  ]
+ },
+ {
+  "word": "capable",
+  "ipa": "/ˈkeɪpəbl/",
+  "pos": "adj.",
+  "meaning": "有能力的",
+  "examples": [
+   "Crows are capable of solving complex problems."
+  ]
+ },
+ {
+  "word": "cite",
+  "ipa": "/saɪt/",
+  "pos": "v.",
+  "meaning": "引用；举例",
+  "examples": [
+   "The report cites several studies on air pollution."
+  ]
+ },
+ {
+  "word": "cooperate",
+  "ipa": "/kəʊˈɒpəreɪt/",
+  "pos": "v.",
+  "meaning": "合作",
+  "examples": [
+   "Neighbouring countries must cooperate to protect the river."
+  ]
+ },
+ {
+  "word": "discriminate",
+  "ipa": "/dɪˈskrɪmɪneɪt/",
+  "pos": "v.",
+  "meaning": "歧视；区别",
+  "examples": [
+   "It is illegal to discriminate against workers because of age."
+  ]
+ },
+ {
+  "word": "display",
+  "ipa": "/dɪˈspleɪ/",
+  "pos": "v.",
+  "meaning": "展示；显示",
+  "examples": [
+   "The museum displays fossils from the region."
+  ]
+ },
+ {
+  "word": "diverse",
+  "ipa": "/daɪˈvɜːs/",
+  "pos": "adj.",
+  "meaning": "多样的",
+  "examples": [
+   "The rainforest supports a diverse range of species."
+  ]
+ },
+ {
+  "word": "domain",
+  "ipa": "/dəˈmeɪn/",
+  "pos": "n.",
+  "meaning": "领域；范围",
+  "examples": [
+   "Medical research is no longer the domain of universities alone."
+  ]
+ },
+ {
+  "word": "edit",
+  "ipa": "/ˈedɪt/",
+  "pos": "v.",
+  "meaning": "编辑；校订",
+  "examples": [
+   "She spent the weekend editing her thesis."
+  ]
+ },
+ {
+  "word": "enhance",
+  "ipa": "/ɪnˈhɑːns/",
+  "pos": "v.",
+  "meaning": "提高；增强",
+  "examples": [
+   "Music can enhance concentration while studying."
+  ]
+ },
+ {
+  "word": "estate",
+  "ipa": "/ɪˈsteɪt/",
+  "pos": "n.",
+  "meaning": "地产；庄园",
+  "examples": [
+   "Property prices on the estate have risen sharply."
+  ]
+ },
+ {
+  "word": "exceed",
+  "ipa": "/ɪkˈsiːd/",
+  "pos": "v.",
+  "meaning": "超过",
+  "examples": [
+   "Demand for water often exceeds supply in summer."
+  ]
+ },
+ {
+  "word": "expert",
+  "ipa": "/ˈekspɜːt/",
+  "pos": "n.",
+  "meaning": "专家",
+  "examples": [
+   "Experts disagree about the causes of the decline."
+  ]
+ },
+ {
+  "word": "explicit",
+  "ipa": "/ɪkˈsplɪsɪt/",
+  "pos": "adj.",
+  "meaning": "明确的；清楚的",
+  "examples": [
+   "The instructions were clear and explicit."
+  ]
+ },
+ {
+  "word": "federal",
+  "ipa": "/ˈfedərəl/",
+  "pos": "adj.",
+  "meaning": "联邦的",
+  "examples": [
+   "The federal government funds most scientific research."
+  ]
+ },
+ {
+  "word": "fee",
+  "ipa": "/fiː/",
+  "pos": "n.",
+  "meaning": "费用",
+  "examples": [
+   "Tuition fees have increased in many countries."
+  ]
+ },
+ {
+  "word": "flexible",
+  "ipa": "/ˈfleksəbl/",
+  "pos": "adj.",
+  "meaning": "灵活的；可弯曲的",
+  "examples": [
+   "Flexible working hours help parents balance work and family."
+  ]
+ },
+ {
+  "word": "furthermore",
+  "ipa": "/ˌfɜːðəˈmɔː/",
+  "pos": "adv.",
+  "meaning": "此外；而且",
+  "examples": [
+   "The plan is costly; furthermore, it may not work."
+  ]
+ },
+ {
+  "word": "gender",
+  "ipa": "/ˈdʒendə/",
+  "pos": "n.",
+  "meaning": "性别",
+  "examples": [
+   "The study examined differences in pay by gender."
+  ]
+ },
+ {
+  "word": "ignorance",
+  "ipa": "/ˈɪɡnərəns/",
+  "pos": "n.",
+  "meaning": "无知",
+  "examples": [
+   "Fear often stems from ignorance."
+  ]
+ },
+ {
+  "word": "incentive",
+  "ipa": "/ɪnˈsentɪv/",
+  "pos": "n.",
+  "meaning": "激励；刺激",
+  "examples": [
+   "Tax incentives encourage businesses to invest."
+  ]
+ },
+ {
+  "word": "incidence",
+  "ipa": "/ˈɪnsɪdəns/",
+  "pos": "n.",
+  "meaning": "发生率",
+  "examples": [
+   "The incidence of heart disease is falling."
+  ]
+ },
+ {
+  "word": "incorporate",
+  "ipa": "/ɪnˈkɔːpəreɪt/",
+  "pos": "v.",
+  "meaning": "包含；吸收",
+  "examples": [
+   "The new design incorporates solar panels."
+  ]
+ },
+ {
+  "word": "index",
+  "ipa": "/ˈɪndeks/",
+  "pos": "n.",
+  "meaning": "指数；索引",
+  "examples": [
+   "The price index rose by two percent."
+  ]
+ },
+ {
+  "word": "inhibit",
+  "ipa": "/ɪnˈhɪbɪt/",
+  "pos": "v.",
+  "meaning": "抑制；阻止",
+  "examples": [
+   "Cold weather inhibits the growth of bacteria."
+  ]
+ },
+ {
+  "word": "initiate",
+  "ipa": "/ɪˈnɪʃieɪt/",
+  "pos": "v.",
+  "meaning": "开始；发起",
+  "examples": [
+   "The government initiated a programme to plant trees."
+  ]
+ },
+ {
+  "word": "input",
+  "ipa": "/ˈɪnpʊt/",
+  "pos": "n.",
+  "meaning": "投入；输入",
+  "examples": [
+   "The project benefited from the input of local residents."
+  ]
+ },
+ {
+  "word": "instruct",
+  "ipa": "/ɪnˈstrʌkt/",
+  "pos": "v.",
+  "meaning": "指示；指导",
+  "examples": [
+   "Staff were instructed to leave the building immediately."
+  ]
+ },
+ {
+  "word": "intelligence",
+  "ipa": "/ɪnˈtelɪdʒəns/",
+  "pos": "n.",
+  "meaning": "智力；情报",
+  "examples": [
+   "Some animals show remarkable intelligence."
+  ]
+ },
+ {
+  "word": "interval",
+  "ipa": "/ˈɪntəvl/",
+  "pos": "n.",
+  "meaning": "间隔；间歇",
+  "examples": [
+   "Buses run at intervals of ten minutes."
+  ]
+ },
+ {
+  "word": "lecture",
+  "ipa": "/ˈlektʃə/",
+  "pos": "n.",
+  "meaning": "讲座；讲课",
+  "examples": [
+   "The professor gave a lecture on ancient trade routes."
+  ]
+ },
+ {
+  "word": "migrate",
+  "ipa": "/maɪˈɡreɪt/",
+  "pos": "v.",
+  "meaning": "迁徙；移居",
+  "examples": [
+   "Many birds migrate south for the winter."
+  ]
+ },
+ {
+  "word": "minimum",
+  "ipa": "/ˈmɪnɪməm/",
+  "pos": "n.",
+  "meaning": "最低限度",
+  "examples": [
+   "The minimum age for driving is eighteen."
+  ]
+ },
+ {
+  "word": "ministry",
+  "ipa": "/ˈmɪnɪstri/",
+  "pos": "n.",
+  "meaning": "（政府的）部",
+  "examples": [
+   "The Ministry of Education announced new exam rules."
+  ]
+ },
+ {
+  "word": "motive",
+  "ipa": "/ˈməʊtɪv/",
+  "pos": "n.",
+  "meaning": "动机",
+  "examples": [
+   "Profit is the main motive for most businesses."
+  ]
+ },
+ {
+  "word": "neutral",
+  "ipa": "/ˈnjuːtrəl/",
+  "pos": "adj.",
+  "meaning": "中立的；中性的",
+  "examples": [
+   "Journalists should remain neutral when reporting."
+  ]
+ },
+ {
+  "word": "nevertheless",
+  "ipa": "/ˌnevəðəˈles/",
+  "pos": "adv.",
+  "meaning": "然而；不过",
+  "examples": [
+   "The task was difficult; nevertheless, they completed it."
+  ]
+ },
+ {
+  "word": "overseas",
+  "ipa": "/ˌəʊvəˈsiːz/",
+  "pos": "adj.",
+  "meaning": "海外的",
+  "examples": [
+   "The number of overseas students has doubled."
+  ]
+ },
+ {
+  "word": "precede",
+  "ipa": "/prɪˈsiːd/",
+  "pos": "v.",
+  "meaning": "在……之前",
+  "examples": [
+   "A period of calm preceded the storm."
+  ]
+ },
+ {
+  "word": "presume",
+  "ipa": "/prɪˈzjuːm/",
+  "pos": "v.",
+  "meaning": "假定；推测",
+  "examples": [
+   "We presume that the results are accurate."
+  ]
+ },
+ {
+  "word": "rational",
+  "ipa": "/ˈræʃnəl/",
+  "pos": "adj.",
+  "meaning": "理性的；合理的",
+  "examples": [
+   "Consumers do not always make rational decisions."
+  ]
+ },
+ {
+  "word": "recover",
+  "ipa": "/rɪˈkʌvə/",
+  "pos": "v.",
+  "meaning": "恢复；痊愈",
+  "examples": [
+   "The economy began to recover in 2010."
+  ]
+ },
+ {
+  "word": "reveal",
+  "ipa": "/rɪˈviːl/",
+  "pos": "v.",
+  "meaning": "揭示；显示",
+  "examples": [
+   "The survey revealed a lack of trust in politicians."
+  ]
+ },
+ {
+  "word": "scope",
+  "ipa": "/skəʊp/",
+  "pos": "n.",
+  "meaning": "范围；余地",
+  "examples": [
+   "The issue is beyond the scope of this essay."
+  ]
+ },
+ {
+  "word": "subsidy",
+  "ipa": "/ˈsʌbsədi/",
+  "pos": "n.",
+  "meaning": "补贴；津贴",
+  "examples": [
+   "Farmers receive subsidies to grow certain crops."
+  ]
+ },
+ {
+  "word": "tape",
+  "ipa": "/teɪp/",
+  "pos": "n.",
+  "meaning": "磁带；胶带",
+  "examples": [
+   "The interview was recorded on tape."
+  ]
+ },
+ {
+  "word": "trace",
+  "ipa": "/treɪs/",
+  "pos": "n.",
+  "meaning": "痕迹；微量",
+  "examples": [
+   "Traces of ancient settlements were found nearby."
+  ]
+ },
+ {
+  "word": "transform",
+  "ipa": "/trænsˈfɔːm/",
+  "pos": "v.",
+  "meaning": "改变；转变",
+  "examples": [
+   "The internet has transformed the way we shop."
+  ]
+ },
+ {
+  "word": "transport",
+  "ipa": "/ˈtrænspɔːt/",
+  "pos": "n.",
+  "meaning": "运输；交通",
+  "examples": [
+   "Public transport in the city is cheap and reliable."
+  ]
+ },
+ {
+  "word": "underlie",
+  "ipa": "/ˌʌndəˈlaɪ/",
+  "pos": "v.",
+  "meaning": "构成……的基础",
+  "examples": [
+   "Several factors underlie the rise in prices."
+  ]
+ },
+ {
+  "word": "utilise",
+  "ipa": "/ˈjuːtəlaɪz/",
+  "pos": "v.",
+  "meaning": "利用；使用",
+  "examples": [
+   "The factory utilises waste heat to warm the offices."
+  ]
+ }
+]

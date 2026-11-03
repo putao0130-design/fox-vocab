@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>狐狸背单词</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <header>
-  <h1>🦊 狐狸背单词</h1>
+  <h1>🦊 狐狸背单词 <small class="muted">v2</small></h1>
   <nav id="nav">
     <button data-view="home">首页</button>
     <button data-view="learn">学新词</button>
@@ -22,8 +22,9 @@
 </header>
 <main id="app"></main>
 <footer>进度自动保存在本浏览器（localStorage）。换设备或清理浏览器前请在「设置」里导出备份。</footer>
-<script src="data/books.js"></script>
-<script src="core.js"></script>
-<script src="app.js"></script>
+<script src="vendor/ts-fsrs.umd.js"></script>
+<script src="data/books-index.js?v=2"></script>
+<script src="core.js?v=2"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>
