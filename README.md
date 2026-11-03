@@ -1,4 +1,4 @@
-# 🦊 狐狸背单词 v2
+# 🦊 狐狸背单词 v3
 
 纯静态网页背单词（雅思/托福），无需构建，GitHub Pages 直接托管：https://putao0130-design.github.io/fox-vocab/
 

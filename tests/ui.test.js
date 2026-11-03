@@ -83,8 +83,19 @@ function answer(w) {
   // 切换到全部词书 -> 此时才加载
   loads = []; w.__go('settings'); q(w, '#bk').value = 'ielts-toefl-full'; q(w, '#sv').click(); await new Promise(r => setTimeout(r, 10));
   assert.deepStrictEqual(loads, ['data/book-ielts-toefl-full.js']); assert.ok(txt(w).includes('已保存')); assert.ok(txt(w).includes('ECDICT'));
-  w.__go('home'); assert.ok(txt(w).includes('雅思托福全部词（12883 词）'));
+  w.__go('home'); assert.ok(txt(w).includes('雅思托福全部词 · 12883 词'));
   w.__go('practice'); q(w, '[data-m="clozeType"]').click(); assert.ok(txt(w).includes('还没有学过带例句的词'));
+  // v3 界面：底部 5 个标签、SVG 狐狸、开始学习按钮、键盘快捷键、会话总结
+  assert.strictEqual([...w.document.querySelectorAll('#nav [data-view]')].map(b => b.textContent.trim().slice(-2)).join(), '首页,学习,练习,狐狸,我的');
+  w.__go('home'); assert.ok(q(w, '#app .foxsvg') && txt(w).includes('今日进度'));
+  for (const v of ['study', 'me', 'words', 'settings', 'preview']) { w.__go(v); assert.ok(w.document.querySelector('#nav .active'), v); }
+  w.__go('pet'); assert.strictEqual(w.document.querySelectorAll('.stages .foxsvg').length, 4);
+  w.__go('settings'); q(w, '#bk').value = 'ielts-toefl-core'; q(w, '#sv').click(); await new Promise(r => setTimeout(r, 10));
+  w.__go('practice'); q(w, '[data-m="w2m"]').click(); const key = k => w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+  key('1'); assert.ok(q(w, '#nx'), 'key 1 answers'); key('Enter'); assert.ok(!q(w, '#nx'), 'Enter -> next');
+  w.__go('practice'); q(w, '[data-m="flash"]').click(); key(' '); assert.ok(q(w, '[data-g="3"]'), 'space flips'); key('3'); assert.ok(q(w, '#nx'));
+  offset += 30 * D; w = await boot(); w.__go('review'); const n = +txt(w).match(/剩余 (\d+) 个到期/)[1]; for (let i = 0; i < n; i++) answer(w);
+  assert.ok(txt(w).includes('复习完成') && txt(w).includes('正确率'), 'summary');
   console.log('UI tests passed');
 })().catch(e => { console.error(e); process.exit(1); });
 function C_today() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
