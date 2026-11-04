@@ -22,28 +22,46 @@ export const COLORS = {
 };
 
 function flockVertex(amp) {
-  const fine = (amp * 0.4).toFixed(4);
+  const a = amp.toFixed(4);
+  const b = (amp * 0.45).toFixed(4);
+  const c = (amp * 0.2).toFixed(4);
   return `#include <begin_vertex>
-float flockN1 = sin(transformed.x * 6.2) * sin(transformed.y * 5.4) * sin(transformed.z * 5.1);
-float flockN2 = sin(transformed.x * 13.0 + 1.3) * sin(transformed.y * 11.5) * sin(transformed.z * 12.0);
-transformed += objectNormal * (flockN1 * ${amp.toFixed(4)} + flockN2 * ${fine});
+float n1 = sin(transformed.x * 11.0) * sin(transformed.y * 9.0) * sin(transformed.z * 10.0);
+float n2 = sin(transformed.x * 23.0 + 1.3) * sin(transformed.y * 19.0 + 0.7) * sin(transformed.z * 21.0);
+float n3 = sin(transformed.x * 41.0 + 0.7) * sin(transformed.y * 37.0 + 1.1) * sin(transformed.z * 39.0 + 0.4);
+transformed += objectNormal * (n1 * ${a} + n2 * ${b} + n3 * ${c});
 `;
 }
 
 const FLOCK_COMMON = `#include <common>
 uniform float uSss;
 uniform vec3 uSssColor;
+float flockHash(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+`;
+
+const FLOCK_COLOR = `#include <color_fragment>
+#ifdef USE_UV
+  {
+    float fiber = flockHash(vUv * 180.0);
+    float root = flockHash(vUv * 90.0);
+    diffuseColor.rgb *= (0.92 + 0.16 * fiber) * (0.94 + 0.06 * root);
+  }
+#endif
 `;
 
 const FLOCK_LIGHTS = `#include <lights_fragment_end>
 {
   float flockNdV = clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);
-  float flockRim = pow(1.0 - flockNdV, 1.45);
-  reflectedLight.directDiffuse *= mix(1.0, 0.58, flockRim);
-  reflectedLight.indirectDiffuse *= mix(1.0, 0.72, flockRim);
+  float flockRim = pow(1.0 - flockNdV, 1.7);
+  reflectedLight.directDiffuse *= mix(1.0, 0.86, flockRim);
+  reflectedLight.indirectDiffuse *= mix(1.0, 0.92, flockRim);
   reflectedLight.directDiffuse += uSssColor * flockRim * uSss;
-  reflectedLight.directSpecular *= 0.05;
-  reflectedLight.indirectSpecular *= 0.04;
+  reflectedLight.directSpecular *= 0.02;
+  reflectedLight.indirectSpecular *= 0.02;
 }
 `;
 
@@ -62,7 +80,7 @@ let napBump = null;
 
 function getNap() {
   if (napBump) return napBump;
-  const size = 96;
+  const size = 192;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -72,7 +90,7 @@ function getNap() {
   const raw = new Float32Array(size * size);
   for (let i = 0; i < raw.length; i += 1) raw[i] = rand();
   const blur = new Float32Array(size * size);
-  const radius = 1;
+  const radius = 0;
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       let sum = 0;
@@ -89,7 +107,7 @@ function getNap() {
     }
   }
   for (let i = 0; i < blur.length; i += 1) {
-    const channel = Math.max(0, Math.min(255, Math.round(118 + (blur[i] - 0.5) * 70)));
+    const channel = Math.max(0, Math.min(255, Math.round(128 + (blur[i] - 0.5) * 170)));
     image.data[i * 4] = channel;
     image.data[i * 4 + 1] = channel;
     image.data[i * 4 + 2] = channel;
@@ -99,7 +117,7 @@ function getNap() {
   napBump = new THREE.CanvasTexture(canvas);
   napBump.wrapS = THREE.RepeatWrapping;
   napBump.wrapT = THREE.RepeatWrapping;
-  napBump.repeat.set(3.2, 3.2);
+  napBump.repeat.set(8, 8);
   napBump.colorSpace = THREE.NoColorSpace;
   napBump.needsUpdate = true;
   return napBump;
@@ -115,6 +133,7 @@ function applyFlockShader(material, { sss, sssColor, displace, displaceAmp }) {
     }
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', FLOCK_COMMON)
+      .replace('#include <color_fragment>', FLOCK_COLOR)
       .replace('#include <lights_fragment_end>', FLOCK_LIGHTS);
   };
 }
@@ -122,21 +141,21 @@ function applyFlockShader(material, { sss, sssColor, displace, displaceAmp }) {
 export function createFlockMaterial(color, {
   sss = 0.12,
   sssColor = COLORS.tan,
-  sheenMix = 0.05,
+  sheenMix = 0.04,
   displace = true,
-  displaceAmp = 0.016,
-  bumpScale = 0.02,
-  roughness = 0.98,
+  displaceAmp = 0.036,
+  bumpScale = 0.048,
+  roughness = 0.96,
 } = {}) {
   const sheenColor = new THREE.Color(color).lerp(new THREE.Color('#fff6ef'), sheenMix);
   const material = new THREE.MeshPhysicalMaterial({
     color,
     roughness,
     metalness: 0,
-    sheen: 0.18,
+    sheen: 0.06,
     sheenRoughness: 1,
     sheenColor,
-    specularIntensity: 0.02,
+    specularIntensity: 0.01,
     specularColor: new THREE.Color(color).lerp(new THREE.Color('#fffaf6'), 0.08),
     envMapIntensity: 0,
     bumpMap: bumpScale > 0 ? getNap() : null,
@@ -149,25 +168,75 @@ export function createFlockMaterial(color, {
 export function createNoseMaterial() {
   return new THREE.MeshPhysicalMaterial({
     color: COLORS.nose,
-    roughness: 0.58,
+    roughness: 0.72,
     metalness: 0,
-    specularIntensity: 0.2,
-    specularColor: new THREE.Color('#3A3330'),
-    clearcoat: 0.05,
-    clearcoatRoughness: 0.84,
-    sheen: 0.08,
-    sheenRoughness: 0.86,
-    sheenColor: new THREE.Color('#2C2624'),
+    specularIntensity: 0.03,
+    clearcoat: 0,
+    sheen: 0,
     envMapIntensity: 0,
+  });
+}
+
+export function createFlockShellMaterial(color, { inflate, fade }) {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+    uniforms: {
+      uColor: { value: new THREE.Color(color) },
+      uInflate: { value: inflate },
+      uFade: { value: fade },
+    },
+    vertexShader: `
+      uniform float uInflate;
+      varying vec3 vNormal;
+      varying vec3 vView;
+      varying vec3 vObj;
+      void main() {
+        vObj = position;
+        float n = sin(position.x * 41.0) * sin(position.y * 37.0) * sin(position.z * 33.0);
+        float jitter = 1.0 + n * 0.2;
+        float push = length(position) * (uInflate - 1.0) * jitter;
+        vec3 displaced = position + normalize(normal) * push;
+        vec4 mv = modelViewMatrix * vec4(displaced, 1.0);
+        vNormal = normalize(normalMatrix * normal);
+        vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uFade;
+      varying vec3 vNormal;
+      varying vec3 vView;
+      varying vec3 vObj;
+      void main() {
+        float ndv = clamp(dot(normalize(vNormal), normalize(vView)), 0.0, 1.0);
+        float n1 = fract(sin(dot(vObj, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+        float n2 = fract(sin(dot(vObj.zyx, vec3(269.5, 183.3, 246.1))) * 43758.5453);
+        float noise = n1 * 0.65 + n2 * 0.35;
+        float alpha = smoothstep(0.15, 0.55, noise) * pow(1.0 - ndv, 0.85) * uFade;
+        if (alpha < 0.28) discard;
+        float ndl = dot(normalize(vNormal), normalize(vec3(0.25, 0.55, 0.8)));
+        float wrap = clamp(ndl, 0.0, 1.0) * 0.28 + 0.72;
+        float coverage = smoothstep(0.28, 0.75, alpha);
+        gl_FragColor = vec4(uColor * wrap, mix(0.62, 0.92, coverage));
+      }
+    `,
   });
 }
 
 export function createEyeMaterial() {
   return new THREE.MeshPhysicalMaterial({
     color: COLORS.eye,
-    roughness: 0.62,
+    roughness: 0.78,
     metalness: 0,
-    specularIntensity: 0.16,
+    specularIntensity: 0.05,
     envMapIntensity: 0,
   });
 }
@@ -189,22 +258,25 @@ export function createDroolMaterial(core = false) {
 }
 
 export function createCartoonMaterial(color, {
-  roughness = 0.42,
-  specularIntensity = 0.3,
+  roughness = 0.86,
+  specularIntensity = 0.05,
   emissive = null,
   emissiveIntensity = 0,
+  bumpScale = 0.02,
 } = {}) {
   return new THREE.MeshPhysicalMaterial({
     color,
     roughness,
     metalness: 0,
     specularIntensity,
-    sheen: 0.22,
-    sheenRoughness: 0.62,
+    sheen: 0.04,
+    sheenRoughness: 1,
     sheenColor: new THREE.Color(color),
     emissive: new THREE.Color(emissive || '#000000'),
     emissiveIntensity: emissive ? emissiveIntensity : 0,
     clearcoat: 0,
     envMapIntensity: 0,
+    bumpMap: bumpScale > 0 ? getNap() : null,
+    bumpScale,
   });
 }

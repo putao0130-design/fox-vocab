@@ -4,6 +4,7 @@ import {
   createDroolMaterial,
   createEyeMaterial,
   createFlockMaterial,
+  createFlockShellMaterial,
   createNoseMaterial,
 } from './materials.js';
 
@@ -72,31 +73,29 @@ function droolGeometry() {
 function buildMaterials() {
   return {
     charcoal: createFlockMaterial(COLORS.charcoal, {
-      sss: 0.1,
+      sss: 0.2,
       sssColor: COLORS.tan,
-      bumpScale: 0.014,
+      displaceAmp: 0.036,
+      bumpScale: 0.048,
     }),
     ear: createFlockMaterial(COLORS.charcoal, {
-      sss: 0.36,
+      sss: 0.45,
       sssColor: COLORS.blush,
-      sheenMix: 0.08,
-      displace: false,
-      bumpScale: 0.01,
+      displaceAmp: 0.012,
+      bumpScale: 0.02,
     }),
     tan: createFlockMaterial(COLORS.tan, {
-      sss: 0.32,
+      sss: 0.42,
       sssColor: COLORS.blush,
-      sheenMix: 0.08,
-      displaceAmp: 0.006,
-      bumpScale: 0.01,
+      displaceAmp: 0.025,
+      bumpScale: 0.03,
     }),
     innerEar: createFlockMaterial(COLORS.blush, {
-      sss: 0.78,
-      sssColor: COLORS.blushWarm,
-      sheenMix: 0.12,
-      displace: false,
-      bumpScale: 0.006,
-      roughness: 0.9,
+      sss: 0.52,
+      sssColor: COLORS.blush,
+      displaceAmp: 0.012,
+      bumpScale: 0.02,
+      roughness: 0.96,
     }),
     mouth: createFlockMaterial(COLORS.mouth, {
       sss: 0.05,
@@ -130,6 +129,27 @@ function addMesh(parent, geometry, material, pickables, {
   return mesh;
 }
 
+function addFurShells(parent, source, color, pickables) {
+  const layers = [
+    createFlockShellMaterial(new THREE.Color(color).lerp(new THREE.Color('#fff6ef'), 0.06).getStyle(), {
+      inflate: 1.018,
+      fade: 0.72,
+    }),
+    createFlockShellMaterial(COLORS.charcoalDeep, { inflate: 1.034, fade: 0.58 }),
+  ];
+  layers.forEach((material, index) => {
+    const shell = new THREE.Mesh(source.geometry, material);
+    shell.name = `${source.name}-flock-${index + 1}`;
+    shell.position.copy(source.position);
+    shell.rotation.copy(source.rotation);
+    shell.scale.copy(source.scale);
+    shell.renderOrder = index + 1;
+    shell.frustumCulled = false;
+    parent.add(shell);
+    pickables.push(shell);
+  });
+}
+
 function addEar(head, side, mats, pickables, outerGeo, innerGeo) {
   const ear = new THREE.Group();
   ear.name = side < 0 ? 'ear-left' : 'ear-right';
@@ -159,26 +179,30 @@ export function createDoberman() {
   group.add(body, head, legs);
 
   body.position.set(0, -0.2, -0.02);
-  addMesh(body, new THREE.SphereGeometry(0.48, 40, 28), mats.charcoal, pickables, {
+  const torso = addMesh(body, new THREE.SphereGeometry(0.48, 40, 28), mats.charcoal, pickables, {
     scale: [1.18, 0.82, 1.0],
-name: 'torso',
+    name: 'torso',
   });
-  addMesh(body, new THREE.SphereGeometry(0.24, 28, 20), mats.tan, pickables, {
+  const chest = addMesh(body, new THREE.SphereGeometry(0.24, 28, 20), mats.tan, pickables, {
     pos: [0, -0.02, 0.32],
     scale: [0.78, 1.35, 0.5],
-name: 'chest',
+    name: 'chest',
   });
+  addFurShells(body, torso, COLORS.charcoal, pickables);
+  addFurShells(body, chest, COLORS.tan, pickables);
 
   head.position.set(0, 0.58, 0.04);
-  addMesh(head, new THREE.SphereGeometry(0.84, 48, 36), mats.charcoal, pickables, {
+  const skull = addMesh(head, new THREE.SphereGeometry(0.84, 48, 36), mats.charcoal, pickables, {
     scale: [1.06, 0.9, 0.98],
-name: 'skull',
+    name: 'skull',
   });
-  addMesh(head, new THREE.SphereGeometry(0.5, 36, 28), mats.tan, pickables, {
+  const muzzle = addMesh(head, new THREE.SphereGeometry(0.5, 36, 28), mats.tan, pickables, {
     pos: [0, -0.26, 0.4],
     scale: [1.16, 0.9, 0.82],
-name: 'muzzle',
+    name: 'muzzle',
   });
+  addFurShells(head, skull, COLORS.charcoal, pickables);
+  addFurShells(head, muzzle, COLORS.tan, pickables);
   addMesh(head, new THREE.SphereGeometry(0.18, 32, 24), mats.nose, pickables, {
     pos: [0, -0.08, 0.7],
     scale: [1.85, 1.22, 1.05],

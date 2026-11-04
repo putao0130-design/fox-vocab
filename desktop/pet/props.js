@@ -76,20 +76,20 @@ function collectMeshes(object) {
 }
 
 export function createProps() {
-  const boneMat = createCartoonMaterial(COLORS.bone, { roughness: 0.4, specularIntensity: 0.28 });
+  const boneMat = createCartoonMaterial(COLORS.bone, { roughness: 0.88, specularIntensity: 0.04 });
   const goldMat = createCartoonMaterial(COLORS.gold, {
-    roughness: 0.36,
-    specularIntensity: 0.34,
+    roughness: 0.84,
+    specularIntensity: 0.04,
     emissive: COLORS.gold,
-    emissiveIntensity: 0.12,
+    emissiveIntensity: 0.07,
   });
-  const meatMat = createCartoonMaterial(COLORS.meat, { roughness: 0.48, specularIntensity: 0.26 });
-  const meatLite = createCartoonMaterial(COLORS.meatLite, { roughness: 0.42, specularIntensity: 0.28 });
+  const meatMat = createCartoonMaterial(COLORS.meat, { roughness: 0.9, specularIntensity: 0.03 });
+  const meatLite = createCartoonMaterial(COLORS.meatLite, { roughness: 0.86, specularIntensity: 0.03 });
   const dotMat = createCartoonMaterial(COLORS.dot, {
-    roughness: 0.38,
-    specularIntensity: 0.3,
+    roughness: 0.84,
+    specularIntensity: 0.04,
     emissive: COLORS.dot,
-    emissiveIntensity: 0.08,
+    emissiveIntensity: 0.06,
   });
 
   const group = new THREE.Group();
