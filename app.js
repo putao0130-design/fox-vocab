@@ -149,7 +149,7 @@
   // ---------- 锁定稿小狗 PNG（四阶段同一张图） ----------
   function stageIdx(months) { return months >= 12 ? 3 : months >= 6 ? 2 : months >= 2 ? 1 : 0; }
   const STAGE_NAMES = ['幼崽', '少年', '青年', '成犬'];
-  const PET_SRC = 'assets/dog-mascot.png?v=10';
+  const PET_SRC = 'assets/dog-mascot.png?v=15';
   function dogSVG(stage, hunger, cls) {
     const st = Math.max(0, Math.min(3, stage | 0));
     const sad = hunger < 20, hungry = hunger < 50;
@@ -317,7 +317,7 @@
   function calendar() {
     let cal = ''; const start = C.shiftDay(today(), -27); const pad = (new Date(start + 'T12:00:00').getDay() + 6) % 7;
     cal += ['一', '二', '三', '四', '五', '六', '日'].map(x => `<div class="h">${x}</div>`).join('') + '<div class="h"></div>'.repeat(pad);
-    const paw = '<img class="paw" src="assets/paw.svg?v=11" alt="" width="28" height="28">';
+    const paw = '<img class="paw" src="assets/paw.svg?v=15" alt="" width="28" height="28">';
     for (let i = 0; i < 28; i++) { const k = C.shiftDay(start, i); const on = S.studyDays.includes(k); cal += `<div class="${on ? 'on' : ''} ${k === today() ? 'td' : ''}" title="${k}">${on ? paw : +k.slice(8)}</div>`; }
     return `<div class="cal">${cal}</div>`;
   }

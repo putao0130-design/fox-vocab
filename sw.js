@@ -1,14 +1,14 @@
 /* Dog Verb shell cache. Placeholder icons only; official art comes later. */
-const CACHE = 'dog-verb-shell-v14';
+const CACHE = 'dog-verb-shell-v15';
 const SHELL = [
   './index.html',
-  './style.css?v=14',
-  './app.js?v=14',
-  './core.js?v=14',
-  './data/books-index.js?v=14',
+  './style.css?v=15',
+  './app.js?v=15',
+  './core.js?v=15',
+  './data/books-index.js?v=15',
   './vendor/ts-fsrs.umd.js',
-  './assets/dog-mascot.png?v=10',
-  './assets/paw.svg?v=11',
+  './assets/dog-mascot.png?v=15',
+  './assets/paw.svg?v=15',
   './assets/icons/apple-touch-icon-180.png',
   './assets/icons/favicon-48.png',
   './assets/icons/icon-192.png',
