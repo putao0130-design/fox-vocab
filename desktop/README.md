@@ -1,45 +1,23 @@
-# Dog Verb — desktop pet
+# Dog Verb — 3D flocked Doberman
 
-Floating desktop pet for Dog Verb. The puppy is Ariel’s original `assets/dog-mascot.png`. Motions are crops and transforms of that image (the dog, the drool, and the food doodles). Nothing is redrawn.
+A transparent, always-on-top desktop floater. The pet is a rotatable Q-version Doberman puppy built from rounded primitives in Three.js: flocked charcoal and tan, a rubbery nose, and a translucent drool strand. Bone, star, meat, sparkle, and two dots drift around it.
 
-The Pages web app is not part of this folder.
+The Pages vocab app is not part of this folder.
 
-## Run on your computer
+## Run
 
 Install [Node.js 20+](https://nodejs.org/), then:
 
 ```bash
-cd desktop
-npm install
-npm start
+cd desktop && npm i && npm start
 ```
 
-That is the install path. It runs on Windows, macOS, and Linux.
+That is the run path on Windows, macOS, and Linux. No installer is required.
 
-- Drag the puppy to move it. Dragging pauses the roam loop.
-- The pet cycles on its own: **run in circles**, **yawn**, **hungry**, **bark**.
-- Right-click for the same four motions, **Always on top**, and **Quit**.
-- There is no window frame and no taskbar button.
+- Drag the puppy or a prop to orbit it.
+- Shift-drag, right-drag, or drag the empty margin to move the window.
+- Click the puppy for a fluff shake and a drool wobble.
+- Right-click for Fluff, Reset view, Always on top, and Quit.
+- There is no window frame and no taskbar button. Idle motion is a breath, a small ear and drool sway, a hover, and a slow prop orbit.
 
-On Linux the desktop needs a compositor.
-
-## Package
-
-Optional. A Windows build:
-
-```bash
-npm run package
-```
-
-Output is `desktop/dist/`. Building that Windows target on Linux or macOS needs Wine. `npm start` does not.
-
-## Motions
-
-All four use the locked mascot only:
-
-- **Yawn** — the whole puppy stretches up and the original drool lengthens.
-- **Hungry** — the puppy leans toward the drumstick, the drool hangs longer, and the bone and drumstick bob.
-- **Run in circles** — the window loops on the desktop while the puppy bobs.
-- **Bark** — a short hop-and-shake.
-
-Separate head-shake, ear-wiggle, and mouth-open drawings are not in this file, so those are not invented here.
+On Linux the desktop needs a compositor. The window stays on the GPU so the WebGL pet can draw.
