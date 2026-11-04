@@ -46,8 +46,8 @@ float flockHash(vec2 p) {
 const FLOCK_COLOR = `#include <color_fragment>
 #ifdef USE_UV
   {
-    float fiber = flockHash(vUv * 180.0);
-    float root = flockHash(vUv * 90.0);
+    float fiber = flockHash(vUv * 360.0);
+    float root = flockHash(vUv * 180.0);
     diffuseColor.rgb *= (0.92 + 0.16 * fiber) * (0.94 + 0.06 * root);
   }
 #endif
@@ -117,7 +117,7 @@ function getNap() {
   napBump = new THREE.CanvasTexture(canvas);
   napBump.wrapS = THREE.RepeatWrapping;
   napBump.wrapT = THREE.RepeatWrapping;
-  napBump.repeat.set(8, 8);
+  napBump.repeat.set(14, 14);
   napBump.colorSpace = THREE.NoColorSpace;
   napBump.needsUpdate = true;
   return napBump;
@@ -199,7 +199,7 @@ export function createFlockShellMaterial(color, { inflate, fade }) {
       varying vec3 vObj;
       void main() {
         vObj = position;
-        float n = sin(position.x * 41.0) * sin(position.y * 37.0) * sin(position.z * 33.0);
+        float n = sin(position.x * 96.0) * sin(position.y * 88.0) * sin(position.z * 91.0);
         float jitter = 1.0 + n * 0.2;
         float push = length(position) * (uInflate - 1.0) * jitter;
         vec3 displaced = position + normalize(normal) * push;
@@ -217,15 +217,17 @@ export function createFlockShellMaterial(color, { inflate, fade }) {
       varying vec3 vObj;
       void main() {
         float ndv = clamp(dot(normalize(vNormal), normalize(vView)), 0.0, 1.0);
-        float n1 = fract(sin(dot(vObj, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-        float n2 = fract(sin(dot(vObj.zyx, vec3(269.5, 183.3, 246.1))) * 43758.5453);
-        float noise = n1 * 0.65 + n2 * 0.35;
-        float alpha = smoothstep(0.15, 0.55, noise) * pow(1.0 - ndv, 0.85) * uFade;
+        vec3 cell = floor(vObj * 92.0);
+        vec3 fine = floor(vObj * 168.0);
+        float n1 = fract(sin(dot(cell, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+        float n2 = fract(sin(dot(fine + 19.2, vec3(269.5, 183.3, 246.1))) * 43758.5453);
+        float fiber = step(0.34, n1) * step(0.22, n2);
+        float rim = smoothstep(0.62, 0.9, 1.0 - ndv);
+        float alpha = fiber * rim * uFade;
         if (alpha < 0.28) discard;
         float ndl = dot(normalize(vNormal), normalize(vec3(0.25, 0.55, 0.8)));
         float wrap = clamp(ndl, 0.0, 1.0) * 0.28 + 0.72;
-        float coverage = smoothstep(0.28, 0.75, alpha);
-        gl_FragColor = vec4(uColor * wrap, mix(0.62, 0.92, coverage));
+        gl_FragColor = vec4(uColor * wrap, 0.9);
       }
     `,
   });

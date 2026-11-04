@@ -12,11 +12,12 @@ function roundedTriangle(width, height) {
   const shape = new THREE.Shape();
   const w = width * 0.5;
   const h = height * 0.5;
-  shape.moveTo(0, h);
-  shape.bezierCurveTo(w * 0.42, h * 0.62, w * 1.02, h * 0.02, w * 0.96, -h * 0.22);
-  shape.bezierCurveTo(w * 0.9, -h * 0.78, w * 0.42, -h * 1.02, 0, -h);
-  shape.bezierCurveTo(-w * 0.42, -h * 1.02, -w * 0.9, -h * 0.78, -w * 0.96, -h * 0.22);
-  shape.bezierCurveTo(-w * 1.02, h * 0.02, -w * 0.42, h * 0.62, 0, h);
+  shape.moveTo(w * 0.28, h * 0.78);
+  shape.bezierCurveTo(w * 0.62, h * 0.96, w * 0.98, h * 0.48, w, 0);
+  shape.bezierCurveTo(w * 1.02, -h * 0.5, w * 0.62, -h, 0, -h);
+  shape.bezierCurveTo(-w * 0.62, -h, -w * 1.02, -h * 0.5, -w, 0);
+  shape.bezierCurveTo(-w * 0.98, h * 0.48, -w * 0.62, h * 0.96, -w * 0.28, h * 0.78);
+  shape.bezierCurveTo(-w * 0.08, h * 1.05, w * 0.08, h * 1.05, w * 0.28, h * 0.78);
   return shape;
 }
 
@@ -27,7 +28,7 @@ function makeEarGeometry(width, height, depth) {
     bevelThickness: depth * 0.45,
     bevelSize: Math.min(width, height) * 0.035,
     bevelSegments: 2,
-    curveSegments: 14,
+    curveSegments: 16,
     steps: 1,
   });
   geometry.computeBoundingBox();
@@ -44,11 +45,11 @@ function makeEarGeometry(width, height, depth) {
 
 function droolGeometry() {
   const points = [];
-  const neck = 0.42;
-  const radius = 0.072;
+  const neck = 0.5;
+  const radius = 0.034;
   for (let i = 0; i <= 16; i += 1) {
     const t = i / 16;
-    const r = 0.016 + Math.pow(t, 1.15) * (radius - 0.016);
+    const r = 0.01 + Math.pow(t, 1.45) * (radius - 0.01);
     points.push(new THREE.Vector2(r, -t * neck));
   }
   for (let i = 1; i <= 10; i += 1) {
@@ -155,9 +156,16 @@ function addEar(head, side, mats, pickables, outerGeo, innerGeo) {
   ear.name = side < 0 ? 'ear-left' : 'ear-right';
   addMesh(ear, outerGeo, mats.ear, pickables, { name: ear.name });
   addMesh(ear, innerGeo, mats.innerEar, pickables, {
-    pos: [0, 0.12, 0.07],
+    pos: [0, 0.1, 0.07],
     name: `${ear.name}-inner`,
   });
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 18, 12), mats.ear);
+  tip.name = `${ear.name}-fold`;
+  tip.scale.set(1.35, 0.5, 0.62);
+  tip.position.set(0, 0.5, 0.02);
+  tip.rotation.x = 0.85;
+  ear.add(tip);
+  pickables.push(tip);
   const flare = side < 0 ? 0.16 : -0.48;
   ear.rotation.set(-0.08, side * 0.38, flare);
   ear.position.set(side * 0.4, side < 0 ? 0.34 : 0.28, -0.04);
@@ -241,7 +249,8 @@ export function createDoberman() {
 
   const drool = new THREE.Group();
   drool.name = 'drool';
-  drool.position.set(0, -0.46, 0.8);
+  drool.position.set(0.12, -0.4, 0.86);
+  drool.rotation.z = 0.28;
   const strand = new THREE.Mesh(droolGeometry(), mats.drool);
   strand.name = 'drool-strand';
   strand.renderOrder = 3;
@@ -252,15 +261,15 @@ export function createDoberman() {
   core.renderOrder = 3;
   drool.add(core);
   const puddle = new THREE.Mesh(new THREE.SphereGeometry(0.055, 18, 12), mats.drool);
-  puddle.scale.set(1.55, 0.42, 1.05);
+  puddle.scale.set(0.85, 0.28, 0.7);
   puddle.position.set(0, 0.01, 0.02);
   puddle.renderOrder = 3;
   drool.add(puddle);
   head.add(drool);
   pickables.push(strand, core, puddle);
 
-  const outerEar = makeEarGeometry(0.6, 0.72, 0.09);
-  const innerEar = makeEarGeometry(0.38, 0.46, 0.04);
+  const outerEar = makeEarGeometry(0.68, 0.62, 0.1);
+  const innerEar = makeEarGeometry(0.44, 0.4, 0.045);
   const earL = addEar(head, -1, mats, pickables, outerEar, innerEar);
   const earR = addEar(head, 1, mats, pickables, outerEar, innerEar);
 
