@@ -85,12 +85,14 @@ function answer(w) {
   assert.deepStrictEqual(loads, ['data/book-ielts-toefl-full.js']); assert.ok(txt(w).includes('已保存')); assert.ok(txt(w).includes('ECDICT'));
   w.__go('home'); assert.ok(txt(w).includes('雅思托福全部词 · 12883 词'));
   w.__go('practice'); q(w, '[data-m="clozeType"]').click(); assert.ok(txt(w).includes('还没有学过带例句的词'));
-  // 界面：底部 5 个标签、SVG 小狗、开始学习按钮、键盘快捷键、会话总结
+  // 界面：底部 5 个标签、锁定稿小狗 PNG、开始学习按钮、键盘快捷键、会话总结
   assert.strictEqual([...w.document.querySelectorAll('#nav [data-view]')].map(b => b.textContent.trim().slice(-2)).join(), '首页,学习,练习,小狗,我的');
-  w.__go('home'); assert.ok(q(w, '#app .dogsvg') && txt(w).includes('今日进度'));
+  w.__go('home'); assert.ok(q(w, '#app img.dogsvg') && q(w, '#app .dogsvg').getAttribute('src').includes('dog-mascot.png') && txt(w).includes('今日进度'));
   assert.ok(!txt(w).includes('狐狸') && !txt(w).includes('狐粮'), 'no fox copy on home');
   for (const v of ['study', 'me', 'words', 'settings', 'preview']) { w.__go(v); assert.ok(w.document.querySelector('#nav .active'), v); }
-  w.__go('pet'); assert.strictEqual(w.document.querySelectorAll('.stages .dogsvg').length, 4);
+  w.__go('pet'); assert.strictEqual(w.document.querySelectorAll('.stages img.dogsvg').length, 4);
+  assert.ok([...w.document.querySelectorAll('.stages img.dogsvg')].every(el => el.getAttribute('src').includes('dog-mascot.png')));
+  assert.strictEqual(w.document.querySelectorAll('#app svg.dogsvg, #app .foxsvg').length, 0);
   assert.ok(txt(w).includes('狗粮') && txt(w).includes('成犬'));
   w.__go('settings'); q(w, '#bk').value = 'ielts-toefl-core'; q(w, '#sv').click(); await new Promise(r => setTimeout(r, 10));
   w.__go('practice'); q(w, '[data-m="w2m"]').click(); const key = k => w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
