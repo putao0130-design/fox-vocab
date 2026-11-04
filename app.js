@@ -149,12 +149,24 @@
   // ---------- 锁定稿小狗 PNG（四阶段同一张图） ----------
   function stageIdx(months) { return months >= 12 ? 3 : months >= 6 ? 2 : months >= 2 ? 1 : 0; }
   const STAGE_NAMES = ['幼崽', '少年', '青年', '成犬'];
-  const PET_SRC = 'assets/dog-mascot.png?v=7';
+  const PET_SRC = 'assets/dog-mascot.png?v=8';
   function dogSVG(stage, hunger, cls) {
     const st = Math.max(0, Math.min(3, stage | 0));
     const sad = hunger < 20, hungry = hunger < 50;
     const mood = sad ? 'sad' : hungry ? 'hungry' : 'happy';
-    return `<img class="dogsvg s${st} ${mood} ${cls || ''}" src="${PET_SRC}" alt="小狗${STAGE_NAMES[st]}" width="1024" height="1024" decoding="async">`;
+    const extra = cls || '';
+    const img = `<img src="${PET_SRC}" alt="" width="1024" height="1024" decoding="async">`;
+    if (!/idle|bounce/.test(extra)) {
+      return `<img class="dogsvg s${st} ${mood} ${extra}" src="${PET_SRC}" alt="小狗${STAGE_NAMES[st]}" width="1024" height="1024" decoding="async">`;
+    }
+    return `<div class="dogsvg petpose s${st} ${mood} ${extra}" role="img" aria-label="小狗${STAGE_NAMES[st]}">
+      <div class="sway">
+        <div class="base">${img}</div>
+        <div class="earl">${img}</div>
+        <div class="earr">${img}</div>
+        <i class="drop" aria-hidden="true"></i>
+      </div>
+    </div>`;
   }
   window.__dogSVG = dogSVG;
 

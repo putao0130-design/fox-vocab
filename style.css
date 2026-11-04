@@ -140,19 +140,27 @@ textarea{margin-top:12px;resize:vertical}
 .sumstats b{font-size:22px;color:var(--acc)}.sumstats span{font-size:12px;color:var(--mute)}
 .plist{display:grid;gap:10px}@media (min-width:760px){.plist{grid-template-columns:1fr 1fr}}.card.mini{padding:4px 8px;margin:0}
 .mine{padding:8px 0;border-bottom:1px solid var(--line)}
-/* dog */
+/* dog — one locked PNG; idle is CSS only */
+.petdefs{position:absolute;width:0;height:0;overflow:hidden}
 .dogsvg{display:block;width:100%;height:auto;overflow:visible;background:transparent}
-.dogsvg .eye{transform-box:fill-box;transform-origin:center;animation:blink 4.5s infinite}
-.dogsvg.idle .tail{animation:wag 2.4s ease-in-out infinite}
-.dogsvg.idle .head{transform-origin:128px 118px;animation:tilt 6s ease-in-out infinite}
-.dogsvg.hungry .tail,.dogsvg.sad .tail{animation-duration:5s}
-.dogsvg.bounce{animation:bounce .7s ease 2}
-.dogsvg .drool{transform-box:fill-box;transform-origin:top;animation:tear 2.2s infinite}
-@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
-@keyframes wag{50%{transform:rotate(-12deg)}}
-@keyframes tilt{0%,70%,100%{transform:rotate(0)}80%{transform:rotate(-4deg)}90%{transform:rotate(3deg)}}
+.petpose{position:relative;aspect-ratio:1/1;background:transparent}
+.petpose .sway{position:absolute;inset:0;transform-origin:50% 78%}
+.petpose .base,.petpose .earl,.petpose .earr{position:absolute;inset:0}
+.petpose img{display:block;width:100%;height:100%;background:transparent}
+.petpose .base{-webkit-mask:url(#petbody);mask:url(#petbody)}
+.petpose .earl{clip-path:ellipse(11% 7.6% at 39.6% 19.4%);transform-origin:39.6% 26.6%}
+.petpose .earr{clip-path:ellipse(10.4% 7.4% at 64.3% 19.3%);transform-origin:64.3% 26.2%}
+.petpose .drop{position:absolute;left:53%;top:57.5%;width:2.3%;height:3.5%;margin:0;border-radius:46% 46% 50% 50%;background:#d4eef8;opacity:0;pointer-events:none}
+.petpose.idle .sway{animation:headsway 3.4s ease-in-out infinite}
+.petpose.idle .earl{animation:earwL 2.2s ease-in-out infinite}
+.petpose.idle .earr{animation:earwR 2.45s ease-in-out infinite}
+.petpose.idle .drop{animation:drip 2.7s ease-in infinite}
+.petpose.bounce{animation:bounce .7s ease 2}
+@keyframes headsway{0%,100%{transform:rotate(0) translateY(0)}30%{transform:rotate(-2.4deg) translateY(1.1%)}58%{transform:rotate(.5deg) translateY(-1.5%)}82%{transform:rotate(2.3deg) translateY(.5%)}}
+@keyframes earwL{0%,100%{transform:rotate(0)}38%{transform:rotate(-7deg)}72%{transform:rotate(4deg)}}
+@keyframes earwR{0%,100%{transform:rotate(0)}34%{transform:rotate(8deg)}70%{transform:rotate(-4deg)}}
+@keyframes drip{0%{transform:translate(-50%,0) scale(.55);opacity:0}14%{opacity:.95;transform:translate(-50%,20%) scale(1)}72%{opacity:.85;transform:translate(-50%,190%) scale(.8)}100%{opacity:0;transform:translate(-50%,280%) scale(.35)}}
 @keyframes bounce{30%{transform:translateY(-18px) scale(1.04,.96)}60%{transform:translateY(0) scale(1.06,.94)}}
-@keyframes tear{0%{transform:translateY(0);opacity:1}100%{transform:translateY(14px);opacity:0}}
 .petcard{text-align:center;background:linear-gradient(180deg,var(--accs),var(--card) 60%)}
 .pethead{display:flex;justify-content:space-between;align-items:flex-start;text-align:left}
 .lv{background:var(--color-accent);color:var(--color-ink);font-weight:800;border-radius:12px;padding:6px 12px}
