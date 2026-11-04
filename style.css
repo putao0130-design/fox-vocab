@@ -150,16 +150,18 @@ textarea{margin-top:12px;resize:vertical}
 .petpose .base{-webkit-mask:url(#petbody);mask:url(#petbody)}
 .petpose .earl{clip-path:ellipse(11% 7.6% at 39.6% 19.4%);transform-origin:39.6% 26.6%}
 .petpose .earr{clip-path:ellipse(10.4% 7.4% at 64.3% 19.3%);transform-origin:64.3% 26.2%}
-.petpose .drop{position:absolute;left:53%;top:57.5%;width:2.3%;height:3.5%;margin:0;border-radius:46% 46% 50% 50%;background:#d4eef8;opacity:0;pointer-events:none}
-.petpose.idle .sway{animation:headsway 3.4s ease-in-out infinite}
-.petpose.idle .earl{animation:earwL 2.2s ease-in-out infinite}
-.petpose.idle .earr{animation:earwR 2.45s ease-in-out infinite}
-.petpose.idle .drop{animation:drip 2.7s ease-in infinite}
+.petpose .drop{position:absolute;left:52.4%;top:56%;width:4.8%;height:7.2%;margin:0;border-radius:46% 46% 52% 52%;background:#b7e4f6;box-shadow:0 0 0 1px rgba(255,255,255,.35);opacity:0;pointer-events:none}
+.petpose.idle .sway,.petpose.idle .earl,.petpose.idle .earr,.petpose.idle .drop{animation-duration:9.6s;animation-timing-function:linear;animation-iteration-count:infinite;animation-fill-mode:both}
+.petpose.idle .sway{animation-name:headsway}
+.petpose.idle .earl{animation-name:earwL}
+.petpose.idle .earr{animation-name:earwR}
+.petpose.idle .drop{animation-name:drip}
 .petpose.bounce{animation:bounce .7s ease 2}
-@keyframes headsway{0%,100%{transform:rotate(0) translateY(0)}30%{transform:rotate(-2.4deg) translateY(1.1%)}58%{transform:rotate(.5deg) translateY(-1.5%)}82%{transform:rotate(2.3deg) translateY(.5%)}}
-@keyframes earwL{0%,100%{transform:rotate(0)}38%{transform:rotate(-7deg)}72%{transform:rotate(4deg)}}
-@keyframes earwR{0%,100%{transform:rotate(0)}34%{transform:rotate(8deg)}70%{transform:rotate(-4deg)}}
-@keyframes drip{0%{transform:translate(-50%,0) scale(.55);opacity:0}14%{opacity:.95;transform:translate(-50%,20%) scale(1)}72%{opacity:.85;transform:translate(-50%,190%) scale(.8)}100%{opacity:0;transform:translate(-50%,280%) scale(.35)}}
+/* 9.6s loop: 0–2.6s head, pause, 3.1–5.7s ears, pause, 6.2–8.8s one drool drop */
+@keyframes headsway{0%,27%,32%,100%{transform:rotate(0) translateY(0)}7%{transform:rotate(-9deg) translateY(2.4%)}14%{transform:rotate(1deg) translateY(-4%)}21%{transform:rotate(9deg) translateY(2%)}}
+@keyframes earwL{0%,32%,59%,100%{transform:rotate(0)}40%{transform:rotate(-16deg)}48%{transform:rotate(14deg)}55%{transform:rotate(-8deg)}}
+@keyframes earwR{0%,32%,59%,100%{transform:rotate(0)}40%{transform:rotate(16deg)}48%{transform:rotate(-14deg)}55%{transform:rotate(8deg)}}
+@keyframes drip{0%,65%,92%,100%{transform:translate(-50%,0) scale(.4);opacity:0}71%{opacity:1;transform:translate(-50%,0) scale(1.2)}84%{opacity:1;transform:translate(-50%,340%) scale(1)}92%{opacity:0;transform:translate(-50%,480%) scale(.4)}}
 @keyframes bounce{30%{transform:translateY(-18px) scale(1.04,.96)}60%{transform:translateY(0) scale(1.06,.94)}}
 .petcard{text-align:center;background:linear-gradient(180deg,var(--accs),var(--card) 60%)}
 .pethead{display:flex;justify-content:space-between;align-items:flex-start;text-align:left}
