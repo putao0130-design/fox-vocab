@@ -11,8 +11,10 @@ html, body {
   overflow: hidden;
   background: transparent;
   cursor: grab;
+  user-select: none;
 }
-body:active { cursor: grabbing; }
+body.dragging { cursor: grabbing; }
+body.moving { cursor: move; }
 canvas {
   display: block;
   width: 100%;
@@ -23,6 +25,6 @@ canvas {
 </head>
 <body>
 <canvas id="pet"></canvas>
-<script src="renderer.js"></script>
+<script type="module" src="./renderer.js"></script>
 </body>
 </html>
