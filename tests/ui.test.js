@@ -37,6 +37,9 @@ function answer(w) {
   assert.strictEqual(s.fox.food, 7); assert.strictEqual(s.fox.name, '阿狸'); assert.strictEqual(s.fox.xp, 40);
   assert.strictEqual(s.books['ielts-toefl-core'].sentences.analyse.length, 1);
   assert.ok(txt(w).includes('连续打卡5 天'), 'streak kept'); assert.ok(txt(w).includes('已掌握1'), 'mastered kept'); assert.ok(txt(w).includes('待复习1'));
+  assert.strictEqual(w.document.querySelectorAll('.cal .on .paw').length, 5, 'checked days show a paw');
+  assert.ok([...w.document.querySelectorAll('.cal .on')].every(el => !/^\d+$/.test(el.textContent.trim())), 'checked days are not number tiles');
+  assert.ok(q(w, '.cal .td'), 'today keeps an outline');
   assert.ok(txt(w).includes('已从 v1 自动迁移'));
   // 懒加载：启动只加载核心词书
   assert.deepStrictEqual(loads, ['data/book-ielts-toefl-core.js']); assert.strictEqual(w.__loadedBooks().join(), 'ielts-toefl-core');
