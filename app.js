@@ -146,82 +146,15 @@
   function flash(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
   function toast(html) { const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
 
-  // ---------- 小狗 SVG（炭黑身 + 棕口鼻，四阶段同一只狗长大） ----------
+  // ---------- 锁定稿小狗 PNG（四阶段同一张图） ----------
   function stageIdx(months) { return months >= 12 ? 3 : months >= 6 ? 2 : months >= 2 ? 1 : 0; }
   const STAGE_NAMES = ['幼崽', '少年', '青年', '成犬'];
-  let dogSeq = 0;
+  const PET_SRC = 'assets/dog-mascot.png?v=6';
   function dogSVG(stage, hunger, cls) {
     const st = Math.max(0, Math.min(3, stage | 0));
     const sad = hunger < 20, hungry = hunger < 50;
-    // 同一只坐姿小黑狗。Stage 2（index 1）对齐锁定稿：大圆立耳、棕口鼻/腮圆/爪、黑点眼、黑鼻、右侧淡蓝口水。
-    const spec = [
-      { head: 1.1, body: 0.86, ear: 8, drool: 1, star: 0, blush: 14 },
-      { head: 1, body: 1, ear: 0, drool: 1, star: 0, blush: 12 },
-      { head: 0.96, body: 1.08, ear: 0, drool: hungry || sad ? 1 : 0, star: 0, blush: 11 },
-      { head: 0.93, body: 1.16, ear: 0, drool: sad ? 1 : 0, star: 1, blush: 11 }
-    ][st];
-    const earDrop = sad ? 10 : hungry ? 4 : 0;
-    const fid = 'df' + (++dogSeq);
-    const drool = spec.drool ? `<g class="drool">
-        <path d="M158 148c8 14 10 28 6 42 3 7 0 14-7 15-7 1-11-5-8-12 2-10-1-22-4-36 1-8 6-12 13-9z" fill="#D6EAF8"/>
-        <ellipse cx="164" cy="214" rx="4.5" ry="6" fill="#D6EAF8"/>
-      </g>` : '';
-    const collar = spec.star ? `<path d="M92 168c24 14 56 14 78-2" fill="none" stroke="#F0BB51" stroke-width="5" stroke-linecap="round"/>
-      <polygon points="132,162 135,170 144,171 137,177 139,186 132,181 125,186 127,177 120,171 129,170" fill="#F0BB51"/>` : '';
-    const showProps = cls && st === 1;
-    const props = showProps ? `<g>
-        <g transform="translate(14,22)" fill="#F7F3EE" stroke="#3C3030" stroke-width="1.5" stroke-linejoin="round">
-          <rect x="12" y="18" width="30" height="9" rx="4.5"/>
-          <circle cx="12" cy="17" r="6"/><circle cx="12" cy="28" r="6"/>
-          <circle cx="42" cy="17" r="6"/><circle cx="42" cy="28" r="6"/>
-        </g>
-        <polygon transform="translate(208,30)" fill="#F0BB51" points="14,0 17,9 27,9 19,15 22,25 14,19 6,25 9,15 1,9 11,9"/>
-        <g transform="translate(188,188)">
-          <ellipse cx="24" cy="18" rx="18" ry="12" fill="#A36D43"/>
-          <circle cx="38" cy="12" r="5.5" fill="#F7F3EE"/><circle cx="44" cy="20" r="4.5" fill="#F7F3EE"/>
-        </g>
-      </g>` : '';
-    const ear = (cx, dir) => `<g style="transform-origin:${cx}px 70px;transform:rotate(${dir * (spec.ear + earDrop)}deg)">
-        <ellipse cx="${cx}" cy="58" rx="27" ry="46" fill="#3C3030"/>
-        <ellipse cx="${cx}" cy="58" rx="24" ry="43" fill="#4B423E"/>
-        <ellipse cx="${cx}" cy="66" rx="13" ry="26" fill="#CBA398"/>
-      </g>`;
-    return `<svg class="dogsvg ${sad ? 'sad' : hungry ? 'hungry' : 'happy'} ${cls || ''}" viewBox="0 0 256 256" role="img" aria-label="小狗${STAGE_NAMES[st]}">
-      <defs><filter id="${fid}" x="-12%" y="-12%" width="124%" height="124%"><feGaussianBlur stdDeviation="0.65"/></filter></defs>
-      ${props}
-      <g filter="url(#${fid})">
-        <g class="tail" style="transform-origin:190px 188px" transform="translate(128 190) scale(${spec.body}) translate(-128 -190)">
-          <ellipse cx="188" cy="178" rx="14" ry="20" fill="#4B423E" transform="rotate(36 188 178)"/>
-        </g>
-        <g transform="translate(128 196) scale(${spec.body}) translate(-128 -196)">
-          <ellipse cx="128" cy="188" rx="58" ry="40" fill="#3C3030"/>
-          <ellipse cx="128" cy="186" rx="56" ry="38" fill="#4B423E"/>
-          <ellipse cx="172" cy="196" rx="24" ry="18" fill="#4B423E"/>
-        </g>
-        <g class="head" style="transform-origin:128px 120px" transform="translate(128 122) scale(${spec.head}) translate(-128 -122)">
-          ${ear(86, -1)}${ear(170, 1)}
-          <ellipse cx="128" cy="124" rx="74" ry="62" fill="#3C3030"/>
-          <ellipse cx="128" cy="124" rx="71" ry="59" fill="#4B423E"/>
-          <ellipse cx="104" cy="104" rx="10" ry="7" fill="#A27650" transform="rotate(-16 104 104)"/>
-          <ellipse cx="154" cy="104" rx="10" ry="7" fill="#A27650" transform="rotate(16 154 104)"/>
-          <circle cx="72" cy="138" r="${spec.blush}" fill="#A27650"/>
-          <circle cx="184" cy="138" r="${spec.blush}" fill="#A27650"/>
-          <ellipse cx="128" cy="150" rx="42" ry="32" fill="#A27650"/>
-          <ellipse cx="128" cy="160" rx="24" ry="13" fill="#8C5C3C" opacity=".2"/>
-          <circle class="eye" cx="108" cy="118" r="4.4" fill="#1A1210"/>
-          <circle class="eye" cx="152" cy="118" r="4.4" fill="#1A1210"/>
-          <ellipse cx="128" cy="138" rx="20" ry="16" fill="#1A1210"/>
-          <ellipse cx="121" cy="132" rx="3.4" ry="2.2" fill="#F7F3EE" opacity=".4"/>
-          ${drool}${collar}
-        </g>
-        <g transform="translate(128 218) scale(${spec.body}) translate(-128 -218)">
-          <ellipse cx="106" cy="216" rx="17" ry="12" fill="#8C5C3C"/>
-          <ellipse cx="152" cy="216" rx="17" ry="12" fill="#8C5C3C"/>
-          <ellipse cx="106" cy="214" rx="15" ry="10" fill="#A27650"/>
-          <ellipse cx="152" cy="214" rx="15" ry="10" fill="#A27650"/>
-        </g>
-      </g>
-    </svg>`;
+    const mood = sad ? 'sad' : hungry ? 'hungry' : 'happy';
+    return `<img class="dogsvg s${st} ${mood} ${cls || ''}" src="${PET_SRC}" alt="小狗${STAGE_NAMES[st]}" width="678" height="538" decoding="async">`;
   }
   window.__dogSVG = dogSVG;
 
