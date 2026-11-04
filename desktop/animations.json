@@ -1,0 +1,84 @@
+{
+  "pet_name": "Dog Verb",
+  "version": "2.0",
+  "animations": {
+    "idle": {
+      "sprite": "sprite_idle.png",
+      "frames": 8,
+      "duration": 0.8,
+      "trigger": "auto",
+      "description": "Default idle breathing animation",
+      "width": 2560,
+      "height": 320,
+      "frame_width": 320,
+      "frame_height": 320
+    },
+    "walk": {
+      "sprite": "sprite_walk.png",
+      "frames": 8,
+      "duration": 0.6,
+      "trigger": "drag",
+      "description": "Walking cycle animation",
+      "width": 2560,
+      "height": 320,
+      "frame_width": 320,
+      "frame_height": 320
+    },
+    "jump": {
+      "sprite": "sprite_jump.png",
+      "frames": 6,
+      "duration": 0.5,
+      "trigger": "click",
+      "description": "Jump/bounce animation",
+      "width": 1920,
+      "height": 320,
+      "frame_width": 320,
+      "frame_height": 320
+    },
+    "happy": {
+      "sprite": "sprite_happy.png",
+      "frames": 8,
+      "duration": 0.6,
+      "trigger": "pet",
+      "description": "Happy excited bounce",
+      "width": 2560,
+      "height": 320,
+      "frame_width": 320,
+      "frame_height": 320
+    },
+    "pet": {
+      "sprite": "sprite_pet.png",
+      "frames": 6,
+      "duration": 0.5,
+      "trigger": "hover",
+      "description": "Being petted reaction",
+      "width": 1920,
+      "height": 320,
+      "frame_width": 320,
+      "frame_height": 320
+    },
+    "sleep": {
+      "sprite": "sprite_sleep.png",
+      "frames": 4,
+      "duration": 1.2,
+      "trigger": "idle_timeout",
+      "description": "Sleeping/resting animation",
+      "width": 1280,
+      "height": 320,
+      "frame_width": 320,
+      "frame_height": 320
+    },
+    "eat": {
+      "sprite": "sprite_eat.png",
+      "frames": 8,
+      "duration": 0.7,
+      "trigger": "food",
+      "description": "Eating animation",
+      "width": 2560,
+      "height": 320,
+      "frame_width": 320,
+      "frame_height": 320
+    }
+  },
+  "default_animation": "idle"
+}
