@@ -2,13 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FFFCF7">
+<meta name="theme-color" content="#4B423E">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Dog Verb">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="color-scheme" content="light">
 <meta name="description" content="Dog Verb：带小狗陪伴的背单词。雅思托福词书与自助词书，FSRS 记忆，进度保存在本机。">
 <title>Dog Verb</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐶</text></svg>">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="icon" href="assets/icon-192.png">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 <svg class="petdefs" width="0" height="0" aria-hidden="true">
@@ -34,8 +37,11 @@
 </nav>
 <main id="app"></main>
 <script src="vendor/ts-fsrs.umd.js"></script>
-<script src="data/books-index.js?v=11"></script>
-<script src="core.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="data/books-index.js?v=12"></script>
+<script src="core.js?v=12"></script>
+<script src="app.js?v=12"></script>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
 </body>
 </html>
