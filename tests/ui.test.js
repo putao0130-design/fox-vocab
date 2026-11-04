@@ -85,17 +85,58 @@ function answer(w) {
   assert.deepStrictEqual(loads, ['data/book-ielts-toefl-full.js']); assert.ok(txt(w).includes('已保存')); assert.ok(txt(w).includes('ECDICT'));
   w.__go('home'); assert.ok(txt(w).includes('雅思托福全部词 · 12883 词'));
   w.__go('practice'); q(w, '[data-m="clozeType"]').click(); assert.ok(txt(w).includes('还没有学过带例句的词'));
-  // v3 界面：底部 5 个标签、SVG 狐狸、开始学习按钮、键盘快捷键、会话总结
-  assert.strictEqual([...w.document.querySelectorAll('#nav [data-view]')].map(b => b.textContent.trim().slice(-2)).join(), '首页,学习,练习,狐狸,我的');
-  w.__go('home'); assert.ok(q(w, '#app .foxsvg') && txt(w).includes('今日进度'));
+  // 界面：底部 5 个标签、SVG 小狗、开始学习按钮、键盘快捷键、会话总结
+  assert.strictEqual([...w.document.querySelectorAll('#nav [data-view]')].map(b => b.textContent.trim().slice(-2)).join(), '首页,学习,练习,小狗,我的');
+  w.__go('home'); assert.ok(q(w, '#app .dogsvg') && txt(w).includes('今日进度'));
+  assert.ok(!txt(w).includes('狐狸') && !txt(w).includes('狐粮'), 'no fox copy on home');
   for (const v of ['study', 'me', 'words', 'settings', 'preview']) { w.__go(v); assert.ok(w.document.querySelector('#nav .active'), v); }
-  w.__go('pet'); assert.strictEqual(w.document.querySelectorAll('.stages .foxsvg').length, 4);
+  w.__go('pet'); assert.strictEqual(w.document.querySelectorAll('.stages .dogsvg').length, 4);
+  assert.ok(txt(w).includes('狗粮') && txt(w).includes('成犬'));
   w.__go('settings'); q(w, '#bk').value = 'ielts-toefl-core'; q(w, '#sv').click(); await new Promise(r => setTimeout(r, 10));
   w.__go('practice'); q(w, '[data-m="w2m"]').click(); const key = k => w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
   key('1'); assert.ok(q(w, '#nx'), 'key 1 answers'); key('Enter'); assert.ok(!q(w, '#nx'), 'Enter -> next');
   w.__go('practice'); q(w, '[data-m="flash"]').click(); key(' '); assert.ok(q(w, '[data-g="3"]'), 'space flips'); key('3'); assert.ok(q(w, '#nx'));
   offset += 30 * D; w = await boot(); w.__go('review'); const n = +txt(w).match(/剩余 (\d+) 个到期/)[1]; for (let i = 0; i < n; i++) answer(w);
   assert.ok(txt(w).includes('复习完成') && txt(w).includes('正确率'), 'summary');
+
+  // 默认名「小狐」迁成「小狗」，自定义名不动
+  store = { 'foxVocab.v2': JSON.stringify({ v: 2, bookId: 'ielts-toefl-core', settings: { dailyNew: 20, autoPlay: true }, books: {}, days: {}, studyDays: [], fox: { food: 2, xp: 0, hunger: 80, lastCheck: C_today(), fed: 0, name: '小狐' } }) };
+  loads = []; w = await boot();
+  assert.strictEqual(w.__state().fox.name, '小狗', 'default name migrated');
+  assert.strictEqual(w.__state().fox.food, 2);
+  store['foxVocab.v2'] = JSON.stringify({ v: 2, bookId: 'ielts-toefl-core', settings: { dailyNew: 20, autoPlay: true }, books: {}, days: {}, studyDays: [], fox: { food: 1, xp: 0, hunger: 80, lastCheck: C_today(), fed: 0, name: '豆豆' } });
+  w = await boot(); assert.strictEqual(w.__state().fox.name, '豆豆', 'custom name kept');
+
+  // 自助词书：创建、加词、进度与内置词书分开
+  store = {}; loads = []; w = await boot();
+  w.__go('books');
+  q(w, '#bname').value = '旅游';
+  q(w, '#bpaste').value = 'apple\t苹果\nbanana 香蕉\norange';
+  q(w, '#bcreate').click();
+  await new Promise(r => setTimeout(r, 20));
+  assert.strictEqual(w.__state().customBooks.length, 1);
+  assert.strictEqual(w.__state().customBooks[0].words.length, 3);
+  assert.strictEqual(w.__state().bookId, w.__state().customBooks[0].id);
+  w.__go('books');
+  q(w, '#aw').value = 'ticket'; q(w, '#am').value = '票'; q(w, '#aadd').click();
+  assert.strictEqual(w.__state().customBooks[0].words.length, 4);
+  const cid = w.__state().customBooks[0].id;
+  w.__go('learn'); q(w, '#show').click(); q(w, '[data-g="3"]').click();
+  assert.ok(w.__state().books[cid].cards.apple || w.__state().books[cid].cards.banana || Object.keys(w.__state().books[cid].cards).length === 1);
+  const learnedCustom = Object.keys(w.__state().books[cid].cards).length;
+  assert.strictEqual(learnedCustom, 1);
+  w.__go('settings'); q(w, '#bk').value = 'ielts-toefl-core'; q(w, '#sv').click();
+  await new Promise(r => setTimeout(r, 20));
+  assert.strictEqual(w.__state().bookId, 'ielts-toefl-core');
+  assert.strictEqual(Object.keys((w.__state().books['ielts-toefl-core'] || {}).cards || {}).length, 0, 'builtin progress separate');
+  assert.strictEqual(Object.keys(w.__state().books[cid].cards).length, 1, 'custom progress kept');
+  const dumped = JSON.stringify({ type: 'dog-verb-book', v: 1, name: '旅游', words: w.__state().customBooks[0].words });
+  w.__go('books'); q(w, '[data-del]').click();
+  assert.strictEqual(w.__state().customBooks.length, 0);
+  const imp = w.__importBook(dumped);
+  assert.strictEqual(imp.ok, true);
+  assert.strictEqual(w.__state().customBooks[0].name, '旅游');
+  assert.strictEqual(w.__state().customBooks[0].words.length, 4);
   console.log('UI tests passed');
 })().catch(e => { console.error(e); process.exit(1); });
 function C_today() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }

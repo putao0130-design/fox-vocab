@@ -10,7 +10,11 @@
   // ---------- 词书按需加载 ----------
   const pending = {};
   function defaultLoader(file) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = file; s.onload = res; s.onerror = () => rej(new Error('load ' + file)); document.head.appendChild(s); }); }
+  function customOf(id) { return (S.customBooks || []).find(b => b.id === id); }
+  function asCustomBook(c) { return { id: c.id, name: c.name, description: c.description || '自定义词书', words: c.words, custom: true }; }
   function loadBook(id) {
+    const custom = customOf(id);
+    if (custom) return Promise.resolve(asCustomBook(custom));
     if (LOADED[id]) return Promise.resolve(LOADED[id]);
     const meta = INDEX.find(b => b.id === id) || INDEX[0];
     if (LOADED[meta.id]) return Promise.resolve(LOADED[meta.id]);
@@ -21,10 +25,52 @@
 
   // ---------- 存储 ----------
   function defaultState() {
-    return { v: 2, bookId: INDEX[0] && INDEX[0].id, settings: { dailyNew: 20, autoPlay: true }, books: {}, days: {}, studyDays: [],
-      fox: { food: 0, xp: 0, hunger: 80, lastCheck: today(), fed: 0, name: '小狐' } };
+    return { v: 2, bookId: INDEX[0] && INDEX[0].id, settings: { dailyNew: 20, autoPlay: true }, books: {}, customBooks: [], days: {}, studyDays: [],
+      fox: { food: 0, xp: 0, hunger: 80, lastCheck: today(), fed: 0, name: '小狗' } };
   }
-  function normalize(s) { const d = defaultState(); const o = Object.assign(d, s); o.settings = Object.assign(defaultState().settings, s.settings || {}); o.fox = Object.assign(defaultState().fox, s.fox || {}); if (!INDEX.find(b => b.id === o.bookId)) o.bookId = d.bookId; return o; }
+  function normalize(s) {
+    const d = defaultState(); const o = Object.assign(d, s);
+    o.settings = Object.assign(defaultState().settings, s.settings || {});
+    o.fox = Object.assign(defaultState().fox, s.fox || {});
+    if (o.fox.name === '小狐') o.fox.name = '小狗';
+    o.customBooks = (Array.isArray(s.customBooks) ? s.customBooks : []).map(normalizeCustom).filter(Boolean);
+    const known = INDEX.some(b => b.id === o.bookId) || o.customBooks.some(b => b.id === o.bookId);
+    if (!known) o.bookId = d.bookId;
+    return o;
+  }
+  function normalizeCustom(b) {
+    if (!b || typeof b !== 'object') return null;
+    const id = String(b.id || '');
+    if (!/^custom-[a-z0-9-]{4,}$/i.test(id)) return null;
+    const seen = new Set(); const words = [];
+    for (const raw of b.words || []) {
+      const src = typeof raw === 'string' ? { word: raw } : (raw || {});
+      const word = String(src.word || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      if (!/^[a-z][a-z' .-]{0,48}$/.test(word) || seen.has(word)) continue;
+      seen.add(word);
+      words.push({ word, ipa: String(src.ipa || ''), pos: String(src.pos || ''), meaning: String(src.meaning || '').slice(0, 120), examples: Array.isArray(src.examples) ? src.examples.map(String).filter(Boolean).slice(0, 3) : [] });
+    }
+    return { id, name: String(b.name || '我的词书').trim().slice(0, 40) || '我的词书', description: '自定义词书', words };
+  }
+  function parseWordList(text) {
+    const out = [];
+    for (let line of String(text || '').split(/\r?\n/)) {
+      line = line.trim();
+      if (!line || line.startsWith('#') || line.startsWith('//')) continue;
+      line = line.replace(/^\d+[\.\)、:：]\s*/, '');
+      let word = '', meaning = '';
+      const parts = line.split(/\t|\s*[|｜]\s*|\s+[-—–:：]\s+/);
+      if (parts.length >= 2 && /^[A-Za-z]/.test(parts[0])) { word = parts[0]; meaning = parts.slice(1).join(' '); }
+      else {
+        const m = line.match(/^([A-Za-z][A-Za-z' .-]*?)(?:\s{2,}|\s+)([\u4e00-\u9fff].*)$/);
+        if (m) { word = m[1]; meaning = m[2]; } else word = line;
+      }
+      out.push({ word, meaning: meaning.trim() });
+    }
+    return out;
+  }
+  function newCustomId() { return 'custom-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function syncCurrentBook() { const c = customOf(S.bookId); if (c && BOOK && BOOK.custom) BOOK = asCustomBook(c); }
   function load() {
     try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 2) return normalize(s); } catch (e) { }
     try {
@@ -81,8 +127,8 @@
     const r = C.grade(card, rating, now()); cs[w.word] = r.card;
     if (wasDue) d.review++;
     const nxt = '下次复习：' + C.fmtInterval(r.card.due - now()) + '后';
-    if (r.event === 'advance') { if (r.card.scheduled_days >= 1) { S.fox.food += 1; msg = '复习成功，获得 1 份狐粮 🍖；'; } msg += nxt; }
-    else if (r.event === 'mastered') { S.fox.food += 5; msg = '🎉 已掌握（复习间隔 ≥ ' + C.MASTER_DAYS + ' 天）！获得 5 份狐粮 🍖；' + nxt; }
+    if (r.event === 'advance') { if (r.card.scheduled_days >= 1) { S.fox.food += 1; msg = '复习成功，获得 1 份狗粮 🦴；'; } msg += nxt; }
+    else if (r.event === 'mastered') { S.fox.food += 5; msg = '🎉 已掌握（复习间隔 ≥ ' + C.MASTER_DAYS + ' 天）！获得 5 份狗粮 🦴；' + nxt; }
     else if (r.event === 'lapse') msg = '答错了，记忆强度下调：' + nxt;
     else msg = '（未到复习时间的额外练习，不改变复习计划）';
     save(); return msg;
@@ -93,46 +139,91 @@
   function confetti() {
     if (reduced() || !document.body) return;
     const box = document.createElement('div'); box.className = 'confetti';
-    const cols = ['#f47c2c', '#ffc24b', '#4cb782', '#4f8ef7', '#f25f7a'];
+    const cols = ['#F0BB51', '#A27650', '#4B423E', '#F7F3EE', '#A36D43'];
     for (let i = 0; i < 46; i++) { const p = document.createElement('i'); p.style.left = Math.random() * 100 + '%'; p.style.background = cols[i % cols.length]; p.style.animationDelay = Math.random() * .4 + 's'; p.style.setProperty('--x', (Math.random() * 160 - 80) + 'px'); p.style.setProperty('--r', (Math.random() * 720 - 360) + 'deg'); box.appendChild(p); }
     document.body.appendChild(box); setTimeout(() => box.remove(), 2200);
   }
   function flash(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
   function toast(html) { const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
 
-  // ---------- 原创 SVG 狐狸 ----------
+  // ---------- 小狗 SVG（炭黑身 + 棕口鼻，四阶段同一只狗长大） ----------
   function stageIdx(months) { return months >= 12 ? 3 : months >= 6 ? 2 : months >= 2 ? 1 : 0; }
-  const STAGE_NAMES = ['幼崽', '少年', '青年', '成年'];
-  function foxSVG(stage, hunger, cls) {
+  const STAGE_NAMES = ['幼崽', '少年', '青年', '成犬'];
+  let dogSeq = 0;
+  function dogSVG(stage, hunger, cls) {
+    const st = Math.max(0, Math.min(3, stage | 0));
     const sad = hunger < 20, hungry = hunger < 50;
-    const mouth = sad ? 'M92 112 q8 -6 16 0' : hungry ? 'M93 110 h14' : 'M90 107 q5 7 10 0 q5 7 10 0';
-    const tail = 30 + stage * 8;
-    const scarf = stage >= 2 ? `<path d="M68 128 q32 16 64 0 l-2 10 q-30 14 -60 0z" fill="#4cb782"/><path d="M118 134 l10 20 l-12 -2z" fill="#3a9a6c"/>` : '';
-    const crown = stage >= 3 ? `<path d="M80 40 l6 -16 l8 10 l6 -14 l6 14 l8 -10 l6 16z" fill="#ffc24b" stroke="#e0a21f" stroke-width="2" stroke-linejoin="round"/><circle cx="100" cy="28" r="2.5" fill="#f25f7a"/>` : '';
-    const tuft = stage >= 1 ? `<path d="M94 46 q6 -10 12 0 q-6 -3 -12 0z" fill="#e8691a"/>` : '';
-    const ear = (x, flip) => `<g class="ear" style="transform-origin:${x}px 60px;${hungry ? `transform:rotate(${flip ? 22 : -22}deg)` : ''}"><path d="M${x - 22 * flip} 62 L${x - 6 * flip} 18 L${x + 18 * flip} 54z" fill="#f47c2c"/><path d="M${x - 14 * flip} 56 L${x - 6 * flip} 30 L${x + 8 * flip} 52z" fill="#5a3426"/></g>`;
-    return `<svg class="foxsvg ${sad ? 'sad' : hungry ? 'hungry' : 'happy'} ${cls || ''}" viewBox="0 0 200 200" role="img" aria-label="狐狸${STAGE_NAMES[stage]}">
-      <ellipse cx="100" cy="190" rx="${46 + stage * 6}" ry="7" fill="rgba(0,0,0,.12)"/>
-      <g class="tail" style="transform-origin:128px 168px"><path d="M126 170 q${tail + 20} 4 ${tail + 22} -${tail + 26} q-6 ${tail - 6} -${tail + 22} ${tail + 14}z" fill="#f47c2c"/><path d="M${148 + tail} ${144 - tail} q4 -6 0 -${12 + stage * 2} q-14 8 -12 22z" fill="#fff7ec"/></g>
-      <ellipse cx="100" cy="${160 - stage}" rx="${36 + stage * 4}" ry="${32 + stage * 2}" fill="#f47c2c"/>
-      <ellipse cx="100" cy="${166 - stage}" rx="${18 + stage * 3}" ry="${22 + stage}" fill="#fff7ec"/>
-      <ellipse cx="82" cy="188" rx="11" ry="7" fill="#5a3426"/><ellipse cx="118" cy="188" rx="11" ry="7" fill="#5a3426"/>
-      ${scarf}
-      <g class="head">${ear(70, 1)}${ear(130, -1)}
-        <ellipse cx="100" cy="88" rx="52" ry="44" fill="#f47c2c"/>
-        <path d="M52 96 q24 -6 48 14 q24 -20 48 -14 q-10 36 -48 36 q-38 0 -48 -36z" fill="#fff7ec"/>
-        ${tuft}
-        <g class="eyes"><ellipse class="eye" cx="80" cy="88" rx="6.5" ry="8" fill="#2b1d17"/><ellipse class="eye" cx="120" cy="88" rx="6.5" ry="8" fill="#2b1d17"/>
-        <circle cx="82.5" cy="85" r="2.2" fill="#fff"/><circle cx="122.5" cy="85" r="2.2" fill="#fff"/></g>
-        ${sad ? '<path d="M70 79 l14 4 M130 79 l-14 4" stroke="#5a3426" stroke-width="3" stroke-linecap="round"/>' : ''}
-        <ellipse cx="64" cy="104" rx="7" ry="4.5" fill="#ff9aa2" opacity=".6"/><ellipse cx="136" cy="104" rx="7" ry="4.5" fill="#ff9aa2" opacity=".6"/>
-        <ellipse cx="100" cy="102" rx="6" ry="4.5" fill="#2b1d17"/>
-        <path d="${mouth}" stroke="#2b1d17" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-        ${sad ? '<path class="tear" d="M126 98 q4 8 0 11 q-4 -3 0 -11z" fill="#6ab7ff"/>' : ''}
-        ${crown}
-      </g></svg>`;
+    // 同一只坐姿小黑狗。Stage 2（index 1）对齐锁定稿：大圆立耳、棕口鼻/腮圆/爪、黑点眼、黑鼻、右侧淡蓝口水。
+    const spec = [
+      { head: 1.1, body: 0.86, ear: 8, drool: 1, star: 0, blush: 14 },
+      { head: 1, body: 1, ear: 0, drool: 1, star: 0, blush: 12 },
+      { head: 0.96, body: 1.08, ear: 0, drool: hungry || sad ? 1 : 0, star: 0, blush: 11 },
+      { head: 0.93, body: 1.16, ear: 0, drool: sad ? 1 : 0, star: 1, blush: 11 }
+    ][st];
+    const earDrop = sad ? 10 : hungry ? 4 : 0;
+    const fid = 'df' + (++dogSeq);
+    const drool = spec.drool ? `<g class="drool">
+        <path d="M158 148c8 14 10 28 6 42 3 7 0 14-7 15-7 1-11-5-8-12 2-10-1-22-4-36 1-8 6-12 13-9z" fill="#D6EAF8"/>
+        <ellipse cx="164" cy="214" rx="4.5" ry="6" fill="#D6EAF8"/>
+      </g>` : '';
+    const collar = spec.star ? `<path d="M92 168c24 14 56 14 78-2" fill="none" stroke="#F0BB51" stroke-width="5" stroke-linecap="round"/>
+      <polygon points="132,162 135,170 144,171 137,177 139,186 132,181 125,186 127,177 120,171 129,170" fill="#F0BB51"/>` : '';
+    const showProps = cls && st === 1;
+    const props = showProps ? `<g>
+        <g transform="translate(14,22)" fill="#F7F3EE" stroke="#3C3030" stroke-width="1.5" stroke-linejoin="round">
+          <rect x="12" y="18" width="30" height="9" rx="4.5"/>
+          <circle cx="12" cy="17" r="6"/><circle cx="12" cy="28" r="6"/>
+          <circle cx="42" cy="17" r="6"/><circle cx="42" cy="28" r="6"/>
+        </g>
+        <polygon transform="translate(208,30)" fill="#F0BB51" points="14,0 17,9 27,9 19,15 22,25 14,19 6,25 9,15 1,9 11,9"/>
+        <g transform="translate(188,188)">
+          <ellipse cx="24" cy="18" rx="18" ry="12" fill="#A36D43"/>
+          <circle cx="38" cy="12" r="5.5" fill="#F7F3EE"/><circle cx="44" cy="20" r="4.5" fill="#F7F3EE"/>
+        </g>
+      </g>` : '';
+    const ear = (cx, dir) => `<g style="transform-origin:${cx}px 70px;transform:rotate(${dir * (spec.ear + earDrop)}deg)">
+        <ellipse cx="${cx}" cy="58" rx="27" ry="46" fill="#3C3030"/>
+        <ellipse cx="${cx}" cy="58" rx="24" ry="43" fill="#4B423E"/>
+        <ellipse cx="${cx}" cy="66" rx="13" ry="26" fill="#CBA398"/>
+      </g>`;
+    return `<svg class="dogsvg ${sad ? 'sad' : hungry ? 'hungry' : 'happy'} ${cls || ''}" viewBox="0 0 256 256" role="img" aria-label="小狗${STAGE_NAMES[st]}">
+      <defs><filter id="${fid}" x="-12%" y="-12%" width="124%" height="124%"><feGaussianBlur stdDeviation="0.65"/></filter></defs>
+      ${props}
+      <g filter="url(#${fid})">
+        <g class="tail" style="transform-origin:190px 188px" transform="translate(128 190) scale(${spec.body}) translate(-128 -190)">
+          <ellipse cx="188" cy="178" rx="14" ry="20" fill="#4B423E" transform="rotate(36 188 178)"/>
+        </g>
+        <g transform="translate(128 196) scale(${spec.body}) translate(-128 -196)">
+          <ellipse cx="128" cy="188" rx="58" ry="40" fill="#3C3030"/>
+          <ellipse cx="128" cy="186" rx="56" ry="38" fill="#4B423E"/>
+          <ellipse cx="172" cy="196" rx="24" ry="18" fill="#4B423E"/>
+        </g>
+        <g class="head" style="transform-origin:128px 120px" transform="translate(128 122) scale(${spec.head}) translate(-128 -122)">
+          ${ear(86, -1)}${ear(170, 1)}
+          <ellipse cx="128" cy="124" rx="74" ry="62" fill="#3C3030"/>
+          <ellipse cx="128" cy="124" rx="71" ry="59" fill="#4B423E"/>
+          <ellipse cx="104" cy="104" rx="10" ry="7" fill="#A27650" transform="rotate(-16 104 104)"/>
+          <ellipse cx="154" cy="104" rx="10" ry="7" fill="#A27650" transform="rotate(16 154 104)"/>
+          <circle cx="72" cy="138" r="${spec.blush}" fill="#A27650"/>
+          <circle cx="184" cy="138" r="${spec.blush}" fill="#A27650"/>
+          <ellipse cx="128" cy="150" rx="42" ry="32" fill="#A27650"/>
+          <ellipse cx="128" cy="160" rx="24" ry="13" fill="#8C5C3C" opacity=".2"/>
+          <circle class="eye" cx="108" cy="118" r="4.4" fill="#1A1210"/>
+          <circle class="eye" cx="152" cy="118" r="4.4" fill="#1A1210"/>
+          <ellipse cx="128" cy="138" rx="20" ry="16" fill="#1A1210"/>
+          <ellipse cx="121" cy="132" rx="3.4" ry="2.2" fill="#F7F3EE" opacity=".4"/>
+          ${drool}${collar}
+        </g>
+        <g transform="translate(128 218) scale(${spec.body}) translate(-128 -218)">
+          <ellipse cx="106" cy="216" rx="17" ry="12" fill="#8C5C3C"/>
+          <ellipse cx="152" cy="216" rx="17" ry="12" fill="#8C5C3C"/>
+          <ellipse cx="106" cy="214" rx="15" ry="10" fill="#A27650"/>
+          <ellipse cx="152" cy="214" rx="15" ry="10" fill="#A27650"/>
+        </g>
+      </g>
+    </svg>`;
   }
-  window.__foxSVG = foxSVG;
+  window.__dogSVG = dogSVG;
 
   function foxInfo() {
     const total = W().length, m = masteredCount(), age = C.foxAge(m, total), st = stageIdx(age.months), lv = C.foxLevel(S.fox.xp);
@@ -141,13 +232,13 @@
   function greeting() {
     const f = S.fox, d = dayStat(), due = dueList().length, left = newLeftToday();
     let s;
-    if (f.hunger < 20) s = '好饿呀…背几个单词给我换点狐粮吧 🥺';
+    if (f.hunger < 20) s = '好饿呀…背几个单词给我换点狗粮吧 🥺';
     else if (!due && !left) s = ['今天的目标完成啦！你真的超棒 ✨', '打卡成功！明天也要来看我哦 🧡', '学习好认真，我都长大了一点点！'][d.new % 3];
     else if (f.hunger < 50) s = '肚子咕咕叫了…今天一起学习好吗？';
     else if (due) s = `还有 ${due} 个词在等你复习，趁热打铁！`;
     else if (d.new) s = `已经学了 ${d.new} 个新词，再坚持 ${left} 个就完成啦！`;
     else s = `今天学 ${left} 个新词，我们一起长大吧！`;
-    if (f.food > 0 && f.hunger < 90) s += `<br><small>你有 ${f.food} 份狐粮，可以喂我哦～</small>`;
+    if (f.food > 0 && f.hunger < 90) s += `<br><small>你有 ${f.food} 份狗粮，可以喂我哦～</small>`;
     return s;
   }
   function hello() { const h = new Date(now()).getHours(); return h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好'; }
@@ -195,8 +286,8 @@
     const s = SESS || { done: 0, correct: 0, food0: S.fox.food, t0: now() };
     const acc = s.done ? Math.round(s.correct / s.done * 100) + '%' : '-';
     const mins = Math.max(1, Math.round((now() - s.t0) / 60000));
-    return `<div class="card summary pop"><div class="sumfox">${foxSVG(foxInfo().st, S.fox.hunger, 'bounce')}</div><h2>${title}</h2><p class="muted">${sub}</p>
-      <div class="sumstats"><div><b>${s.done}</b><span>完成</span></div><div><b>${acc}</b><span>正确率</span></div><div><b>+${Math.max(0, S.fox.food - s.food0)}</b><span>🍖 狐粮</span></div><div><b>${mins}</b><span>分钟</span></div></div>${extra || ''}</div>`;
+    return `<div class="card summary pop"><div class="sumfox">${dogSVG(foxInfo().st, S.fox.hunger, 'bounce')}</div><h2>${title}</h2><p class="muted">${sub}</p>
+      <div class="sumstats"><div><b>${s.done}</b><span>完成</span></div><div><b>${acc}</b><span>正确率</span></div><div><b>+${Math.max(0, S.fox.food - s.food0)}</b><span>🦴 狗粮</span></div><div><b>${mins}</b><span>分钟</span></div></div>${extra || ''}</div>`;
   }
 
   function showQ(container, w, type, next) {
@@ -249,7 +340,7 @@
 
   // ---------- 视图 ----------
   const views = {};
-  const TAB_OF = { home: 'home', study: 'study', learn: 'study', review: 'study', preview: 'study', practice: 'practice', sentence: 'practice', pet: 'pet', me: 'me', words: 'me', settings: 'me' };
+  const TAB_OF = { home: 'home', study: 'study', learn: 'study', review: 'study', preview: 'study', practice: 'practice', sentence: 'practice', pet: 'pet', me: 'me', words: 'me', settings: 'me', books: 'me' };
   let navSeq = 0;
   function go(v, arg) {
     if (!(v in views)) v = 'home';
@@ -266,7 +357,7 @@
 
   function ring(pct, size) {
     const r = 52, c = 2 * Math.PI * r, off = c * (1 - Math.min(1, pct));
-    return `<svg class="ring" viewBox="0 0 120 120" width="${size}" height="${size}"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#f4622c"/></linearGradient></defs>
+    return `<svg class="ring" viewBox="0 0 120 120" width="${size}" height="${size}"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0BB51"/><stop offset="1" stop-color="#A27650"/></linearGradient></defs>
       <circle cx="60" cy="60" r="${r}" class="ring-bg"/><circle cx="60" cy="60" r="${r}" class="ring-fg" stroke="url(#rg)" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 60 60)"/></svg>`;
   }
   function weekBars() {
@@ -295,7 +386,7 @@
     <div class="topline"><div><div class="hello">${hello()} 👋</div><div class="muted">${esc(BOOK.name)} · ${total} 词</div></div><div class="streak ${st ? 'on' : ''}" title="连续打卡"><span class="flame">🔥</span><b>${st}</b><small>天</small></div></div>
     <div class="grid2">
     <div class="card hero">
-      <div class="herofox" onclick="__go('pet')">${foxSVG(fi.st, S.fox.hunger, 'idle')}<div class="bubble">${greeting()}</div></div>
+      <div class="herofox" onclick="__go('pet')">${dogSVG(fi.st, S.fox.hunger, 'idle')}<div class="bubble">${greeting()}</div></div>
       <div class="ringwrap">${ring(pct, 150)}<div class="ringtxt"><b>${Math.round(pct * 100)}<small>%</small></b><span>今日进度</span></div></div>
       <div class="ringlegend"><div><i class="dot n"></i>新词 <b>${d.new}/${S.settings.dailyNew}</b></div><div><i class="dot r"></i>复习 <b>${d.review}/${d.review + due}</b></div></div>
       ${cta}
@@ -308,8 +399,8 @@
       <div class="stat"><span>连续打卡</span><b>${st} 天</b></div><div class="stat"><span>累计打卡</span><b>${S.studyDays.length} 天</b></div>
     </div>
     <div class="card"><div class="ctitle">本周学习<span class="muted">新学 + 复习</span></div>${weekBars()}</div>
-    <div class="card"><div class="ctitle">词书进度<span class="muted">已掌握 ${m}/${total}</span></div><div class="bar big"><i style="width:${(m / total * 100).toFixed(1)}%"></i></div>
-      <div class="quick"><button onclick="__go('review')">📖 复习 ${due}</button><button onclick="__go('learn')">✨ 新词 ${left}</button><button onclick="__go('preview')">🔭 预习</button><button onclick="__go('pet')">🍖 狐粮 ${S.fox.food}</button></div></div>
+    <div class="card"><div class="ctitle">词书进度<span class="muted">已掌握 ${m}/${total}</span></div><div class="bar big"><i style="width:${(total ? m / total * 100 : 0).toFixed(1)}%"></i></div>
+      <div class="quick"><button onclick="__go('review')">📖 复习 ${due}</button><button onclick="__go('learn')">✨ 新词 ${left}</button><button onclick="__go('preview')">🔭 预习</button><button onclick="__go('pet')">🦴 狗粮 ${S.fox.food}</button></div></div>
     </div></div>
     ${S.migratedFrom === 1 ? '<div class="note">已从 v1 自动迁移学习进度到 FSRS 记忆算法（原数据已备份）。</div>' : ''}
     <div class="card"><div class="ctitle">近 28 天打卡</div>${calendar()}</div>`;
@@ -326,6 +417,7 @@
 
   views.learn = function () {
     const left = newLeftToday(); const list = unlearned();
+    if (!W().length) { $app.innerHTML = '<div class="card summary"><h2>这本词书还没有词</h2><p class="muted">先添加几个单词再开始。</p><button class="primary" onclick="__go(\'books\')">去词书</button></div>'; return; }
     if (!list.length) { $app.innerHTML = '<div class="card summary"><h2>🎉 整本词书都学过了！</h2><button class="primary" onclick="__go(\'review\')">去复习</button></div>'; return; }
     if (left <= 0) {
       const just = SESS && SESS.kind === 'learn' && SESS.done > 0;
@@ -366,7 +458,7 @@
         const nx = next ? `下一个复习在约 ${C.fmtInterval(next.due - now())}后。` : '';
         const acts = `<div class="row center"><button class="primary" onclick="__go('learn')">学新词</button><button class="ghost" onclick="__go('practice')">自由练习</button></div>`;
         if (SESS && SESS.done) { const html = summary('复习完成！', '✅ 当前没有到期的复习。' + nx, acts); if (!newLeftToday()) confetti(); SESS = null; return html; }
-        return `<div class="card summary"><div class="sumfox">${foxSVG(foxInfo().st, S.fox.hunger, 'idle')}</div><h2>✅ 当前没有到期的复习。</h2><p class="muted">${nx}</p>${acts}</div>`; },
+        return `<div class="card summary"><div class="sumfox">${dogSVG(foxInfo().st, S.fox.hunger, 'idle')}</div><h2>✅ 当前没有到期的复习。</h2><p class="muted">${nx}</p>${acts}</div>`; },
       () => `今日回顾 · 剩余 ${dueList().length} 个到期`, () => SESS.done + dueList().length);
   };
 
@@ -426,21 +518,21 @@
     const size = 170 + fi.st * 30;
     $app.innerHTML = `<div class="card petcard">
       <div class="pethead"><div><h2>${esc(f.name)} <button class="ghost sm" id="rn">改名</button></h2><div class="muted">${C.foxStage(age.months).name} · 月龄 <b>${age.label}</b></div></div><div class="lv">Lv.${lv}</div></div>
-      <div class="stage s${fi.st}"><div class="bubble">${fedN ? `谢谢你的狐粮！好好吃 💕` : greeting()}</div><div class="foxbox" id="foxbox" style="width:${size}px">${foxSVG(fi.st, f.hunger, 'idle' + (fedN ? ' bounce' : ''))}</div></div>
+      <div class="stage s${fi.st}"><div class="bubble">${fedN ? `谢谢你的狗粮！好好吃 💕` : greeting()}</div><div class="dogbox" id="dogbox" style="width:${size}px">${dogSVG(fi.st, f.hunger, 'idle' + (fedN ? ' bounce' : ''))}</div></div>
       <div class="mood">心情：${C.foxMood(f.hunger)}</div>
       <div class="meter"><span>🎂 年龄</span><div class="bar"><i style="width:${(age.years * 100).toFixed(1)}%"></i></div><small>掌握 ${m}/${total}</small></div>
       <div class="meter"><span>🍗 饱食度</span><div class="bar ${f.hunger < 50 ? 'warn' : 'full'}"><i style="width:${f.hunger}%"></i></div><small>${f.hunger}/100</small></div>
       <div class="meter"><span>⭐ 经验</span><div class="bar xp"><i style="width:${((f.xp - curXp) / (nextXp - curXp) * 100).toFixed(1)}%"></i></div><small>${f.xp}/${nextXp}</small></div>
-      <div class="feedrow"><div class="foodbag">🍖<b>${f.food}</b><small>狐粮</small></div><button class="primary" id="f1" ${f.food ? '' : 'disabled'}>喂 1 份</button><button class="ghost" id="fa" ${f.food ? '' : 'disabled'}>全部喂掉</button></div>
+      <div class="feedrow"><div class="foodbag">🦴<b>${f.food}</b><small>狗粮</small></div><button class="primary" id="f1" ${f.food ? '' : 'disabled'}>喂 1 份</button><button class="ghost" id="fa" ${f.food ? '' : 'disabled'}>全部喂掉</button></div>
       <div id="msg"></div>
-      <div class="stages">${STAGE_NAMES.map((n, i) => `<div class="${i <= fi.st ? 'on' : ''}">${foxSVG(i, 100)}<span>${n}</span></div>`).join('')}</div></div>
-      <details class="card rules"><summary>成长规则</summary><div class="muted">规则：到期复习答对且下次间隔 ≥ 1 天 +1 狐粮；单词「掌握」（FSRS 复习间隔达到 ${C.MASTER_DAYS} 天及以上）+5 狐粮，之后答错会失去掌握状态。喂 1 份 = 饱食度 +10、经验 +10。哪天没学习，饱食度 −${C.HUNGER_PER_DAY}。月龄只由当前词书（「${esc(BOOK.name)}」）的掌握词数决定：整本词书全部掌握 = 1岁（12 个月）。成长阶段：幼崽(&lt;2月)→少年(2月)→青年(6月)→成年(1岁)。累计喂食 ${f.fed || 0} 次。</div></details>`;
+      <div class="stages">${STAGE_NAMES.map((n, i) => `<div class="${i <= fi.st ? 'on' : ''}">${dogSVG(i, 100)}<span>${n}</span></div>`).join('')}</div></div>
+      <details class="card rules"><summary>成长规则</summary><div class="muted">规则：到期复习答对且下次间隔 ≥ 1 天 +1 狗粮；单词「掌握」（FSRS 复习间隔达到 ${C.MASTER_DAYS} 天及以上）+5 狗粮，之后答错会失去掌握状态。喂 1 份 = 饱食度 +10、经验 +10。哪天没学习，饱食度 −${C.HUNGER_PER_DAY}。月龄只由当前词书（「${esc(BOOK.name)}」）的掌握词数决定：整本词书全部掌握 = 1岁（12 个月）。成长阶段：幼崽(&lt;2月)→少年(2月)→青年(6月)→成犬(1岁)。累计喂食 ${f.fed || 0} 次。</div></details>`;
     const doFeed = (n, btn) => {
       let c = 0; while (c < n) { const r = C.feed(S.fox); if (!r.ok) break; S.fox = r.fox; c++; } save();
       const from = btn && btn.getBoundingClientRect ? btn.getBoundingClientRect() : null;
       views.pet(c);
-      $app.querySelector('#msg').innerHTML = `<div class="verdict ok">喂了 ${c} 份，小狐狸很满足 🦊💕</div>`;
-      const fb = $app.querySelector('#foxbox'); if (!fb || !from || reduced()) return;
+      $app.querySelector('#msg').innerHTML = `<div class="verdict ok">喂了 ${c} 份，小狗很满足 🐶💕</div>`;
+      const fb = $app.querySelector('#dogbox'); if (!fb || !from || reduced()) return;
       const to = fb.getBoundingClientRect();
       for (let i = 0; i < Math.min(c, 8); i++) { const e = document.createElement('div'); e.className = 'flyfood'; e.textContent = '🍖';
         e.style.left = (from.left + from.width / 2) + 'px'; e.style.top = (from.top) + 'px';
@@ -448,14 +540,14 @@
         document.body.appendChild(e); setTimeout(() => e.remove(), 1000 + i * 80); }
     };
     $app.querySelector('#f1').onclick = e => doFeed(1, e.currentTarget); $app.querySelector('#fa').onclick = e => doFeed(f.food, e.currentTarget);
-    $app.querySelector('#rn').onclick = () => { const n = prompt('给狐狸起个名字', f.name); if (n) { S.fox.name = n.slice(0, 20); save(); views.pet(); } };
+    $app.querySelector('#rn').onclick = () => { const n = prompt('给小狗起个名字', f.name); if (n && n.trim()) { S.fox.name = n.trim().slice(0, 20); save(); views.pet(); } };
   };
 
   views.me = function () {
     const fi = foxInfo(), st = C.streak(S.studyDays, today());
-    $app.innerHTML = `<div class="card mehead"><div class="avatar">${foxSVG(fi.st, S.fox.hunger)}</div><div><h2>我的学习</h2><div class="muted">${esc(BOOK.name)} · 连续 ${st} 天 · 累计 ${S.studyDays.length} 天</div></div></div>
+    $app.innerHTML = `<div class="card mehead"><div class="avatar">${dogSVG(fi.st, S.fox.hunger)}</div><div><h2>我的学习</h2><div class="muted">${esc(BOOK.name)} · 连续 ${st} 天 · 累计 ${S.studyDays.length} 天</div></div></div>
       <div class="stats three"><div class="stat"><span>已学</span><b>${learned().length}</b></div><div class="stat"><span>已掌握</span><b>${fi.m}</b></div><div class="stat"><span>待复习</span><b>${dueList().length}</b></div></div>
-      <div class="menu"><button onclick="__go('words')">📚 词表<span>›</span></button><button onclick="__go('preview')">🔭 预习<span>›</span></button><button onclick="__go('sentence')">✍️ 造句<span>›</span></button><button onclick="__go('settings')">⚙️ 设置与备份<span>›</span></button></div>
+      <div class="menu"><button onclick="__go('books')">📚 词书<span>›</span></button><button onclick="__go('words')">📖 词表<span>›</span></button><button onclick="__go('preview')">🔭 预习<span>›</span></button><button onclick="__go('sentence')">✍️ 造句<span>›</span></button><button onclick="__go('settings')">⚙️ 设置与备份<span>›</span></button></div>
       <div class="card"><div class="ctitle">近 28 天打卡</div>${calendar()}</div>`;
   };
 
@@ -471,19 +563,103 @@
     $app.querySelector('#q').oninput = e => render(e.target.value.trim().toLowerCase()); render('');
   };
 
+  function bookOptions() {
+    const builtin = INDEX.map(b => `<option value="${b.id}" ${b.id === S.bookId ? 'selected' : ''}>${esc(b.name)}（${b.count}）</option>`).join('');
+    const custom = (S.customBooks || []).map(b => `<option value="${esc(b.id)}" ${b.id === S.bookId ? 'selected' : ''}>${esc(b.name)}（${b.words.length}·我的）</option>`).join('');
+    return builtin + custom;
+  }
+  views.books = function () {
+    const editing = customOf(S.bookId);
+    const rows = (S.customBooks || []).map(b => `<div class="card bookitem"><div class="ctitle">${esc(b.name)}<span class="muted">${b.words.length} 词${b.id === S.bookId ? ' · 当前' : ''}</span></div>
+      <div class="row"><button class="primary sm" data-use="${esc(b.id)}">学习这本</button><button class="ghost sm" data-ren="${esc(b.id)}">重命名</button><button class="danger sm" data-del="${esc(b.id)}">删除</button></div>
+      <div class="wordchips">${b.words.slice(0, 12).map(w => `<span>${esc(w.word)}${w.meaning ? ' ' + esc(w.meaning) : ''}</span>`).join('')}${b.words.length > 12 ? `<span>…共 ${b.words.length}</span>` : ''}</div></div>`).join('');
+    $app.innerHTML = `<h2 class="ph">词书</h2>
+      <div class="card"><div class="ctitle">内置词书</div>${INDEX.map(b => `<div class="row" style="justify-content:space-between"><span>${esc(b.name)} <small class="muted">${b.count} 词</small></span><button class="ghost sm" data-use="${b.id}">${b.id === S.bookId ? '当前' : '切换'}</button></div>`).join('')}</div>
+      <div class="card"><div class="ctitle">新建自定义词书</div>
+        <label class="field">名称<input id="bname" type="text" maxlength="40" placeholder="例如：旅游口语"></label>
+        <label class="field">粘贴词表（可选）<textarea id="bpaste" rows="4" placeholder="每行一个：apple 苹果&#10;banana&#9;香蕉&#10;orange"></textarea></label>
+        <button class="primary block" id="bcreate">创建词书</button>
+        <div class="hint">也可以先创建空词书，再逐词添加。进度按词书分开保存，删词书不会影响其他词书。</div></div>
+      ${rows || '<div class="card muted">还没有自定义词书。</div>'}
+      ${editing ? `<div class="card"><div class="ctitle">往「${esc(editing.name)}」加词</div>
+        <div class="row"><input id="aw" type="text" placeholder="单词" autocomplete="off" autocapitalize="off"><input id="am" type="text" placeholder="中文释义（可选）"></div>
+        <div class="row"><button class="primary" id="aadd">添加这个词</button><button class="ghost" id="exb">导出 JSON</button><label><button class="ghost" id="imb">导入 JSON</button><input id="imbf" type="file" accept=".json,application/json" style="display:none"></label></div>
+        <label class="field">再粘贴一批<textarea id="apaste" rows="3" placeholder="每行一个单词，可带中文"></textarea></label>
+        <button class="ghost block" id="ap">把粘贴的词加进来</button></div>` : ''}
+      <div id="msg"></div>`;
+    const use = id => { S.bookId = id; save(); BOOK = null; go('home'); };
+    $app.querySelectorAll('[data-use]').forEach(b => b.onclick = () => use(b.dataset.use));
+    $app.querySelectorAll('[data-ren]').forEach(b => b.onclick = () => {
+      const c = customOf(b.dataset.ren); const n = prompt('词书名称', c ? c.name : '');
+      if (!c || !n || !n.trim()) return; c.name = n.trim().slice(0, 40); save(); syncCurrentBook(); views.books();
+    });
+    $app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+      const id = b.dataset.del; const c = customOf(id); if (!c) return;
+      if (!confirm('删除词书「' + c.name + '」及其学习进度？此操作不可撤销。')) return;
+      S.customBooks = S.customBooks.filter(x => x.id !== id); delete S.books[id];
+      if (S.bookId === id) { S.bookId = INDEX[0] ? INDEX[0].id : ''; BOOK = null; }
+      save(); views.books();
+    });
+    $app.querySelector('#bcreate').onclick = () => {
+      const name = ($app.querySelector('#bname').value || '').trim() || '我的词书';
+      const words = parseWordList($app.querySelector('#bpaste').value);
+      const book = normalizeCustom({ id: newCustomId(), name, words });
+      if (!book) return;
+      S.customBooks.push(book); S.bookId = book.id; save(); BOOK = null;
+      const p = go('books'); const ok = () => { const m = $app.querySelector('#msg'); if (m) m.innerHTML = `<div class="verdict ok">已创建「${esc(book.name)}」，${book.words.length} 个词</div>`; };
+      p && p.then ? p.then(ok) : ok();
+    };
+    const addWords = list => {
+      const c = customOf(S.bookId); if (!c) return 0;
+      const before = c.words.length;
+      const merged = normalizeCustom({ id: c.id, name: c.name, words: c.words.concat(list) });
+      c.words = merged.words; save(); syncCurrentBook(); return c.words.length - before;
+    };
+    const addBtn = $app.querySelector('#aadd');
+    if (addBtn) addBtn.onclick = () => {
+      const n = addWords([{ word: $app.querySelector('#aw').value, meaning: $app.querySelector('#am').value }]);
+      views.books(); const m = $app.querySelector('#msg'); if (m) m.innerHTML = n ? '<div class="verdict ok">已添加</div>' : '<div class="err">没有识别到新单词（需英文，且不要重复）</div>';
+    };
+    const pasteBtn = $app.querySelector('#ap');
+    if (pasteBtn) pasteBtn.onclick = () => {
+      const n = addWords(parseWordList($app.querySelector('#apaste').value));
+      views.books(); const m = $app.querySelector('#msg'); if (m) m.innerHTML = `<div class="verdict ok">新增 ${n} 个词</div>`;
+    };
+    const exb = $app.querySelector('#exb');
+    if (exb) exb.onclick = () => {
+      const c = customOf(S.bookId); if (!c) return;
+      const payload = { type: 'dog-verb-book', v: 1, name: c.name, words: c.words };
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' })); a.download = 'dog-verb-book-' + today() + '.json'; a.click();
+    };
+    const imb = $app.querySelector('#imb');
+    if (imb) { imb.onclick = () => $app.querySelector('#imbf').click();
+      $app.querySelector('#imbf').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { const r = importBookText(t); const m = $app.querySelector('#msg'); if (m) m.innerHTML = r.ok ? `<div class="verdict ok">${esc(r.msg)}</div>` : `<div class="err">${esc(r.msg)}</div>`; if (r.ok) views.books(); }); };
+    }
+  };
+  function importBookText(t) {
+    let data; try { data = JSON.parse(t); } catch (e) { return { ok: false, msg: '文件不是 JSON' }; }
+    const src = Array.isArray(data) ? { name: '导入的词书', words: data } : data;
+    if (!src || typeof src !== 'object') return { ok: false, msg: '格式不正确' };
+    const words = Array.isArray(src.words) ? src.words : [];
+    const book = normalizeCustom({ id: newCustomId(), name: src.name || '导入的词书', words });
+    if (!book || !book.words.length) return { ok: false, msg: '没有可用的单词' };
+    S.customBooks.push(book); S.bookId = book.id; save(); BOOK = null;
+    return { ok: true, msg: '已导入「' + book.name + '」，' + book.words.length + ' 个词' };
+  }
+  window.__importBook = importBookText;
   views.settings = function () {
-    $app.innerHTML = `<h2 class="ph">设置</h2><div class="card"><div class="ctitle">学习设置</div><label class="field">词书<select id="bk">${INDEX.map(b => `<option value="${b.id}" ${b.id === S.bookId ? 'selected' : ''}>${esc(b.name)}（${b.count}）</option>`).join('')}</select></label>
-      <div class="hint">每本词书的进度分别保存；切换词书时才下载该词书（全部词约 1.5 MB）。</div>
+    $app.innerHTML = `<h2 class="ph">设置</h2><div class="card"><div class="ctitle">学习设置</div><label class="field">词书<select id="bk">${bookOptions()}</select></label>
+      <div class="hint">每本词书的进度分别保存。内置词书切换时才下载（全部词约 1.5 MB）。<a href="#books" onclick="event.preventDefault();__go('books')">管理自助词书</a></div>
       <label class="field">每日新词数<input type="number" id="dn" min="1" max="200" value="${S.settings.dailyNew}"></label>
       <div class="field"><label class="switch"><input type="checkbox" id="ap" ${S.settings.autoPlay ? 'checked' : ''}><i></i> 自动播放发音（英音）</label>${sayBtn('vocabulary')}</div>
       <button class="primary block" id="sv">保存</button></div>
       <div class="card"><div class="ctitle">备份</div><div class="hint">进度保存在本浏览器中。可导出 JSON 文件备份，或在另一台设备导入（也可导入 v1 版导出的文件）。</div>
       <div class="row"><button class="ghost" id="ex">导出进度</button><label><button class="ghost" id="imb">导入进度</button><input type="file" id="im" accept=".json,application/json" style="display:none"></label></div></div>
       <div class="card"><div class="ctitle">危险操作</div><div class="row"><button class="danger" id="rs">清空所有进度</button></div></div><div id="msg"></div>
-      <div class="card muted credit">词库：<a href="https://github.com/skywind3000/ECDICT" target="_blank">ECDICT</a>（MIT）、<a href="https://github.com/KyleBing/english-vocabulary" target="_blank">KyleBing/english-vocabulary</a>（BSD-3-Clause）；记忆算法：<a href="https://github.com/open-spaced-repetition/ts-fsrs" target="_blank">ts-fsrs</a>（MIT）；英音发音：有道词典在线音频，失败时用浏览器 en-GB 语音。详见 <a href="LICENSES/THIRD_PARTY_NOTICES.md" target="_blank">第三方许可</a>。狐狸形象与界面为原创。</div>`;
+      <div class="card muted credit">词库：<a href="https://github.com/skywind3000/ECDICT" target="_blank">ECDICT</a>（MIT）、<a href="https://github.com/KyleBing/english-vocabulary" target="_blank">KyleBing/english-vocabulary</a>（BSD-3-Clause）；记忆算法：<a href="https://github.com/open-spaced-repetition/ts-fsrs" target="_blank">ts-fsrs</a>（MIT）；英音发音：有道词典在线音频，失败时用浏览器 en-GB 语音。详见 <a href="LICENSES/THIRD_PARTY_NOTICES.md" target="_blank">第三方许可</a>。小狗形象与界面为原创。</div>`;
     $app.querySelector('#sv').onclick = () => { const n = parseInt($app.querySelector('#dn').value, 10); if (n > 0) S.settings.dailyNew = n; S.settings.autoPlay = $app.querySelector('#ap').checked; S.bookId = $app.querySelector('#bk').value; save();
       const p = go('settings'); const ok = () => { const m = $app.querySelector('#msg'); if (m) m.innerHTML = '<div class="verdict ok">已保存</div>'; }; p && p.then ? p.then(ok) : ok(); };
-    $app.querySelector('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' })); a.download = 'fox-vocab-backup-' + today() + '.json'; a.click(); };
+    $app.querySelector('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' })); a.download = 'dog-verb-backup-' + today() + '.json'; a.click(); };
     $app.querySelector('#imb').onclick = () => $app.querySelector('#im').click();
     $app.querySelector('#im').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => importText(t)); };
     $app.querySelector('#rs').onclick = () => { if (confirm('确定清空所有学习进度和宠物数据吗？此操作不可撤销（建议先导出）。')) { S = defaultState(); save(); BOOK = null; go('home'); } };

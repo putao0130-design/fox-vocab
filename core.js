@@ -107,7 +107,7 @@
   const HUNGER_PER_DAY = 25, FEED_HUNGER = 10, FEED_XP = 10;
   function foxLevel(xp) { return Math.floor(Math.sqrt((xp || 0) / 20)) + 1; }
   function foxAge(mastered, total) { const months = total ? Math.min(12, mastered / total * 12) : 0; return { months, years: months / 12, label: months >= 12 ? '1岁' : months.toFixed(1) + ' 个月' }; }
-  function foxStage(months) { if (months >= 12) return { name: '成年狐狸', emoji: '🦊👑' }; if (months >= 6) return { name: '青年狐狸', emoji: '🦊' }; if (months >= 2) return { name: '少年小狐', emoji: '🦊' }; return { name: '狐狸幼崽', emoji: '🥚🦊' }; }
+  function foxStage(months) { if (months >= 12) return { name: '成犬', emoji: '🐶' }; if (months >= 6) return { name: '青年小狗', emoji: '🐶' }; if (months >= 2) return { name: '少年小狗', emoji: '🐶' }; return { name: '幼崽', emoji: '🐶' }; }
   function foxMood(h) { return h >= 80 ? '开心 😄' : h >= 50 ? '还行 🙂' : h >= 20 ? '饿了 😟' : '非常饿 😢'; }
   function applyHunger(fox, studyDays, todayKey) {
     const f = Object.assign({}, fox); const last = f.lastCheck || todayKey; const set = new Set(studyDays); let k = last;
