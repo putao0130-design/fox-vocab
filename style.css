@@ -141,7 +141,7 @@ textarea{margin-top:12px;resize:vertical}
 .plist{display:grid;gap:10px}@media (min-width:760px){.plist{grid-template-columns:1fr 1fr}}.card.mini{padding:4px 8px;margin:0}
 .mine{padding:8px 0;border-bottom:1px solid var(--line)}
 /* dog */
-.dogsvg{display:block;width:100%;height:auto;overflow:visible}
+.dogsvg{display:block;width:100%;height:auto;overflow:visible;background:transparent}
 .dogsvg .eye{transform-box:fill-box;transform-origin:center;animation:blink 4.5s infinite}
 .dogsvg.idle .tail{animation:wag 2.4s ease-in-out infinite}
 .dogsvg.idle .head{transform-origin:128px 118px;animation:tilt 6s ease-in-out infinite}
@@ -158,7 +158,8 @@ textarea{margin-top:12px;resize:vertical}
 .lv{background:var(--color-accent);color:var(--color-ink);font-weight:800;border-radius:12px;padding:6px 12px}
 .stage{display:flex;flex-direction:column;align-items:center;margin:10px 0}
 .stage .bubble{margin-bottom:6px;max-width:300px}.stage .bubble:after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:var(--card)}
-.foxbox,.dogbox{max-width:80vw}
+.foxbox,.dogbox{max-width:80vw;background:transparent}
+.herofox,.herodog,.sumfox,.sumdog,.stage{background:transparent}
 .mood{font-weight:600;margin-bottom:10px}
 .meter{display:grid;grid-template-columns:76px 1fr auto;gap:10px;align-items:center;font-size:14px;margin:10px 0;text-align:left}.meter small{color:var(--mute);min-width:64px;text-align:right}
 .feedrow{display:flex;gap:10px;align-items:center;margin-top:16px}.feedrow button{flex:1;min-height:52px}

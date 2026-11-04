@@ -149,12 +149,12 @@
   // ---------- 锁定稿小狗 PNG（四阶段同一张图） ----------
   function stageIdx(months) { return months >= 12 ? 3 : months >= 6 ? 2 : months >= 2 ? 1 : 0; }
   const STAGE_NAMES = ['幼崽', '少年', '青年', '成犬'];
-  const PET_SRC = 'assets/dog-mascot.png?v=6';
+  const PET_SRC = 'assets/dog-mascot.png?v=7';
   function dogSVG(stage, hunger, cls) {
     const st = Math.max(0, Math.min(3, stage | 0));
     const sad = hunger < 20, hungry = hunger < 50;
     const mood = sad ? 'sad' : hungry ? 'hungry' : 'happy';
-    return `<img class="dogsvg s${st} ${mood} ${cls || ''}" src="${PET_SRC}" alt="小狗${STAGE_NAMES[st]}" width="678" height="538" decoding="async">`;
+    return `<img class="dogsvg s${st} ${mood} ${cls || ''}" src="${PET_SRC}" alt="小狗${STAGE_NAMES[st]}" width="1024" height="1024" decoding="async">`;
   }
   window.__dogSVG = dogSVG;
 
