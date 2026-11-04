@@ -36,23 +36,8 @@
       "main.js",
       "renderer.js",
       "index.html",
-      "sprite*.png",
-      "animations.json",
       "package.json",
       "assets/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "sprite*.png",
-        "to": "."
-      },
-      {
-        "from": "animations.json",
-        "to": ".",
-        "filter": [
-          "**/*"
-        ]
-      }
     ],
     "mac": {
       "category": "public.app-category.entertainment",

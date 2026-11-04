@@ -12,7 +12,8 @@ let tray = null;
 let petSettings = {
     x: 100,
     y: 100,
-    size: 320,
+    width: 520,
+    height: 480,
     alwaysOnTop: true,
     clickThrough: false
 };
@@ -20,12 +21,12 @@ let petSettings = {
 // 创建主窗口
 function createWindow() {
     const area = screen.getPrimaryDisplay().workArea;
-    petSettings.x = Math.round(area.x + area.width - petSettings.size - 36);
-    petSettings.y = Math.round(area.y + area.height - petSettings.size - 36);
+    petSettings.x = Math.round(area.x + area.width - petSettings.width - 48);
+    petSettings.y = Math.round(area.y + (area.height - petSettings.height) / 2);
 
     mainWindow = new BrowserWindow({
-        width: petSettings.size,
-        height: petSettings.size,
+        width: petSettings.width,
+        height: petSettings.height,
         x: petSettings.x,
         y: petSettings.y,
         frame: false,
@@ -79,7 +80,10 @@ function createWindow() {
         mainWindow.webContents.openDevTools({ mode: 'detach' });
     }
 
-    console.log('Dog Verb 窗口已创建');
+    mainWindow.setMinimumSize(petSettings.width, petSettings.height);
+    mainWindow.setMaximumSize(petSettings.width, petSettings.height);
+    const bounds = mainWindow.getBounds();
+    console.log('Dog Verb window', bounds, 'scale', screen.getPrimaryDisplay().scaleFactor);
 }
 
 // 创建系统托盘
@@ -206,7 +210,14 @@ ipcMain.on('save-position', (event, { x, y }) => {
     petSettings.x = Math.round(x);
     petSettings.y = Math.round(y);
     if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.setPosition(petSettings.x, petSettings.y);
+        const [cx, cy] = mainWindow.getPosition();
+        if (cx !== petSettings.x || cy !== petSettings.y) {
+            mainWindow.setPosition(petSettings.x, petSettings.y);
+        }
+        const [w, h] = mainWindow.getSize();
+        if (w !== petSettings.width || h !== petSettings.height) {
+            mainWindow.setSize(petSettings.width, petSettings.height);
+        }
     }
 });
 
@@ -260,18 +271,15 @@ ipcMain.on('quit-app', () => {
 ipcMain.on('show-context-menu', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return;
-    const animations = [
-        ['idle', '待机'],
-        ['walk', '走路'],
-        ['jump', '跳跃'],
-        ['happy', '开心'],
-        ['pet', '抚摸'],
-        ['sleep', '睡觉'],
-        ['eat', '吃东西']
+    const behaviors = [
+        ['yawn', 'Yawn 打哈欠'],
+        ['hungry', 'Hungry 饿了'],
+        ['roam', 'Run in circles 绕圈跑'],
+        ['bark', 'Bark 叫叫']
     ];
-    const template = animations.map(([id, label]) => ({
+    const template = behaviors.map(([id, label]) => ({
         label,
-        click: () => win.webContents.send('play-animation', id)
+        click: () => win.webContents.send('play-behavior', id)
     }));
     template.push({ type: 'separator' });
     template.push({
@@ -301,6 +309,14 @@ ipcMain.on('restart-app', () => {
 // 获取屏幕信息
 ipcMain.handle('get-screen-bounds', () => {
     return screen.getPrimaryDisplay().bounds;
+});
+
+ipcMain.handle('get-bounds', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return { x: petSettings.x, y: petSettings.y, alwaysOnTop: petSettings.alwaysOnTop };
+    }
+    const [x, y] = mainWindow.getPosition();
+    return { x, y, alwaysOnTop: petSettings.alwaysOnTop };
 });
 
 // 日志记录

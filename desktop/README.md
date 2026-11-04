@@ -1,44 +1,45 @@
 # Dog Verb — desktop pet
 
-Floating desktop pet for Dog Verb, generated with the [Desktop Pet skill](https://github.com/Y1fe1-Yang/desktop-pet-skill) (`create_pet.py --name "Dog Verb" --animations standard`) from Ariel’s mascot. The Pages web app is separate and is not part of this folder.
+Floating desktop pet for Dog Verb. The puppy is Ariel’s original `assets/dog-mascot.png`. Motions are crops and transforms of that image (the dog, the drool, and the food doodles). Nothing is redrawn.
 
-Primary platform: **Windows**. The same Electron app also runs on macOS and Linux.
+The Pages web app is not part of this folder.
 
-## Run
+## Run on your computer
 
-Install [Node.js 20+](https://nodejs.org/), then from this directory:
+Install [Node.js 20+](https://nodejs.org/), then:
 
 ```bash
+cd desktop
 npm install
 npm start
 ```
 
-- Drag the puppy to move it. Drag plays the walk sprite; letting go returns to idle.
-- Click to jump. Double-click for the happy sprite. Hold for the pet reaction.
-- Right-click the puppy, or open the tray icon menu: **Always on top** and **Quit**.
-- There is no window frame and no taskbar button. Use the menu to quit.
+That is the install path. It runs on Windows, macOS, and Linux.
 
-On Linux the desktop needs a compositor (Windows and macOS composite by default).
+- Drag the puppy to move it. Dragging pauses the roam loop.
+- The pet cycles on its own: **run in circles**, **yawn**, **hungry**, **bark**.
+- Right-click for the same four motions, **Always on top**, and **Quit**.
+- There is no window frame and no taskbar button.
+
+On Linux the desktop needs a compositor.
 
 ## Package
 
-Windows portable build:
+Optional. A Windows build:
 
 ```bash
 npm run package
 ```
 
-Output goes to `desktop/dist/`. On Linux or macOS, electron-builder needs [Wine](https://www.electron.build/multi-platform-build) for that Windows target. On Windows, `npm run package` is enough.
+Output is `desktop/dist/`. Building that Windows target on Linux or macOS needs Wine. `npm start` does not.
 
-Other targets the skill’s Electron config already includes:
+## Motions
 
-```bash
-npm run build:linux
-npm run build:mac
-```
+All four use the locked mascot only:
 
-## Sprite
+- **Yawn** — the whole puppy stretches up and the original drool lengthens.
+- **Hungry** — the puppy leans toward the drumstick, the drool hangs longer, and the bone and drumstick bob.
+- **Run in circles** — the window loops on the desktop while the puppy bobs.
+- **Bark** — a short hop-and-shake.
 
-The puppy is Ariel’s mascot (`dog-mascot.png`). The white paper background and the Xiaohongshu watermark are not part of the pet. Food doodles from the art stay in the sprite. Frame size is 320×320 so the illustration stays recognizable (the generator’s default 64px frame is for pixel art).
-
-The skill moves the whole sprite (idle breathe, walk while dragging, jump on click). It does not split the drawing into a head shake, drool, or ear wiggle, so those three motions are not in this build.
+Separate head-shake, ear-wiggle, and mouth-open drawings are not in this file, so those are not invented here.
