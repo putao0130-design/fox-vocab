@@ -2,16 +2,17 @@
   "name": "Dog Verb",
   "short_name": "Dog Verb",
   "description": "带小狗陪伴的背单词",
-  "start_url": "./",
+  "id": "https://putao0130-design.github.io/fox-vocab/app-v18",
+  "start_url": "./?v=18",
   "scope": "./",
   "display": "standalone",
   "lang": "zh-CN",
   "background_color": "#FFFCF7",
   "theme_color": "#4B423E",
   "icons": [
-    { "src": "assets/icons/dv-doubao-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "assets/icons/dv-doubao-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "assets/icons/dv-doubao-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "assets/icons/dv-doubao-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "assets/icons/install-v18/icon-192.png?v=18", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/install-v18/icon-512.png?v=18", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/install-v18/maskable-192.png?v=18", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/install-v18/maskable-512.png?v=18", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

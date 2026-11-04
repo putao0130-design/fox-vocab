@@ -1,21 +1,21 @@
-/* Dog Verb shell cache. Icons live on *-db.png paths so installers cannot reuse Logo C. */
-const CACHE = 'dog-verb-shell-v17';
+/* Dog Verb shell cache. Install identity is app-v18 on install-v18 icon paths. */
+const CACHE = 'dog-verb-shell-v18';
 const SHELL = [
   './index.html',
-  './style.css?v=17',
-  './app.js?v=17',
-  './core.js?v=17',
-  './data/books-index.js?v=17',
+  './style.css?v=18',
+  './app.js?v=18',
+  './core.js?v=18',
+  './data/books-index.js?v=18',
   './vendor/ts-fsrs.umd.js',
   './assets/dog-mascot.png?v=15',
   './assets/paw.svg?v=15',
-  './assets/icons/dv-doubao-apple-180.png',
-  './assets/icons/dv-doubao-favicon-48.png',
-  './assets/icons/dv-doubao-192.png',
-  './assets/icons/dv-doubao-512.png',
-  './assets/icons/dv-doubao-maskable-192.png',
-  './assets/icons/dv-doubao-maskable-512.png',
-  './manifest.webmanifest?v=17'
+  './assets/icons/install-v18/apple-180.png?v=18',
+  './assets/icons/install-v18/favicon-48.png?v=18',
+  './assets/icons/install-v18/icon-192.png?v=18',
+  './assets/icons/install-v18/icon-512.png?v=18',
+  './assets/icons/install-v18/maskable-192.png?v=18',
+  './assets/icons/install-v18/maskable-512.png?v=18',
+  './manifest.webmanifest?v=18'
 ];
 
 self.addEventListener('install', event => {
@@ -29,7 +29,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.pathname.indexOf('/assets/icons/') !== -1 && url.pathname.indexOf('/dv-doubao-') === -1) {
+  if (url.pathname.indexOf('/assets/icons/') !== -1 && url.pathname.indexOf('/install-v18/') === -1) {
     event.respondWith(fetch(event.request));
     return;
   }
