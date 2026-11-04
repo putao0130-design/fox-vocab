@@ -9,12 +9,12 @@ const SHELL = [
   './vendor/ts-fsrs.umd.js',
   './assets/dog-mascot.png?v=15',
   './assets/paw.svg?v=15',
-  './assets/icons/apple-touch-icon-180-db.png',
-  './assets/icons/favicon-48-db.png',
-  './assets/icons/icon-192-db.png',
-  './assets/icons/icon-512-db.png',
-  './assets/icons/icon-maskable-192-db.png',
-  './assets/icons/icon-maskable-512-db.png',
+  './assets/icons/dv-doubao-apple-180.png',
+  './assets/icons/dv-doubao-favicon-48.png',
+  './assets/icons/dv-doubao-192.png',
+  './assets/icons/dv-doubao-512.png',
+  './assets/icons/dv-doubao-maskable-192.png',
+  './assets/icons/dv-doubao-maskable-512.png',
   './manifest.webmanifest?v=17'
 ];
 
@@ -29,7 +29,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.pathname.indexOf('/assets/icons/') !== -1 && url.pathname.indexOf('-db.png') === -1) {
+  if (url.pathname.indexOf('/assets/icons/') !== -1 && url.pathname.indexOf('/dv-doubao-') === -1) {
     event.respondWith(fetch(event.request));
     return;
   }
