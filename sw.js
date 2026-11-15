@@ -6,6 +6,7 @@ const SHELL = [
   './app.js?v=18',
   './core.js?v=18',
   './data/books-index.js?v=18',
+  './data/example-zh.js?v=18',
   './vendor/ts-fsrs.umd.js',
   './assets/dog-mascot.png?v=15',
   './assets/paw.svg?v=15',

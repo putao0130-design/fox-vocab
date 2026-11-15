@@ -40,6 +40,19 @@ assert.strictEqual(C.findForm('Researchers analysed the data.', 'analyse').form,
 assert.strictEqual(C.findForm('Farmland occupies most land.', 'occupy').form, 'occupies');
 assert.ok(C.checkSentence('Scientists analyse samples every single week.', 'analyse').ok);
 assert.strictEqual(C.checkSentence('i analyse it', 'analyse').errors.length, 3);
+assert.ok(C.wordCandidates('households').includes('household'));
+assert.ok(C.wordCandidates('analysed').includes('analyse'));
+assert.ok(C.wordCandidates('increased').includes('increase'));
+assert.ok(C.wordCandidates('Researchers').includes('researcher') && !C.wordCandidates('Researchers').includes('research'));
+assert.strictEqual(C.wordCandidates('a').length, 0);
+assert.strictEqual(C.maskExampleZh('研究人员{分析}了数据。'), '研究人员____了数据。');
+assert.strictEqual(C.revealExampleZh('研究人员{分析}了数据。'), '研究人员分析了数据。');
+assert.strictEqual(C.lemmaHint('n. 研究人员（researcher 的复数）'), 'researcher');
+assert.strictEqual(C.lemmaHint('vt. 是；在（am、is 的过去式）'), '');
+const youdao = C.parseYoudaoEntry({ input: 'from', ec: { word: [{ ukphone: 'frɒm; frəm', 'return-phrase': { l: { i: 'from' } }, trs: [{ tr: [{ l: { i: ['prep. 从，来自；由于'] } }] }, { tr: [{ l: { i: ['【名】 （From）（美）弗罗姆（人名）'] } }] }] }] } });
+assert.strictEqual(youdao.word, 'from'); assert.strictEqual(youdao.pos, 'prep.'); assert.strictEqual(youdao.ipa, '/frɒm/');
+assert.ok(youdao.meaning.includes('从') && !youdao.meaning.includes('人名'));
+assert.strictEqual(C.parseYoudaoEntry({}), null);
 assert.strictEqual(C.foxAge(2209, 2209).label, '1岁'); assert.strictEqual(C.foxAge(0, 2209).months, 0);
 let f = { food: 2, xp: 0, hunger: 100, lastCheck: '2026-11-01' };
 f = C.applyHunger(f, ['2026-11-01'], '2026-11-04'); assert.strictEqual(f.hunger, 50);
@@ -52,6 +65,18 @@ for (const id in books) { const b = books[id]; assert.strictEqual(b.words.length
   for (const w of b.words) { assert.ok(w.word && w.pos && w.meaning, id + ' ' + w.word); assert.ok(!seen.has(w.word), 'dup ' + w.word); seen.add(w.word); assert.ok(Array.isArray(w.examples)); if (w.examples.length) assert.ok(C.hasExample(w), 'cloze ' + w.word); } }
 const core = books['ielts-toefl-core'];
 for (let i = 0; i < orig.length; i++) { assert.strictEqual(core.words[i].word, orig[i].word); assert.deepStrictEqual(core.words[i].examples, orig[i].examples); }
+require('../data/example-zh.js');
+const zhMap = window.EXAMPLE_ZH;
+for (const w of orig) {
+  const raw = zhMap[w.examples[0]];
+  assert.ok(raw, 'missing zh ' + w.word);
+  const inner = raw.match(/\{([^{}]+)\}/);
+  assert.ok(inner, 'no mask ' + w.word);
+  const masked = C.maskExampleZh(raw);
+  assert.ok(masked.includes('____') && !masked.includes(inner[1]) && !masked.includes('{'), 'spoiler ' + w.word + ' ' + masked);
+  const full = C.revealExampleZh(raw);
+  assert.ok(full.includes(inner[1]) && !full.includes('{') && !full.includes('}'));
+}
 assert.ok(core.words.length >= 2000 && core.words.length <= 3000, 'core size');
 assert.ok(books['ielts-toefl-full'].words.length > core.words.length);
 console.log('core tests passed;', Object.entries(books).map(([k, b]) => k + '=' + b.words.length).join(', '), '; mastered after', path.length, 'Good reviews');

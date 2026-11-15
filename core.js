@@ -117,6 +117,65 @@
   function feed(fox) { if (fox.food <= 0) return { fox, ok: false }; const f = Object.assign({}, fox); f.food--; f.hunger = Math.min(100, f.hunger + FEED_HUNGER); f.xp += FEED_XP; f.fed = (f.fed || 0) + 1; return { fox: f, ok: true }; }
   function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
-  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY };
+  // 句中单词的原形候选：先原词，再去掉常见屈折（复数、过去式、进行时）。
+  function wordCandidates(surface) {
+    let w = String(surface || '').toLowerCase().replace(/[’']/g, "'").replace(/'s$/, '').replace(/'+$/g, '');
+    const out = [];
+    const add = s => { if (/^[a-z][a-z'-]{1,48}$/.test(s) && !out.includes(s)) out.push(s); };
+    add(w);
+    if (/ies$/.test(w) && w.length > 4) add(w.slice(0, -3) + 'y');
+    if (/ied$/.test(w) && w.length > 4) add(w.slice(0, -3) + 'y');
+    if (/ing$/.test(w) && w.length > 5) {
+      add(w.slice(0, -3)); add(w.slice(0, -3) + 'e');
+      if (w.length > 5 && w[w.length - 4] === w[w.length - 5]) add(w.slice(0, -4));
+    }
+    if (/ed$/.test(w) && w.length > 4) {
+      add(w.slice(0, -1)); add(w.slice(0, -2));
+      if (w.length > 4 && w[w.length - 3] === w[w.length - 4]) add(w.slice(0, -3));
+    }
+    if (/es$/.test(w) && w.length > 4) { add(w.slice(0, -2)); add(w.slice(0, -1)); }
+    if (/s$/.test(w) && !/ss$/.test(w) && w.length > 3) add(w.slice(0, -1));
+    return out;
+  }
+  // 译文里 {目标词} 在作答前遮住，答完再揭开，避免例句填空被中文直接剧透。
+  function maskExampleZh(zh) { return String(zh || '').replace(/\{([^{}]+)\}/g, '____'); }
+  function revealExampleZh(zh) { return String(zh || '').replace(/\{([^{}]+)\}/g, '$1'); }
+  function lemmaHint(meaning) {
+    const m = /（\s*([A-Za-z][A-Za-z-]*)\s*的/.exec(String(meaning || ''));
+    return m ? m[1].toLowerCase() : '';
+  }
+  function parseYoudaoEntry(data) {
+    const block = data && data.ec && data.ec.word && data.ec.word[0];
+    if (!block) return null;
+    const phrase = block['return-phrase'] && block['return-phrase'].l && block['return-phrase'].l.i;
+    const surface = String(phrase || data.input || '').trim().toLowerCase();
+    if (!/^[a-z][a-z' .-]{0,48}$/.test(surface)) return null;
+    const senses = [];
+    for (const tr of block.trs || []) {
+      const i = tr && tr.tr && tr.tr[0] && tr.tr[0].l && tr.tr[0].l.i;
+      const line = String(Array.isArray(i) ? i[0] : (i || '')).trim();
+      if (!line || /人名|【名】/.test(line)) continue;
+      senses.push(line);
+      if (senses.length >= 3) break;
+    }
+    if (!senses.length) return null;
+    const posM = /^(n|v|vt|vi|adj|adv|prep|conj|pron|art|num|int|aux)\.\s*/i.exec(senses[0]);
+    const posMap = { vt: 'v', vi: 'v' };
+    const pos = posM ? (posMap[posM[1].toLowerCase()] || posM[1].toLowerCase()) + '.' : '';
+    let meaning = senses.map(s => s.replace(/^(n|v|vt|vi|adj|adv|prep|conj|pron|art|num|int|aux)\.\s*/i, '')).filter(Boolean).join(' ');
+    meaning = meaning.replace(/\s+/g, ' ').trim();
+    if (meaning.length > 120) {
+      const cut = meaning.slice(0, 120);
+      const p = Math.max(cut.lastIndexOf('；'), cut.lastIndexOf('，'), cut.lastIndexOf(';'));
+      meaning = (p > 30 ? cut.slice(0, p) : cut).trim();
+    }
+    if (!meaning) return null;
+    let phone = block.ukphone || '';
+    if (!phone && data.simple && data.simple.word && data.simple.word[0]) phone = data.simple.word[0].ukphone || '';
+    const one = String(phone).split(/[;,]/)[0].trim().replace(/^\/|\/$/g, '');
+    return { word: surface, ipa: one ? '/' + one + '/' : '', pos, meaning, examples: [] };
+  }
+
+  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VocabCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -8,6 +8,7 @@
   curl -L -o /tmp/toefl.json "https://raw.githubusercontent.com/KyleBing/english-vocabulary/master/json/6-%E6%89%98%E7%A6%8F-%E9%A1%BA%E5%BA%8F.json"
   python3 tools/build-books.py /tmp/ecdict.csv /tmp/toefl.json
 原 v1 的 359 个词（data/original-words.json，原创例句）放在核心词书最前面，释义/音标用 ECDICT 校正。
+例句的中文译文在 data/example-zh.js，按英文原句索引，不写进词书文件。
 """
 import csv, json, re, sys, os
 csv.field_size_limit(10**9)
