@@ -617,77 +617,135 @@
     return `<div class="card calcard"><div class="ctitle"><span>近 28 天打卡</span><button type="button" class="sharecal">转发</button></div>${calendar()}</div>`;
   }
 
-  // D 朋友圈方卡 1080×1080。首页 28 天条不动。宠物只用去水印新路径，不画 dog-mascot.png，也不画「示例数据」。
-  const SHARE_PAW = 'assets/paw-check-128.png';
-  const SHARE_LOGO = 'assets/icons/logo-doubao-2048.png';
-  const SHARE_PET = 'assets/dog-mascot-transparent.png';
-  const SHARE_INK = '#4B423E', SHARE_BROWN = '#A27650', SHARE_PAPER = '#FFFCF7', SHARE_GOLD = '#F0BB51';
-  const SHARE_FONT = '"Noto Sans CJK SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei","WenQuanYi Micro Hei",sans-serif';
-  const shareImg = {};
-  function loadShareImage(src) {
-    if (shareImg[src]) return shareImg[src];
-    shareImg[src] = new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => resolve((img.naturalWidth || img.width) ? img : null);
-      img.onerror = () => resolve(null);
+  // A 字幕方卡 1080×1080。页内 28 天打卡日历不动，分享图只画风景金句。
+  // 间距跟核准稿：底部暗渐变、左上书本探头、右下小狗在字的上方、金线、原句、中文、出处。
+  const SHARE_LOGO = 'assets/icons/logo-doubao-2048.png?v=22';
+  const SHARE_PET = 'assets/dog-mascot-transparent.png?v=22';
+  const SHARE_CREAM = '#FFFCF7';
+  const SHARE_GOLD = '#F0BB51';
+  const SHARE_BRAND = 'Dog Verb  ·  每日金句';
+  const SHARE_EN = 'italic 38px "Inria Serif", "Iowan Old Style", Palatino, Georgia, serif';
+  const SHARE_ZH = '28px "Noto Serif SC", "Songti SC", "Noto Serif CJK SC", serif';
+  const SHARE_TITLE = '24px "Noto Sans SC", "PingFang SC", "Noto Sans CJK SC", sans-serif';
+  const SHARE_SMALL = '18px "Noto Sans SC", "PingFang SC", "Noto Sans CJK SC", sans-serif';
+  const QUOTE_LAYOUT = [
+    { en: ["I'd love to stay and talk,", 'but I just remembered I have to run away.'], zh: ['我很想留下来聊，但我突然想起我得逃走了。'], photo: 'assets/landscapes/kubota-garden-seattle.jpg?v=22', focus: [0.48, 0.68] },
+    { en: ["I don't cry.", 'I sold my tear ducts to an organ bank', 'for cash two years ago.'], zh: ['我不哭。两年前我就把泪腺卖给器官库套现了。'], photo: 'assets/landscapes/lyon-riverside-terrace.jpg?v=22', focus: [0.36, 0.46] },
+    { en: ['And one day, I will try lettuce,', 'but not tonight.'], zh: ['总有一天我会试试生菜，但不是今晚。'], photo: 'assets/landscapes/wallabi-beach.jpg?v=22', focus: [0.62, 0.42] }
+  ];
+  const shareBitmaps = {};
+  function loadShareBitmap(src) {
+    if (!shareBitmaps[src]) {
+      shareBitmaps[src] = decodeShareBitmap(src).catch(err => { delete shareBitmaps[src]; throw err; });
+    }
+    return shareBitmaps[src];
+  }
+  function decodeShareBitmap(src) {
+    const img = new Image();
+    img.decoding = 'sync';
+    const loaded = new Promise((resolve, reject) => {
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('image'));
       img.src = src;
     });
-    return shareImg[src];
+    return loaded.then(async () => {
+      if (typeof img.decode === 'function') {
+        try { await img.decode(); } catch (e) { if (!(img.naturalWidth || img.width)) throw e; }
+      }
+      const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      if (!w || !h) throw new Error('image');
+      let bitmap = img;
+      if (typeof createImageBitmap === 'function') {
+        try {
+          const bmp = await createImageBitmap(img);
+          if (bmp && bmp.width && bmp.height) bitmap = bmp;
+        } catch (e) { bitmap = img; }
+      }
+      return { bitmap, width: bitmap.width || w, height: bitmap.height || h, src };
+    });
   }
-  function shareModel() {
-    const model = C.monthGrid(S.studyDays, today());
-    model.petName = S.fox && S.fox.name || '';
-    return model;
-  }
-  function traceRound(g, x, y, w, h, r) {
-    g.beginPath();
-    if (g.roundRect) { g.roundRect(x, y, w, h, r); return; }
-    g.moveTo(x + r, y);
-    g.arcTo(x + w, y, x + w, y + h, r);
-    g.arcTo(x + w, y + h, x, y + h, r);
-    g.arcTo(x, y + h, x, y, r);
-    g.arcTo(x, y, x + w, y, r);
-    g.closePath();
-  }
-  function opaqueBox(img) {
-    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height || iw;
-    const full = { x: 0, y: 0, w: iw, h: ih };
+  function alphaBounds(src) {
+    const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
+    const full = { x: 0, y: 0, w: w, h: h };
     try {
       const c = document.createElement('canvas');
-      const s = Math.min(1, 240 / Math.max(iw, ih));
-      c.width = Math.max(1, Math.round(iw * s)); c.height = Math.max(1, Math.round(ih * s));
+      c.width = w; c.height = h;
       const ctx = c.getContext('2d', { willReadFrequently: true });
       if (!ctx || !ctx.getImageData) return full;
-      ctx.drawImage(img, 0, 0, c.width, c.height);
-      const data = ctx.getImageData(0, 0, c.width, c.height).data;
+      ctx.drawImage(src, 0, 0);
+      const data = ctx.getImageData(0, 0, w, h).data;
       if (!data) return full;
-      let minX = c.width, minY = c.height, maxX = 0, maxY = 0, any = false;
-      for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
-        if (data[(y * c.width + x) * 4 + 3] > 16) {
-          any = true; if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+      let minX = w, minY = h, maxX = -1, maxY = -1;
+      for (let y = 0; y < h; y++) {
+        const row = y * w * 4;
+        for (let x = 0; x < w; x++) if (data[row + x * 4 + 3] > 16) {
+          if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y;
         }
       }
-      if (!any) return full;
-      return { x: minX / s, y: minY / s, w: (maxX - minX + 1) / s, h: (maxY - minY + 1) / s };
+      if (maxX < 0) return full;
+      return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
     } catch (e) { return full; }
   }
-  function cropSize(img, dh) {
-    const b = opaqueBox(img), s = dh / b.h;
-    return { b, dw: b.w * s, dh };
+  function traceRound(g, x, y, w, h, r) {
+    const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+    g.beginPath();
+    g.moveTo(x + radius, y);
+    g.arcTo(x + w, y, x + w, y + h, radius);
+    g.arcTo(x + w, y + h, x, y + h, radius);
+    g.arcTo(x, y + h, x, y, radius);
+    g.arcTo(x, y, x + w, y, radius);
+    g.closePath();
   }
-  function drawCropped(g, img, x, y, dh) {
-    const m = cropSize(img, dh);
-    g.drawImage(img, m.b.x, m.b.y, m.b.w, m.b.h, x, y, m.dw, m.dh);
-    return m.dw;
+  function coverSource(sw, sh, dw, dh, focus) {
+    const scale = Math.max(dw / sw, dh / sh);
+    const nw = Math.ceil(sw * scale), nh = Math.ceil(sh * scale);
+    let left = Math.round(focus[0] * nw - dw / 2), top = Math.round(focus[1] * nh - dh / 2);
+    left = Math.max(0, Math.min(left, nw - dw));
+    top = Math.max(0, Math.min(top, nh - dh));
+    return { sx: left * sw / nw, sy: top * sh / nh, sw: dw * sw / nw, sh: dh * sh / nh };
   }
-  function drawPawMark(g, img, x, y, size) {
-    if (img) { g.drawImage(img, x, y, size, size); return; }
-    g.save();
-    g.translate(x, y); g.scale(size / 64, size / 64); g.fillStyle = SHARE_INK;
-    [[32, 43, 16, 15], [14, 22, 8, 9], [26, 14, 8, 10], [38, 14, 8, 10], [50, 22, 8, 9]].forEach(p => {
-      g.beginPath(); g.ellipse(p[0], p[1], p[2], p[3], 0, 0, Math.PI * 2); g.fill();
-    });
-    g.restore();
+  function drawCentered(g, y, text, font, fill, W) {
+    g.font = font; g.textAlign = 'center'; g.textBaseline = 'top';
+    const width = g.measureText(text).width;
+    if (width > 1000) throw new Error('line');
+    g.fillStyle = 'rgba(0,0,0,0.706)';
+    g.fillText(text, W / 2, y + 2);
+    g.fillStyle = fill;
+    g.fillText(text, W / 2, y);
+  }
+  function assertOpaqueCopied(g, bitmap, box, dx, dy, dw, dh, label) {
+    let live, refData;
+    try {
+      const ref = document.createElement('canvas');
+      ref.width = Math.max(1, Math.round(dw)); ref.height = Math.max(1, Math.round(dh));
+      const rg = ref.getContext('2d', { willReadFrequently: true });
+      if (!rg || !rg.getImageData) return;
+      rg.drawImage(bitmap, box.x, box.y, box.w, box.h, 0, 0, ref.width, ref.height);
+      refData = rg.getImageData(0, 0, ref.width, ref.height).data;
+      live = g.getImageData(Math.round(dx), Math.round(dy), ref.width, ref.height).data;
+    } catch (e) { return; }
+    if (!live || !refData || live.length !== refData.length) return;
+    let diff = 0, n = 0;
+    for (let i = 0; i < refData.length; i += 16) {
+      if (refData[i + 3] < 200) continue;
+      diff += Math.abs(live[i] - refData[i]) + Math.abs(live[i + 1] - refData[i + 1]) + Math.abs(live[i + 2] - refData[i + 2]);
+      n++;
+    }
+    if (!n || diff / n > 24) throw new Error(label);
+  }
+  function assertCardPainted(g, W, H, logo, dog) {
+    let band;
+    try { band = g.getImageData(0, Math.round(H * 0.4), W, 1).data; } catch (e) { return; }
+    if (!band || band.length < 16) return;
+    let min = 255, max = 0, opaque = 0;
+    for (let i = 0; i < band.length; i += 16) {
+      const lum = band[i] * 0.3 + band[i + 1] * 0.59 + band[i + 2] * 0.11;
+      if (lum < min) min = lum; if (lum > max) max = lum;
+      if (band[i + 3] > 200) opaque++;
+    }
+    if (max - min < 12 || opaque < 8) throw new Error('blank');
+    assertOpaqueCopied(g, logo.bitmap, logo.box, logo.x, logo.y, logo.w, logo.h, 'logo');
+    assertOpaqueCopied(g, dog.bitmap, dog.box, dog.x, dog.y, dog.w, dog.h, 'dog');
   }
   function canvasBlob(canvas) {
     return new Promise((resolve, reject) => {
@@ -695,61 +753,86 @@
       canvas.toBlob(b => b ? resolve(b) : reject(new Error('empty image')), 'image/png');
     });
   }
-  async function renderMonthCard(model) {
-    const paw = await loadShareImage(SHARE_PAW);
-    const logo = await loadShareImage(SHARE_LOGO);
-    const pet = await loadShareImage(SHARE_PET);
-    const W = 1080, H = 1080, cell = 88, gap = 8;
-    const gridW = cell * 7 + gap * 6, gridH = cell * 6 + gap * 5;
-    const cardPadX = 32, cardPadTop = 28, weekH = 36, cardPadBot = 28;
-    const cardW = gridW + cardPadX * 2, cardH = cardPadTop + weekH + 8 + gridH + cardPadBot;
-    const cardX = Math.round((W - cardW) / 2), cardY = 292;
+  function paintSettled() {
+    return new Promise(resolve => {
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(finish);
+      setTimeout(finish, 32);
+    });
+  }
+  async function ensureQuoteFonts() {
+    const fonts = document.fonts;
+    if (!fonts || typeof fonts.load !== 'function') return;
+    await Promise.all([
+      fonts.load('italic 38px "Inria Serif"'),
+      fonts.load('28px "Noto Serif SC"'),
+      fonts.load('24px "Noto Sans SC"'),
+      fonts.load('18px "Noto Sans SC"')
+    ].map(job => Promise.resolve(job).catch(() => {})));
+  }
+  async function renderQuoteCard(dayKey) {
+    const quote = C.dailyQuote(dayKey);
+    const layout = QUOTE_LAYOUT[quote.index];
+    if (!layout || layout.en.join(' ') !== quote.en || layout.zh.join('') !== quote.zh) throw new Error('quote');
+    const photo = await loadShareBitmap(layout.photo);
+    const logo = await loadShareBitmap(SHARE_LOGO);
+    const dog = await loadShareBitmap(SHARE_PET);
+    await ensureQuoteFonts();
+    const W = 1080, H = 1080;
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
-    const g = canvas.getContext('2d');
+    const g = canvas.getContext('2d', { willReadFrequently: true });
     if (!g) throw new Error('no canvas');
-    g.fillStyle = SHARE_INK; g.fillRect(0, 0, W, H);
-    g.fillStyle = SHARE_PAPER; traceRound(g, cardX, cardY, cardW, cardH, 32); g.fill();
-    g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = SHARE_GOLD;
-    g.font = '600 26px ' + SHARE_FONT; g.fillText('连续打卡', 68, 108);
-    g.font = '800 108px ' + SHARE_FONT;
-    const num = String(model.streak);
-    g.fillText(num, 68, 230);
-    const numW = g.measureText(num).width;
-    g.font = '700 36px ' + SHARE_FONT; g.fillText('天', 68 + numW + 16, 230);
-    g.fillStyle = SHARE_PAPER; g.font = '600 28px ' + SHARE_FONT; g.fillText(model.label, 68, 278);
-    if (pet) {
-      const fit = cropSize(pet, 268), dw = Math.min(fit.dw, 400), dh = fit.dh * dw / fit.dw;
-      drawCropped(g, pet, W - 40 - dw, 16, dh);
+    const crop = coverSource(photo.width, photo.height, W, H, layout.focus);
+    g.drawImage(photo.bitmap, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, W, H);
+    const scrim = g.createLinearGradient(0, 0, 0, H);
+    const ink = a => 'rgba(28,24,22,' + (a / 255).toFixed(4) + ')';
+    if (scrim && scrim.addColorStop) {
+      scrim.addColorStop(0, ink(0));
+      scrim.addColorStop(0.52, ink(0));
+      scrim.addColorStop(0.68, ink(70));
+      scrim.addColorStop(0.82, ink(175));
+      scrim.addColorStop(1, ink(210));
+      g.fillStyle = scrim;
+      g.fillRect(0, 0, W, H);
     }
-    const gridX = cardX + cardPadX, gridY = cardY + cardPadTop + weekH + 8;
-    g.fillStyle = SHARE_BROWN; g.font = '600 26px ' + SHARE_FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
-    model.weekdays.forEach((d, i) => g.fillText(d, gridX + i * (cell + gap) + cell / 2, cardY + cardPadTop + weekH / 2));
-    model.cells.forEach((c, i) => {
-      if (!c) return;
-      const x = gridX + (i % 7) * (cell + gap), y = gridY + Math.floor(i / 7) * (cell + gap);
-      if (c.on) drawPawMark(g, paw, x + (cell - cell * 0.5) / 2, y + cell * 0.04, cell * 0.5);
-      g.globalAlpha = c.on ? 1 : 0.5;
-      g.fillStyle = SHARE_BROWN; g.font = '600 22px ' + SHARE_FONT;
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(String(c.day), x + cell / 2, y + cell * 0.82);
-      g.globalAlpha = 1;
-      if (c.today) { g.strokeStyle = SHARE_GOLD; g.lineWidth = 4; traceRound(g, x + 2, y + 2, cell - 4, cell - 4, Math.round(cell * 0.18)); g.stroke(); }
-    });
-    const footY = cardY + cardH + 28;
-    const caption = (model.petName || '小狗') + ' · 累计 ' + model.total + ' 天';
-    g.fillStyle = SHARE_GOLD; g.beginPath(); g.arc(80, footY + 22, 5, 0, Math.PI * 2); g.fill();
-    g.fillStyle = SHARE_PAPER; g.font = '600 28px ' + SHARE_FONT; g.textAlign = 'left'; g.textBaseline = 'middle';
-    g.save(); g.beginPath(); g.rect(96, footY, 400, 48); g.clip(); g.fillText(caption, 96, footY + 22); g.restore();
-    if (logo) { const dh = 68, dw = cropSize(logo, dh).dw; drawCropped(g, logo, (W - dw) / 2, footY - 4, dh); }
-    return { blob: await canvasBlob(canvas), model };
+    const logoBox = alphaBounds(logo.bitmap);
+    const logoH = 96, logoW = Math.max(1, Math.round(logoBox.w * (logoH / logoBox.h)));
+    const pad = 14, badgeW = logoW + pad * 2, badgeH = logoH + pad * 2;
+    traceRound(g, 36, 36, badgeW, badgeH, Math.floor(badgeH / 2));
+    g.fillStyle = 'rgba(255,252,247,0.863)';
+    g.fill();
+    g.drawImage(logo.bitmap, logoBox.x, logoBox.y, logoBox.w, logoBox.h, 36 + pad, 36 + pad, logoW, logoH);
+    const enLead = 52, zhLead = 42;
+    const blockH = 18 + 16 + enLead * layout.en.length + 12 + zhLead * layout.zh.length + 20 + 28 + 32;
+    let y = H - 48 - blockH;
+    const dogBox = alphaBounds(dog.bitmap);
+    const dogW = 110, dogH = Math.max(1, Math.round(dogBox.h * (dogW / dogBox.w)));
+    const dogX = W - 28 - dogW, dogY = y - 12 - dogH;
+    g.drawImage(dog.bitmap, dogBox.x, dogBox.y, dogBox.w, dogBox.h, dogX, dogY, dogW, dogH);
+    g.strokeStyle = SHARE_GOLD; g.lineWidth = 2;
+    g.beginPath(); g.moveTo((W - 80) / 2, y); g.lineTo((W + 80) / 2, y); g.stroke();
+    y += 16;
+    layout.en.forEach(line => { drawCentered(g, y, line, SHARE_EN, SHARE_CREAM, W); y += enLead; });
+    y += 8;
+    layout.zh.forEach(line => { drawCentered(g, y, line, SHARE_ZH, SHARE_GOLD, W); y += zhLead; });
+    y += 16;
+    drawCentered(g, y, quote.source, SHARE_TITLE, 'rgb(210,188,150)', W);
+    y += 32;
+    drawCentered(g, y, SHARE_BRAND, SHARE_SMALL, 'rgba(200,180,150,0.902)', W);
+    assertCardPainted(g, W, H,
+      { bitmap: logo.bitmap, box: logoBox, x: 36 + pad, y: 36 + pad, w: logoW, h: logoH },
+      { bitmap: dog.bitmap, box: dogBox, x: dogX, y: dogY, w: dogW, h: dogH });
+    await paintSettled();
+    return { blob: await canvasBlob(canvas), quote, dayKey };
   }
   function closeShareSheet() { const el = document.getElementById('sharesheet'); if (el) el.remove(); }
   function showShareSheet(dataUrl, filename) {
     closeShareSheet();
     const el = document.createElement('div');
     el.className = 'sharesheet'; el.id = 'sharesheet';
-    el.innerHTML = `<div class="sharepanel" role="dialog" aria-label="转发本月打卡"><img class="sharepreview" alt="本月打卡卡片，长按可保存"><p class="hint">长按图片保存到相册，再转发到微信</p><div class="row"><button type="button" class="primary" id="sharesave">保存图片</button><button type="button" class="ghost" id="shareclose">关闭</button></div></div>`;
+    el.innerHTML = `<div class="sharepanel" role="dialog" aria-label="转发每日金句"><img class="sharepreview" alt="每日金句卡片，长按可保存"><p class="hint">长按图片保存到相册，再转发到微信</p><div class="row"><button type="button" class="primary" id="sharesave">保存图片</button><button type="button" class="ghost" id="shareclose">关闭</button></div></div>`;
     el.querySelector('img').src = dataUrl;
     el.addEventListener('click', e => { if (e.target === el) closeShareSheet(); });
     el.querySelector('#shareclose').onclick = closeShareSheet;
@@ -760,29 +843,32 @@
     return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(r.error); r.readAsDataURL(blob); });
   }
   let sharing = false;
-  async function shareCheckin() {
+  async function shareQuote() {
     if (sharing) return;
     sharing = true;
     const btn = $app.querySelector('.sharecal');
     if (btn) btn.disabled = true;
     try {
-      const { blob, model } = await renderMonthCard(shareModel());
-      const filename = 'dog-verb-' + model.year + '-' + String(model.month).padStart(2, '0') + '.png';
+      const dayKey = today();
+      const { blob, quote } = await renderQuoteCard(dayKey);
+      const filename = 'dog-verb-' + dayKey + '.png';
       const file = new File([blob], filename, { type: 'image/png' });
-      const payload = { files: [file], title: 'Dog Verb ' + model.label, text: '连续打卡 ' + model.streak + ' 天，累计 ' + model.total + ' 天' };
+      const payload = { files: [file], title: 'Dog Verb · 每日金句', text: quote.zh + ' ' + quote.source };
       if (navigator.canShare && navigator.canShare(payload)) {
         try { await navigator.share(payload); return; }
         catch (e) { if (e && e.name === 'AbortError') return; }
       }
       showShareSheet(await blobDataUrl(blob), filename);
-    } catch (e) { alert('生成打卡卡片失败，请重试'); }
+    } catch (e) { alert('生成金句卡片失败，请重试'); }
     finally { sharing = false; if (btn && btn.isConnected) btn.disabled = false; }
   }
   function bindShare() {
     const b = $app.querySelector('.sharecal');
-    if (b) b.onclick = () => { shareCheckin(); };
-    loadShareImage(SHARE_PAW); loadShareImage(SHARE_LOGO); loadShareImage(SHARE_PET);
+    if (b) b.onclick = () => { shareQuote(); };
+    QUOTE_LAYOUT.forEach(layout => { loadShareBitmap(layout.photo); });
+    loadShareBitmap(SHARE_LOGO); loadShareBitmap(SHARE_PET); ensureQuoteFonts();
   }
+  window.__renderQuoteCard = dayKey => renderQuoteCard(dayKey || today());
 
   views.home = function () {
     const d = dayStat(), total = W().length, m = masteredCount(), due = dueList().length;
