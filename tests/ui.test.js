@@ -11,7 +11,7 @@ async function boot(setup) {
   w.Audio = function (src) { audios.push(src); this.src = src; this.play = () => Promise.resolve(); this.pause = () => {}; };
   w.__bookLoader = file => { loads.push(file); w.eval(read(file.split('?')[0])); return Promise.resolve(); };
   if (setup) setup(w);
-  for (const f of ['vendor/ts-fsrs.umd.js', 'data/books-index.js', 'data/example-zh.js', 'core.js', 'app.js']) w.eval(read(f));
+  for (const f of ['vendor/ts-fsrs.umd.js', 'data/books-index.js', 'data/example-zh.js', 'data/t2s.js', 'core.js', 'app.js']) w.eval(read(f));
   await w.__ready; return w;
 }
 const q = (w, s) => w.document.querySelector(s), txt = w => w.document.getElementById('app').textContent;
@@ -165,11 +165,12 @@ function answer(w) {
   households.dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
   assert.ok([...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('「household」已在今日学习列表')));
   const calls = [];
+  const pageOf = url => decodeURIComponent((String(url).match(/[?&]page=([^&]+)/) || [])[1] || '');
   w.fetch = url => {
-    const word = decodeURIComponent(String(url).split('q=')[1].split('&')[0]);
+    const word = pageOf(url);
     calls.push(word);
     if (word !== 'from') return Promise.reject(new Error('unexpected ' + word));
-    return Promise.resolve({ ok: true, json: () => Promise.resolve({ input: 'from', ec: { word: [{ ukphone: 'frɒm', 'return-phrase': { l: { i: 'from' } }, trs: [{ tr: [{ l: { i: ['prep. 从，来自'] } }] }] }] } }) });
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({ parse: { title: 'from', wikitext: { '*': "==English==\n===Pronunciation===\n* {{a|UK}} {{IPA|en|/frɒm/}}\n===Preposition===\n====Translations====\n*: Mandarin: {{t+|cmn|從|tr=cóng}}\n" } } }) });
   };
   const thousand = [...w.document.querySelectorAll('.prompt .sent .tok')].find(el => el.dataset.w === 'thousand');
   thousand.dispatchEvent(new w.MouseEvent('pointerdown', { bubbles: true, clientX: 4, clientY: 4, button: 0 }));
@@ -183,7 +184,33 @@ function answer(w) {
   assert.ok(extra && extra.meaning.includes('从') && extra.ipa === '/frɒm/' && extra.pos === 'prep.', JSON.stringify(extra));
   const todayList = w.__state().books['ielts-toefl-core'].today;
   assert.ok(Array.isArray(todayList) && todayList.join(',') === 'household,from', JSON.stringify(todayList));
+  async function pressWord(word, impl, online) {
+    Object.defineProperty(w.navigator, 'onLine', { configurable: true, get: () => online });
+    w.fetch = impl;
+    const el = [...w.document.querySelectorAll('.prompt .sent .tok')].find(t => t.dataset.w === word);
+    el.dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 30));
+    return [...w.document.querySelectorAll('.toast')].pop().textContent;
+  }
+  const off = await pressWord('over', () => Promise.reject(Object.assign(new Error('Failed to fetch'), { name: 'TypeError' })), false);
+  const timed = await pressWord('two', () => Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), true);
+  const failed = await pressWord('over', () => Promise.resolve({ ok: false, status: 503 }), true);
+  const missing = await pressWord('two', () => Promise.resolve({ ok: true, json: () => Promise.resolve({ error: { code: 'missingtitle' } }) }), true);
+  assert.ok(off.includes('联网') && !off.includes('没有找到'), off);
+  assert.ok(timed.includes('超时') && !timed.includes('联网'), timed);
+  assert.ok(failed.includes('失败') && !failed.includes('联网') && !failed.includes('没有找到'), failed);
+  assert.ok(missing.includes('没有找到') && !missing.includes('联网') && !missing.includes('超时'), missing);
+  assert.strictEqual(new Set([off, timed, failed, missing]).size, 4);
+  const extras = w.__state().books['ielts-toefl-core'].extra || [];
+  assert.ok(!extras.some(e => e.word === 'over' || e.word === 'two' || !e.meaning), 'no blank entries ' + JSON.stringify(extras));
   [...w.document.querySelectorAll('#ans button')].find(b => b.textContent === 'analyse').click();
+  const looked = [];
+  w.fetch = url => { looked.push(pageOf(url)); return Promise.reject(new Error('offline')); };
+  const analysed = [...w.document.querySelectorAll('.detail .sent .tok')].find(el => el.dataset.w === 'analysed');
+  assert.ok(analysed, 'full example shows the inflected form');
+  analysed.dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+  assert.ok([...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('「analyse」已经学过了')));
+  assert.deepStrictEqual(looked, [], 'inflection hits the book without a lookup');
   assert.ok(q(w, '.prompt .exzh').textContent.includes('分析') && !q(w, '.prompt .exzh').textContent.includes('____'));
   assert.ok([...w.document.querySelectorAll('.detail .exzh')].every(el => el.textContent.includes('分析') && !el.textContent.includes('{')));
   w.__go('learn');
@@ -194,6 +221,50 @@ function answer(w) {
   w.__go('learn');
   assert.strictEqual(q(w, '.word').textContent, 'household', 'today list persists');
   assert.ok(w.__state().books['ielts-toefl-core'].extra.some(e => e.word === 'from' && e.meaning));
+
+  // 窄屏键盘：输入坞贴在 visualViewport 上方，选择题不启用
+  const css = read('style.css');
+  assert.ok(css.includes('bottom:calc(env(safe-area-inset-bottom) + 64px + 12px)'));
+  assert.ok(css.includes('bottom:calc(var(--ime-bottom) + var(--dock-h, 0px) + 12px)'));
+  assert.ok(css.includes('body.kb-open #nav{display:none}'));
+  assert.ok(!css.includes('bottom:110px'));
+  w = await boot(win => {
+    let vh = 844, top = 0; const ls = {};
+    const fake = {
+      get height() { return vh; }, get offsetTop() { return top; }, width: 390,
+      addEventListener(t, fn) { (ls[t] = ls[t] || []).push(fn); }, removeEventListener() {},
+      dispatch() { (ls.resize || []).forEach(fn => fn()); }
+    };
+    Object.defineProperty(win, 'visualViewport', { configurable: true, get: () => fake });
+    Object.defineProperty(win, 'innerHeight', { configurable: true, get: () => 844 });
+    win.matchMedia = q => ({ matches: /max-width:\s*759/.test(String(q)), addEventListener() {}, removeEventListener() {} });
+    win.__ime = { set(h, off) { vh = h; top = off || 0; fake.dispatch(); } };
+  });
+  w.__go('learn'); q(w, '#show').click(); q(w, '[data-g="3"]').click();
+  w.__go('practice'); q(w, '[data-m="clozeType"]').click();
+  assert.ok(q(w, '#ans #inp'), 'spelling input starts in the card');
+  assert.ok(!w.document.body.classList.contains('kb-open'));
+  w.__ime.set(844 - 336, 0);
+  assert.ok(w.document.body.classList.contains('kb-open'));
+  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '336px');
+  const dock = w.document.getElementById('ime-dock');
+  assert.ok(dock && dock.querySelector('#inp') && dock.querySelector('.senttip'), 'dock holds the hint and the input');
+  assert.ok(!q(w, '#ans #inp'));
+  assert.ok(dock.querySelector('.senttip').textContent.includes('长按单词加入今日学习'));
+  w.__ime.set(844 - 336, 20);
+  assert.ok(w.document.getElementById('ime-dock').querySelector('#inp'), 'a second viewport event keeps the dock');
+  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '316px');
+  w.__go('practice'); q(w, '[data-m="clozeChoice"]').click();
+  w.__ime.set(844 - 336, 0);
+  assert.ok(!w.document.getElementById('ime-dock'), 'choice questions do not dock');
+  w.__ime.set(844, 0);
+  w.__go('sentence', 'analyse');
+  w.__ime.set(844 - 300, 12);
+  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '288px');
+  assert.ok(w.document.getElementById('ime-dock').querySelector('#s'), 'sentence box docks');
+  w.__ime.set(844, 0);
+  assert.ok(!w.document.body.classList.contains('kb-open'));
+  assert.ok(q(w, '#s'), 'textarea returns after the keyboard closes');
 
   // 转发：每日金句方卡。页内日历还在，分享图不再画月历。
   offset = 0;

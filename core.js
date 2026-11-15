@@ -134,12 +134,92 @@
   function feed(fox) { if (fox.food <= 0) return { fox, ok: false }; const f = Object.assign({}, fox); f.food--; f.hunger = Math.min(100, f.hunger + FEED_HUNGER); f.xp += FEED_XP; f.fed = (f.fed || 0) + 1; return { fox: f, ok: true }; }
   function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
-  // 句中单词的原形候选：先原词，再去掉常见屈折（复数、过去式、进行时）。
+  // 不规则屈折：规则去尾缀还原不了、但词书里常有原形的那些。原词本身永远排在最前。
+  const IRREGULAR = {
+    children: 'child', men: 'man', women: 'woman', mice: 'mouse', feet: 'foot', teeth: 'tooth', geese: 'goose', oxen: 'ox',
+    people: 'person', phenomena: 'phenomenon', criteria: 'criterion', indices: 'index', formulae: 'formula',
+    analyses: 'analysis', crises: 'crisis', theses: 'thesis', hypotheses: 'hypothesis', parentheses: 'parenthesis',
+    oases: 'oasis', diagnoses: 'diagnosis', synopses: 'synopsis', appendices: 'appendix', matrices: 'matrix',
+    vertices: 'vertex', alumni: 'alumnus', cacti: 'cactus', fungi: 'fungus', nuclei: 'nucleus', stimuli: 'stimulus',
+    syllabi: 'syllabus', foci: 'focus', radii: 'radius', curricula: 'curriculum', media: 'medium', bacteria: 'bacterium',
+    wives: 'wife', knives: 'knife', halves: 'half', wolves: 'wolf', shelves: 'shelf', thieves: 'thief', calves: 'calf', loaves: 'loaf',
+    went: 'go', gone: 'go', took: 'take', taken: 'take', made: 'make', saw: 'see', seen: 'see', came: 'come',
+    got: 'get', gotten: 'get', gave: 'give', given: 'give', found: 'find', thought: 'think', brought: 'bring',
+    bought: 'buy', taught: 'teach', caught: 'catch', fought: 'fight', sought: 'seek', knew: 'know', known: 'know',
+    grew: 'grow', grown: 'grow', threw: 'throw', thrown: 'throw', wrote: 'write', written: 'write',
+    spoke: 'speak', spoken: 'speak', broke: 'break', broken: 'break', ate: 'eat', eaten: 'eat', did: 'do', done: 'do',
+    was: 'be', were: 'be', been: 'be', had: 'have', has: 'have', said: 'say', told: 'tell', sold: 'sell', held: 'hold',
+    felt: 'feel', kept: 'keep', slept: 'sleep', left: 'leave', meant: 'mean', met: 'meet', led: 'lead', paid: 'pay',
+    heard: 'hear', built: 'build', sent: 'send', spent: 'spend', lost: 'lose', shot: 'shoot', sat: 'sit', ran: 'run',
+    began: 'begin', begun: 'begin', drank: 'drink', drunk: 'drink', sang: 'sing', sung: 'sing', swam: 'swim', swum: 'swim',
+    rang: 'ring', rung: 'ring', sank: 'sink', sunk: 'sink', chose: 'choose', chosen: 'choose', froze: 'freeze', frozen: 'freeze',
+    drove: 'drive', driven: 'drive', rode: 'ride', ridden: 'ride', rose: 'rise', risen: 'rise', stole: 'steal', stolen: 'steal',
+    woke: 'wake', woken: 'wake', wore: 'wear', worn: 'wear', tore: 'tear', torn: 'tear', drew: 'draw', drawn: 'draw',
+    flew: 'fly', flown: 'fly', fell: 'fall', fallen: 'fall', forgot: 'forget', forgotten: 'forget', hid: 'hide', hidden: 'hide',
+    bit: 'bite', bitten: 'bite', lay: 'lie', lain: 'lie', hung: 'hang', dug: 'dig', stuck: 'stick', struck: 'strike', won: 'win',
+    understood: 'understand', became: 'become', stood: 'stand', dealt: 'deal', fed: 'feed', fled: 'flee', flung: 'fling',
+    forgave: 'forgive', forgiven: 'forgive', knelt: 'kneel', lit: 'light', mistook: 'mistake', mistaken: 'mistake',
+    overcame: 'overcome', shook: 'shake', shaken: 'shake', shone: 'shine', shrank: 'shrink', shrunk: 'shrink', slid: 'slide',
+    sped: 'speed', spun: 'spin', sprang: 'spring', sprung: 'spring', stung: 'sting', stank: 'stink', stunk: 'stink',
+    swung: 'swing', swept: 'sweep', wept: 'weep', wove: 'weave', woven: 'weave', wound: 'wind', arose: 'arise', arisen: 'arise',
+    awoke: 'awake', awoken: 'awake', bled: 'bleed', bred: 'breed', clung: 'cling', crept: 'creep', dreamt: 'dream', dwelt: 'dwell',
+    ground: 'grind', leapt: 'leap', learnt: 'learn', lent: 'lend', misled: 'mislead', overtook: 'overtake', overtaken: 'overtake',
+    spat: 'spit', swore: 'swear', sworn: 'swear', strove: 'strive', striven: 'strive', strung: 'string', underwent: 'undergo',
+    withdrew: 'withdraw', withdrawn: 'withdraw', withstood: 'withstand', wrung: 'wring', borne: 'bear', born: 'bear', bound: 'bind'
+  };
+  // 规则去尾缀会误伤的 -er/-est/-ly 原形。这些词本身仍会作为候选，只是不再剥后缀。
+  const SUFFIX_SKIP = { letter: 1, summer: 1, matter: 1, dinner: 1, butter: 1, pepper: 1, copper: 1, hammer: 1, ladder: 1, better: 1, water: 1, number: 1, under: 1, over: 1, after: 1, never: 1, cover: 1, enter: 1, paper: 1, answer: 1, other: 1, another: 1, mother: 1, father: 1, brother: 1, sister: 1, member: 1, power: 1, order: 1, offer: 1, computer: 1, interest: 1, forest: 1, harvest: 1, suggest: 1, protest: 1, request: 1, honest: 1, modest: 1, west: 1, test: 1, rest: 1, chest: 1, best: 1, former: 1, inner: 1, outer: 1, super: 1, family: 1, early: 1, only: 1, apply: 1, reply: 1, supply: 1, imply: 1, comply: 1, ugly: 1, rely: 1 };
+  // 不是 -ise/-ize 拼写差异的 -ise 词。
+  const ISE_SKIP = { promise: 1, premise: 1, compromise: 1, exercise: 1, expertise: 1, franchise: 1, surprise: 1, advertise: 1, concise: 1, precise: 1, paradise: 1, advise: 1, comprise: 1, disguise: 1, enterprise: 1, demise: 1, treatise: 1, sunrise: 1, arise: 1, wise: 1, otherwise: 1, likewise: 1, clockwise: 1 };
+  const SPELLING_EXACT = {
+    colour: 'color', color: 'colour', favour: 'favor', favor: 'favour', honour: 'honor', honor: 'honour', labour: 'labor', labor: 'labour',
+    neighbour: 'neighbor', neighbor: 'neighbour', behaviour: 'behavior', behavior: 'behaviour', flavour: 'flavor', flavor: 'flavour',
+    harbour: 'harbor', harbor: 'harbour', humour: 'humor', humor: 'humour', rumour: 'rumor', rumor: 'rumour', vigour: 'vigor', vigor: 'vigour',
+    odour: 'odor', odor: 'odour', clamour: 'clamor', clamor: 'clamour', endeavour: 'endeavor', endeavor: 'endeavour', armour: 'armor', armor: 'armour',
+    saviour: 'savior', savior: 'saviour', glamour: 'glamor', glamor: 'glamour', centre: 'center', center: 'centre', metre: 'meter', meter: 'metre',
+    litre: 'liter', liter: 'litre', theatre: 'theater', theater: 'theatre', fibre: 'fiber', fiber: 'fibre', calibre: 'caliber', caliber: 'calibre',
+    spectre: 'specter', specter: 'spectre', sombre: 'somber', somber: 'sombre', lustre: 'luster', luster: 'lustre', meagre: 'meager', meager: 'meagre',
+    defence: 'defense', defense: 'defence', offence: 'offense', offense: 'offence', licence: 'license', license: 'licence', pretence: 'pretense', pretense: 'pretence',
+    practise: 'practice', practice: 'practise', grey: 'gray', gray: 'grey', tyre: 'tire', tire: 'tyre', kerb: 'curb', curb: 'kerb',
+    plough: 'plow', plow: 'plough', mould: 'mold', mold: 'mould', smoulder: 'smolder', smolder: 'smoulder', sulphur: 'sulfur', sulfur: 'sulphur',
+    draught: 'draft', draft: 'draught', cheque: 'check', check: 'cheque', pyjamas: 'pajamas', pajamas: 'pyjamas', sceptic: 'skeptic', skeptic: 'sceptic',
+    sceptical: 'skeptical', skeptical: 'sceptical', ageing: 'aging', aging: 'ageing', artefact: 'artifact', artifact: 'artefact', cosy: 'cozy', cozy: 'cosy',
+    doughnut: 'donut', donut: 'doughnut', yoghurt: 'yogurt', yogurt: 'yoghurt', jewellery: 'jewelry', jewelry: 'jewellery', aeroplane: 'airplane', airplane: 'aeroplane',
+    aluminium: 'aluminum', aluminum: 'aluminium', manoeuvre: 'maneuver', maneuver: 'manoeuvre', anaemia: 'anemia', anemia: 'anaemia',
+    anaesthesia: 'anesthesia', anesthesia: 'anaesthesia', paediatric: 'pediatric', pediatric: 'paediatric', encyclopaedia: 'encyclopedia', encyclopedia: 'encyclopaedia',
+    archaeology: 'archeology', archeology: 'archaeology', foetus: 'fetus', fetus: 'foetus', oestrogen: 'estrogen', estrogen: 'oestrogen',
+    diarrhoea: 'diarrhea', diarrhea: 'diarrhoea', oesophagus: 'esophagus', esophagus: 'oesophagus', leukaemia: 'leukemia', leukemia: 'leukaemia',
+    catalogue: 'catalog', catalog: 'catalogue', dialogue: 'dialog', dialog: 'dialogue', analogue: 'analog', analog: 'analogue', programme: 'program', program: 'programme',
+    travelled: 'traveled', traveled: 'travelled', travelling: 'traveling', traveling: 'travelling', traveller: 'traveler', traveler: 'traveller',
+    cancelled: 'canceled', canceled: 'cancelled', labelled: 'labeled', labeled: 'labelled', modelled: 'modeled', modeled: 'modelled',
+    counsellor: 'counselor', counselor: 'counsellor', marvellous: 'marvelous', marvelous: 'marvellous', skilful: 'skillful', skillful: 'skilful',
+    fulfil: 'fulfill', fulfill: 'fulfil', fulfilment: 'fulfillment', fulfillment: 'fulfilment', enrolment: 'enrollment', enrollment: 'enrolment',
+    judgement: 'judgment', judgment: 'judgement', analyse: 'analyze', analyze: 'analyse'
+  };
+  function spellingVariant(w) {
+    if (SPELLING_EXACT[w]) return SPELLING_EXACT[w];
+    if (/ised$/.test(w) && !ISE_SKIP[w.slice(0, -1)]) return w.slice(0, -4) + 'ized';
+    if (/ized$/.test(w) && !ISE_SKIP[w.slice(0, -1)]) return w.slice(0, -4) + 'ised';
+    if (/ising$/.test(w) && !ISE_SKIP[w.slice(0, -3) + 'e']) return w.slice(0, -5) + 'izing';
+    if (/izing$/.test(w) && !ISE_SKIP[w.slice(0, -3) + 'e']) return w.slice(0, -5) + 'ising';
+    if (/yse[ds]$/.test(w) || /ysing$/.test(w)) return w.replace(/yse/, 'yze').replace(/ysing$/, 'yzing');
+    if (/yze[ds]$/.test(w) || /yzing$/.test(w)) return w.replace(/yze/, 'yse').replace(/yzing$/, 'ysing');
+    if (/ise$/.test(w) && w.length > 5 && !ISE_SKIP[w]) return w.slice(0, -3) + 'ize';
+    if (/ize$/.test(w) && w.length > 5 && !ISE_SKIP[w.slice(0, -3) + 'ise']) return w.slice(0, -3) + 'ise';
+    if (/isation$/.test(w)) return w.slice(0, -7) + 'ization';
+    if (/ization$/.test(w)) return w.slice(0, -7) + 'isation';
+    if (/yse$/.test(w) && w.length > 5) return w.slice(0, -3) + 'yze';
+    if (/yze$/.test(w) && w.length > 5) return w.slice(0, -3) + 'yse';
+    if (/our$/.test(w) && w.length >= 6) return w.slice(0, -3) + 'or';
+    return '';
+  }
+  // 句中单词的原形候选：先原词，再不规则屈折、常见规则屈折、比较级/最高级、-ly，以及英式/美式拼写。
   function wordCandidates(surface) {
     let w = String(surface || '').toLowerCase().replace(/[’']/g, "'").replace(/'s$/, '').replace(/'+$/g, '');
     const out = [];
     const add = s => { if (/^[a-z][a-z'-]{1,48}$/.test(s) && !out.includes(s)) out.push(s); };
     add(w);
+    if (IRREGULAR[w]) add(IRREGULAR[w]);
     if (/ies$/.test(w) && w.length > 4) add(w.slice(0, -3) + 'y');
     if (/ied$/.test(w) && w.length > 4) add(w.slice(0, -3) + 'y');
     if (/ing$/.test(w) && w.length > 5) {
@@ -152,7 +232,49 @@
     }
     if (/es$/.test(w) && w.length > 4) { add(w.slice(0, -2)); add(w.slice(0, -1)); }
     if (/s$/.test(w) && !/ss$/.test(w) && w.length > 3) add(w.slice(0, -1));
+    if (w === 'lives') add('life');
+    if (w === 'leaves') add('leaf');
+    if (w === 'bases') add('basis');
+    if (w === 'axes') add('axis');
+    if (!SUFFIX_SKIP[w]) {
+      if (/iest$/.test(w) && w.length > 5) add(w.slice(0, -4) + 'y');
+      if (/ier$/.test(w) && w.length > 4) add(w.slice(0, -3) + 'y');
+      if (/est$/.test(w) && w.length > 5) {
+        if (w[w.length - 4] === w[w.length - 5]) add(w.slice(0, -4));
+        if (w[w.length - 3] === 'e') add(w.slice(0, -2));
+        if (w.length > 6) add(w.slice(0, -3));
+      }
+      if (/er$/.test(w) && w.length >= 5) {
+        if (w[w.length - 3] === w[w.length - 4]) add(w.slice(0, -3));
+        if (w[w.length - 2] === 'e') add(w.slice(0, -1));
+        if (w.length > 5) add(w.slice(0, -2));
+      }
+      if (/ly$/.test(w) && w.length >= 5) {
+        if (/ically$/.test(w)) add(w.slice(0, -4));
+        if (/ily$/.test(w)) add(w.slice(0, -3) + 'y');
+        const stem = w.slice(0, -2);
+        if (stem.length >= 4) add(stem);
+        if (stem.length >= 3 && /[^aeiou]$/.test(stem)) add(stem + 'e');
+        if (/[^aeiou]ly$/.test(w)) add(w.slice(0, -1) + 'e');
+      }
+    }
+    const base = out.slice();
+    for (let i = 0; i < base.length; i++) add(spellingVariant(base[i]));
     return out;
+  }
+  function findInLists(cands, lists) {
+    const want = Array.isArray(cands) ? cands : [];
+    const books = Array.isArray(lists) ? lists : [];
+    for (let i = 0; i < want.length; i++) {
+      for (let j = 0; j < books.length; j++) {
+        const list = books[j] || [];
+        for (let k = 0; k < list.length; k++) {
+          const x = list[k];
+          if (x && x.word === want[i] && x.meaning) return x;
+        }
+      }
+    }
+    return null;
   }
   // 译文里 {目标词} 在作答前遮住，答完再揭开，避免例句填空被中文直接剧透。
   function maskExampleZh(zh) { return String(zh || '').replace(/\{([^{}]+)\}/g, '____'); }
@@ -206,6 +328,137 @@
     return { index: i, en: DAILY_QUOTES[i].en, zh: DAILY_QUOTES[i].zh, source: DAILY_QUOTES[i].source };
   }
 
-  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry };
+  function toSimplified(text) {
+    const map = root.VocabT2S;
+    const s = String(text || '');
+    if (!map) return s;
+    let out = '';
+    for (const ch of s) out += map[ch] || ch;
+    return out;
+  }
+  function englishSection(wt) {
+    const lines = String(wt || '').split('\n');
+    let start = -1;
+    for (let i = 0; i < lines.length; i++) if (/^==\s*English\s*==\s*$/.test(lines[i])) { start = i + 1; break; }
+    if (start < 0) return '';
+    let end = lines.length;
+    for (let i = start; i < lines.length; i++) if (/^==[^=]/.test(lines[i])) { end = i; break; }
+    return lines.slice(start, end).join('\n');
+  }
+  function ukIpa(section) {
+    const pm = /===Pronunciation===([\s\S]*?)(?:\n===|$)/.exec(section);
+    const block = pm ? pm[1] : '';
+    const lines = block.split('\n');
+    let accent = '';
+    const tagged = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const am = /\{\{a\|([^}]+)\}\}/.exec(line);
+      if (am) accent = am[1];
+      const re = /\{\{IPA\|en\|([^}]+)\}\}/g;
+      let m;
+      while ((m = re.exec(line))) {
+        const parts = m[1].split('|');
+        const phone = (parts.find(p => /^\//.test(p)) || '').trim();
+        const a = ((parts.find(p => /^a=/.test(p)) || '').slice(2)) || accent;
+        if (phone) tagged.push({ phone, a });
+      }
+    }
+    const uk = tagged.find(t => /UK|RP|GB|Britain|Commonwealth/i.test(t.a));
+    const phone = (uk || tagged[0] || {}).phone || '';
+    const one = phone.replace(/^\/|\/$/g, '').split(/[;,]/)[0].trim();
+    return one ? '/' + one + '/' : '';
+  }
+  const POS_CODE = { noun: 'n.', verb: 'v.', adjective: 'adj.', adverb: 'adv.', preposition: 'prep.', conjunction: 'conj.', pronoun: 'pron.', article: 'art.', numeral: 'num.', interjection: 'int.', determiner: 'det.', particle: 'part.', 'proper noun': 'n.' };
+  function mandarinGlosses(section) {
+    const lines = section.split('\n');
+    let pos = '', batch = [], best = null, subpage = false;
+    const flush = () => { if (batch.length && !best) best = { pos, glosses: batch.slice(0, 3) }; batch = []; };
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const h = /^(={3,6})\s*([^=]+?)\s*\1$/.exec(line);
+      if (h) {
+        const name = h[2].trim().toLowerCase();
+        if (POS_CODE[name]) { flush(); pos = name; }
+        continue;
+      }
+      if (/\{\{see translation subpage\|/.test(line) && !best && !batch.length) { subpage = true; continue; }
+      if (subpage || !/Mandarin/.test(line) || /\{\{(?:not used|t-needed)\|cmn\}\}/.test(line)) continue;
+      const re = /\{\{t{1,2}\+?\|cmn\|([^}|]+)(?:\|([^}]*))?\}\}/g;
+      let m;
+      while ((m = re.exec(line))) {
+        let gloss = m[1].trim();
+        const alt = /(?:^|\|)alt=([^|}]+)/.exec(m[2] || '');
+        if (alt) gloss = alt[1].trim();
+        gloss = toSimplified(gloss.replace(/\[\[([^|\]]+\|)?([^\]]+)\]\]/g, '$2').replace(/[{}]/g, '')).replace(/\s+/g, '');
+        if (!gloss || !/[\u3400-\u9fff]/.test(gloss) || /[….]{2,}/.test(gloss) || gloss.length > 12) continue;
+        if (!batch.includes(gloss)) batch.push(gloss);
+      }
+    }
+    flush();
+    if (best) return best;
+    return subpage ? { pos: '', glosses: [], subpage: true } : null;
+  }
+  function formLemmas(section) {
+    const lemmas = [];
+    const add = s => { s = String(s || '').replace(/\[\[|\]\]/g, '').trim().toLowerCase(); if (/^[a-z][a-z'-]{1,48}$/.test(s) && !lemmas.includes(s)) lemmas.push(s); };
+    const lines = section.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!/^#\s+\{\{/.test(line)) continue;
+      let m;
+      const reEn = /\{\{en-(?:comparative|superlative|simple past|past|past participle|present participle) of\|([^}|]+)/g;
+      while ((m = reEn.exec(line))) add(m[1]);
+      const reInfl = /\{\{infl of\|en\|([^}|]+)/g;
+      while ((m = reInfl.exec(line))) add(m[1]);
+      const reOf = /\{\{(?:plural|comparative|superlative|past tense|past participle|present participle|gerund|alternative spelling|standard spelling) of\|en\|([^}]+)\}\}/g;
+      while ((m = reOf.exec(line))) {
+        const parts = m[1].split('|').map(s => s.trim()).filter(s => s && !/=/.test(s));
+        if (parts.length) add(parts[parts.length - 1]);
+      }
+    }
+    return lemmas;
+  }
+  // 英文维基词典 parse API 的 JSON。有道 jsonapi 对 GitHub Pages 的 Origin 返回 403，不能在页面里直连。
+  function parseWiktionaryEntry(data) {
+    if (!data || data.error || !data.parse) return null;
+    const wt = data.parse.wikitext && data.parse.wikitext['*'];
+    if (!wt) return null;
+    const section = englishSection(wt);
+    if (!section) return null;
+    let title = String(data.parse.title || '').trim().toLowerCase();
+    if (title.indexOf('/') >= 0) title = title.split('/')[0];
+    const ipa = ukIpa(section);
+    const lemmas = formLemmas(section);
+    const gloss = mandarinGlosses(section);
+    const base = { ipa, lemmas, word: title };
+    if (gloss && gloss.subpage && (!gloss.glosses || !gloss.glosses.length)) return Object.assign(base, { subpage: true });
+    if (!gloss || !gloss.glosses.length) return lemmas.length ? base : null;
+    if (!/^[a-z][a-z' .-]{0,48}$/.test(title)) return lemmas.length ? base : null;
+    const pos = POS_CODE[gloss.pos] || '';
+    let meaning = gloss.glosses.join('；');
+    if (meaning.length > 120) meaning = meaning.slice(0, 120);
+    return { word: title, ipa, pos, meaning, examples: [], lemmas };
+  }
+  function classifyLookupError(err, onLine) {
+    const name = err && err.name || '';
+    const msg = String(err && (err.message || err.reason) || '');
+    if (name === 'AbortError' || (err && err.kind === 'timeout') || /abort|timeout/i.test(msg)) return 'timeout';
+    if (onLine === false || (err && err.kind === 'offline')) return 'offline';
+    return 'http';
+  }
+  function lookupFailureMessage(kind, word) {
+    const w = String(word || '');
+    if (kind === 'offline') return '没网，查不了「' + w + '」。请联网后再试';
+    if (kind === 'timeout') return '查询「' + w + '」超时，请稍后再试';
+    if (kind === 'http') return '词典请求失败，没能查询「' + w + '」，请稍后再试';
+    return '没有找到「' + w + '」的中文释义';
+  }
+  function imeBottom(layoutHeight, viewportHeight, offsetTop) {
+    const n = Number(layoutHeight) - Number(viewportHeight) - Number(offsetTop);
+    return n > 0 ? n : 0;
+  }
+
+  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VocabCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

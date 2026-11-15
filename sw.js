@@ -1,4 +1,4 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Shell query is v=22 for the daily quote share card. */
+/* Dog Verb shell cache. Install identity stays app-v18. Shell query is v=22: daily quote card on top of cloze lookup and the keyboard dock. */
 const CACHE = 'dog-verb-shell-v22';
 const SHELL = [
   './index.html',
@@ -7,6 +7,7 @@ const SHELL = [
   './core.js?v=22',
   './data/books-index.js?v=18',
   './data/example-zh.js?v=22',
+  './data/t2s.js?v=22',
   './vendor/ts-fsrs.umd.js',
   './assets/dog-mascot.png?v=15',
   './assets/dog-mascot-transparent.png?v=22',
