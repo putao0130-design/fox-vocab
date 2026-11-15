@@ -1,12 +1,13 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Shell query is v=20 for cloze translations plus the check-in share card. */
-const CACHE = 'dog-verb-shell-v20';
+/* Dog Verb shell cache. Install identity stays app-v18. Shell query is v=21 for cloze lookup and the keyboard dock. */
+const CACHE = 'dog-verb-shell-v21';
 const SHELL = [
   './index.html',
-  './style.css?v=20',
-  './app.js?v=20',
-  './core.js?v=20',
+  './style.css?v=21',
+  './app.js?v=21',
+  './core.js?v=21',
   './data/books-index.js?v=18',
   './data/example-zh.js?v=20',
+  './data/t2s.js?v=21',
   './vendor/ts-fsrs.umd.js',
   './assets/dog-mascot.png?v=15',
   './assets/dog-mascot-transparent.png',
