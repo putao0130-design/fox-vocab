@@ -180,6 +180,71 @@
   function flash(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
   function toast(html) { const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
 
+  // 手机键盘：visualViewport 比 layout 矮出的一段就是键盘（含候选栏）。超过约 80px 才当键盘，避免浏览器工具条抖动。
+  function imeInset() {
+    const vv = window.visualViewport;
+    if (!vv) return 0;
+    return C.imeBottom(window.innerHeight, vv.height, vv.offsetTop);
+  }
+  function narrowScreen() { return !!(window.matchMedia && window.matchMedia('(max-width: 759px)').matches); }
+  let imeWasOpen = false;
+  function takeIntoDock(el, dock) {
+    if (!el || el.parentElement === dock) return;
+    if (!el.__imeHome) el.__imeHome = { parent: el.parentElement, next: el.nextSibling };
+    dock.appendChild(el);
+  }
+  function discardImeDock() {
+    const dock = document.getElementById('ime-dock');
+    if (dock) dock.remove();
+    document.documentElement.style.setProperty('--dock-h', '0px');
+  }
+  function restoreImeDock() {
+    const dock = document.getElementById('ime-dock');
+    if (!dock) { document.documentElement.style.setProperty('--dock-h', '0px'); return; }
+    [...dock.children].forEach(el => {
+      const home = el.__imeHome;
+      if (!home || !home.parent || !home.parent.isConnected) return;
+      const next = home.next && home.next.parentNode === home.parent ? home.next : null;
+      home.parent.insertBefore(el, next);
+    });
+    dock.remove();
+    document.documentElement.style.setProperty('--dock-h', '0px');
+  }
+  function mountImeDock() {
+    const row = document.querySelector('#ans .typerow, #ime-dock .typerow');
+    const area = document.querySelector('textarea#s');
+    if (!row && !area) { restoreImeDock(); return; }
+    let dock = document.getElementById('ime-dock');
+    if (!dock) { dock = document.createElement('div'); dock.id = 'ime-dock'; document.body.appendChild(dock); }
+    const tip = row && document.querySelector('.senttip');
+    if (tip) takeIntoDock(tip, dock);
+    if (row) takeIntoDock(row, dock);
+    if (area) takeIntoDock(area, dock);
+    const active = document.activeElement;
+    if (active && dock.contains(active)) { try { active.focus({ preventScroll: true }); } catch (e) { try { active.focus(); } catch (e2) { } } }
+    document.documentElement.style.setProperty('--dock-h', Math.ceil(dock.getBoundingClientRect().height) + 'px');
+  }
+  function revealSentence() {
+    const en = document.querySelector('.sent .senten') || document.querySelector('.sent');
+    if (!en || !en.scrollIntoView) return;
+    try { en.scrollIntoView({ block: 'nearest' }); } catch (e) { try { en.scrollIntoView(false); } catch (e2) { } }
+  }
+  function syncIme() {
+    const inset = Math.round(imeInset());
+    document.documentElement.style.setProperty('--ime-bottom', inset + 'px');
+    const open = inset > 80 && narrowScreen();
+    document.body.classList.toggle('kb-open', open);
+    if (open) { mountImeDock(); if (!imeWasOpen) revealSentence(); }
+    else restoreImeDock();
+    imeWasOpen = open;
+  }
+  function bindIme() {
+    const vv = window.visualViewport;
+    if (vv) { vv.addEventListener('resize', syncIme); vv.addEventListener('scroll', syncIme); }
+    window.addEventListener('resize', syncIme);
+    syncIme();
+  }
+
   // ---------- 锁定稿小狗 PNG（四阶段同一张图） ----------
   function stageIdx(months) { return months >= 12 ? 3 : months >= 6 ? 2 : months >= 2 ? 1 : 0; }
   const STAGE_NAMES = ['幼崽', '少年', '青年', '成犬'];
@@ -265,15 +330,7 @@
     for (const id in LOADED) { if ((!BOOK || id !== BOOK.id) && LOADED[id] && LOADED[id].words) lists.push(LOADED[id].words); }
     return lists;
   }
-  function findLocal(cands) {
-    for (const c of cands) {
-      for (const list of dictLists()) {
-        const hit = list.find(x => x.word === c && x.meaning);
-        if (hit) return hit;
-      }
-    }
-    return null;
-  }
+  function findLocal(cands) { return C.findInLists(cands, dictLists()); }
   function exampleZhRaw(sentence) {
     const table = window.EXAMPLE_ZH || {};
     return table[sentence] || '';
@@ -341,7 +398,7 @@
       return;
     }
     const saved = ensureInBook(norm);
-    if (!saved || !saved.meaning) { toast('没查到「' + esc(word) + '」的释义，请联网后再试'); return; }
+    if (!saved || !saved.meaning) { toast(esc(C.lookupFailureMessage('none', word))); return; }
     const b = ensureBookArrays();
     b.today = b.today.filter(w => { const x = byWord(String(w || '').toLowerCase()); return x && !cards()[x.word]; });
     if (!b.today.includes(saved.word)) b.today.push(saved.word);
@@ -349,37 +406,58 @@
     toast('已将「' + esc(saved.word) + '」加入今日学习');
     if (el) { el.classList.add('added'); setTimeout(() => el.classList.remove('added'), 900); }
   }
-  function youdaoUrl(word) {
-    return 'https://dict.youdao.com/jsonapi?q=' + encodeURIComponent(word) + '&le=en&dicts=' + encodeURIComponent('{"count":1,"dicts":[["ec"]]}');
+  // 有道 jsonapi 在带 Origin（GitHub Pages / iOS Safari）时返回 403 且没有 CORS 头，页面里的 fetch 读不到释义。
+  // 英文维基词典 action API 加 origin=* 会返回 Access-Control-Allow-Origin: *，并能给出中文释义。英音仍走 dictvoice?type=1。
+  function dictUrl(word) {
+    const page = String(word).split('/').map(encodeURIComponent).join('/');
+    return 'https://en.wiktionary.org/w/api.php?action=parse&page=' + page + '&prop=wikitext&format=json&origin=*&redirects=1';
   }
-  function fetchYoudao(word) {
-    if (typeof fetch !== 'function') return Promise.reject(new Error('no fetch'));
+  function fetchDict(word) {
+    if (typeof fetch !== 'function') return Promise.reject(Object.assign(new Error('no fetch'), { kind: 'http' }));
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = ctrl ? setTimeout(() => ctrl.abort(), 8000) : null;
-    return fetch(youdaoUrl(word), ctrl ? { signal: ctrl.signal } : undefined).then(r => {
-      if (!r.ok) throw new Error('dict');
-      return r.json();
-    }).then(C.parseYoudaoEntry).finally(() => { if (timer) clearTimeout(timer); });
-  }
-  async function lookupYoudao(cands) {
-    const tried = new Set();
-    for (const c of cands) {
-      if (tried.has(c)) continue;
-      tried.add(c);
-      let entry = null;
-      try { entry = await fetchYoudao(c); } catch (e) { entry = null; }
-      if (!entry || !entry.meaning) continue;
-      const lemma = C.lemmaHint(entry.meaning);
-      if (lemma && lemma !== entry.word && !tried.has(lemma)) {
-        const local = findLocal([lemma]);
-        if (local) return local;
-        tried.add(lemma);
-        try { const base = await fetchYoudao(lemma); if (base && base.meaning) return base; } catch (e) { }
+    return fetch(dictUrl(word), ctrl ? { signal: ctrl.signal } : undefined).then(r => {
+      if (!r.ok) {
+        const err = new Error('dict ' + r.status);
+        err.kind = r.status === 408 || r.status === 504 ? 'timeout' : 'http';
+        throw err;
       }
-      return entry;
+      return r.json();
+    }).then(C.parseWiktionaryEntry).finally(() => { if (timer) clearTimeout(timer); });
+  }
+  async function lookupOnline(cands) {
+    const tried = new Set();
+    const queue = cands.slice(0, 6);
+    let saw = false, lastErr = null, fetches = 0, carriedIpa = '';
+    while (queue.length && fetches < 4) {
+      const c = queue.shift();
+      if (!c || tried.has(c)) continue;
+      tried.add(c);
+      fetches++;
+      let parsed = null;
+      try { parsed = await fetchDict(c); }
+      catch (e) { e.kind = e.kind || C.classifyLookupError(e, typeof navigator !== 'undefined' ? navigator.onLine : undefined); lastErr = e; continue; }
+      saw = true;
+      if (parsed && parsed.ipa) carriedIpa = parsed.ipa;
+      if (parsed && parsed.meaning) {
+        if (!parsed.ipa && carriedIpa) parsed.ipa = carriedIpa;
+        return parsed;
+      }
+      const lemmas = parsed && parsed.lemmas || [];
+      for (let i = 0; i < lemmas.length; i++) {
+        const local = findLocal([lemmas[i]]);
+        if (local) return local;
+      }
+      for (let i = lemmas.length - 1; i >= 0; i--) if (!tried.has(lemmas[i])) queue.unshift(lemmas[i]);
+      if (parsed && parsed.subpage) {
+        const sub = (parsed.word || c).split('/')[0] + '/translations';
+        if (!tried.has(sub)) queue.unshift(sub);
+      }
     }
+    if (!saw && lastErr) throw lastErr;
     return null;
   }
+  function lookupToast(kind, word) { toast(esc(C.lookupFailureMessage(kind, word))); }
   async function addSentenceWord(surface, el) {
     const cands = C.wordCandidates(surface);
     if (!cands.length) { toast('请长按一个英文单词'); return; }
@@ -389,11 +467,11 @@
     addLock = true;
     if (el) el.classList.add('adding');
     try {
-      const entry = await lookupYoudao(cands);
-      if (!entry) { toast('没查到「' + esc(cands[0]) + '」的释义，请联网后再试'); return; }
+      const entry = await lookupOnline(cands);
+      if (!entry || !entry.meaning) { lookupToast('none', cands[0]); return; }
       commitAdd(entry, el);
     } catch (e) {
-      toast('没查到「' + esc(cands[0]) + '」的释义，请联网后再试');
+      lookupToast(e && e.kind || C.classifyLookupError(e, navigator.onLine), cands[0]);
     } finally {
       addLock = false;
       if (el) el.classList.remove('adding');
@@ -448,6 +526,7 @@
   }
 
   function showQ(container, w, type, next) {
+    discardImeDock();
     const q = makeQ(w, type);
     container.innerHTML = `<div class="card qcard enter" id="qc"><div class="qtype">${q.title}</div><div class="prompt">${q.prompt}</div><div id="ans"></div><div id="fb"></div></div>`;
     const ans = container.querySelector('#ans'), fb = container.querySelector('#fb'), qc = container.querySelector('#qc');
@@ -480,6 +559,8 @@
       ans.querySelector('#sub').onclick = () => go(false); ans.querySelector('#skip').onclick = () => go(true);
       inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); go(false); } };
     }
+    syncIme();
+    if (document.body.classList.contains('kb-open')) revealSentence();
   }
 
   // ---------- 键盘快捷键（桌面） ----------
@@ -502,6 +583,7 @@
   let navSeq = 0;
   function go(v, arg) {
     if (!(v in views)) v = 'home';
+    discardImeDock();
     document.querySelectorAll('#nav [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === TAB_OF[v]));
     document.body.dataset.view = v;
     location.hash = v; const seq = ++navSeq;
@@ -819,6 +901,7 @@
   };
 
   views.sentence = function (wordArg) {
+    discardImeDock();
     const l = learned(); const pool = l.length ? l : W().filter(C.hasExample);
     const w = (wordArg && byWord(wordArg)) || pool[Math.floor(Math.random() * pool.length)];
     const mine = bs().sentences[w.word] || []; const exs = w.examples || [];
@@ -832,13 +915,15 @@
     $app.querySelector('#nxt').onclick = () => views.sentence();
     $app.querySelector('#pk').onclick = () => { const v = C.norm($app.querySelector('#pickw').value); if (byWord(v)) views.sentence(v); else alert('词书中没有这个词'); };
     $app.querySelector('#chk').onclick = () => {
-      const t = $app.querySelector('#s').value.trim(); const r = C.checkSentence(t, w.word); const fb = $app.querySelector('#fb');
+      const box = document.getElementById('s');
+      const t = box ? box.value.trim() : ''; const r = C.checkSentence(t, w.word); const fb = $app.querySelector('#fb');
       if (!r.ok) { fb.innerHTML = r.errors.map(e => `<div class="err">✘ ${esc(e)}</div>`).join(''); flash($app.querySelector('.qcard'), 'bad'); return; }
       (bs().sentences[w.word] = bs().sentences[w.word] || []).push({ text: t, date: today() });
       const m = record(w, C.Rating.Good); views.sentence(w.word);
       $app.querySelector('#fb').innerHTML = `<div class="verdict ok">✔ 句子格式检查通过，已保存。${esc(m)}</div><div class="hint">注：离线检查只看格式和是否用到该词，不判断语法与用法是否地道${exs.length ? '，请对照参考例句' : ''}。</div>`;
       flash($app.querySelector('.qcard'), 'good');
     };
+    syncIme();
   };
 
   views.pet = function (fedN) {
@@ -987,7 +1072,7 @@
       <div class="card"><div class="ctitle">备份</div><div class="hint">进度保存在本浏览器中。可导出 JSON 文件备份，或在另一台设备导入（也可导入 v1 版导出的文件）。</div>
       <div class="row"><button class="ghost" id="ex">导出进度</button><label><button class="ghost" id="imb">导入进度</button><input type="file" id="im" accept=".json,application/json" style="display:none"></label></div></div>
       <div class="card"><div class="ctitle">危险操作</div><div class="row"><button class="danger" id="rs">清空所有进度</button></div></div><div id="msg"></div>
-      <div class="card muted credit">词库：<a href="https://github.com/skywind3000/ECDICT" target="_blank">ECDICT</a>（MIT）、<a href="https://github.com/KyleBing/english-vocabulary" target="_blank">KyleBing/english-vocabulary</a>（BSD-3-Clause）；记忆算法：<a href="https://github.com/open-spaced-repetition/ts-fsrs" target="_blank">ts-fsrs</a>（MIT）；英音发音：有道词典在线音频，失败时用浏览器 en-GB 语音。详见 <a href="LICENSES/THIRD_PARTY_NOTICES.md" target="_blank">第三方许可</a>。小狗形象与界面为原创。</div>`;
+      <div class="card muted credit">词库：<a href="https://github.com/skywind3000/ECDICT" target="_blank">ECDICT</a>（MIT）、<a href="https://github.com/KyleBing/english-vocabulary" target="_blank">KyleBing/english-vocabulary</a>（BSD-3-Clause）；记忆算法：<a href="https://github.com/open-spaced-repetition/ts-fsrs" target="_blank">ts-fsrs</a>（MIT）；英音发音：有道词典在线音频，失败时用浏览器 en-GB 语音。词书未收录的词，中文释义来自英文维基词典。详见 <a href="LICENSES/THIRD_PARTY_NOTICES.md" target="_blank">第三方许可</a>。小狗形象与界面为原创。</div>`;
     $app.querySelector('#sv').onclick = () => { const n = parseInt($app.querySelector('#dn').value, 10); if (n > 0) S.settings.dailyNew = n; S.settings.autoPlay = $app.querySelector('#ap').checked; S.bookId = $app.querySelector('#bk').value; save();
       const p = go('settings'); const ok = () => { const m = $app.querySelector('#msg'); if (m) m.innerHTML = '<div class="verdict ok">已保存</div>'; }; p && p.then ? p.then(ok) : ok(); };
     $app.querySelector('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' })); a.download = 'dog-verb-backup-' + today() + '.json'; a.click(); };
@@ -1002,5 +1087,6 @@
   }
   window.__import = importText;
   window.__state = () => S;
+  bindIme();
   window.__ready = go((location.hash || '#home').slice(1).split('?')[0] in views ? location.hash.slice(1) : 'home');
 })();

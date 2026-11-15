@@ -5,8 +5,11 @@
 | [ECDICT](https://github.com/skywind3000/ECDICT) © Linwei (skywind3000) | 词书单词、音标、中文释义、词性、雅思/托福标签 | MIT | ECDICT-LICENSE.txt |
 | [KyleBing/english-vocabulary](https://github.com/KyleBing/english-vocabulary) © 2022-2026 KyleBing | 托福词表（词书基础词集） | BSD-3-Clause | english-vocabulary-LICENSE.txt |
 | [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) v6.0.0 © Open Spaced Repetition | FSRS 记忆算法（vendor/ts-fsrs.umd.js） | MIT | ts-fsrs-LICENSE.txt |
+| [OpenCC](https://github.com/BYVoid/OpenCC) © OpenCC contributors | 在线释义的繁体转简体字符表（data/t2s.js，源自 TSCharacters） | Apache-2.0 | — |
+| [Wiktionary](https://en.wiktionary.org/) © 维基词典贡献者 | 词书未收录的词，页面运行时查询英文维基词典的中文释义 | CC BY-SA 4.0 / GFDL | — |
 
-发音音频在播放时从有道词典 (dict.youdao.com, type=1 英音) 在线获取，不随本项目分发。
+发音音频在播放时从有道词典 (dict.youdao.com, type=1 英音) 在线获取，不随本项目分发。有道 jsonapi 对网页 Origin 返回 403，释义不从该接口读取。
+词书未收录的词，中文释义在查询时来自英文维基词典，不随本项目分发。
 原 359 个词的例句为本项目原创。
 
 ## KyleBing/english-vocabulary — BSD 3-Clause License
