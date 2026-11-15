@@ -1,3 +1,6 @@
+@font-face{font-family:"Inria Serif";font-style:italic;font-weight:400;font-display:swap;src:url("assets/fonts/inria-serif-italic.woff2?v=22") format("woff2")}
+@font-face{font-family:"Noto Serif SC";font-style:normal;font-weight:400;font-display:swap;src:url("assets/fonts/noto-serif-sc-regular.woff2?v=22") format("woff2")}
+@font-face{font-family:"Noto Sans SC";font-style:normal;font-weight:400;font-display:swap;src:url("assets/fonts/noto-sans-sc-regular.woff2?v=22") format("woff2")}
 :root{--color-primary:#4B423E;--color-secondary:#A27650;--color-bg:#FFFCF7;--color-surface:#F7F3EE;--color-accent:#F0BB51;--color-accent-pressed:#A36D43;--color-ink:#1A1210;--color-muted:#E8E0D6;--color-shadow:#3C3030;--color-tan-deep:#8C5C3C;--radius-card:22px;--radius-button:18px;
   --bg:var(--color-bg);--bg2:var(--color-surface);--card:var(--color-surface);--ink:var(--color-ink);--mute:#7A6E66;--line:var(--color-muted);--acc:var(--color-secondary);--acc2:var(--color-accent);--accs:#F3E6D8;--ok:#5E7D62;--oks:#E7F0E4;--bad:#8C5C3C;--bads:#F6EBE3;--blue:var(--color-primary);--sh:0 2px 8px rgba(26,18,16,.08);--r:var(--radius-card);
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","HarmonyOS Sans SC","HarmonyOS Sans","MiSans","Microsoft YaHei","Noto Sans CJK SC",sans-serif;color-scheme:light;background:var(--color-bg)}

@@ -193,6 +193,19 @@
     return { word: surface, ipa: one ? '/' + one + '/' : '', pos, meaning, examples: [] };
   }
 
-  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry };
+  // 每日金句。英句按核对过的原句保存，不改写。同一天本地日历日永远同一句。
+  const DAILY_QUOTES = [
+    { en: "I'd love to stay and talk, but I just remembered I have to run away.", zh: '我很想留下来聊，但我突然想起我得逃走了。', source: '《破产姐妹》' },
+    { en: "I don't cry. I sold my tear ducts to an organ bank for cash two years ago.", zh: '我不哭。两年前我就把泪腺卖给器官库套现了。', source: '《破产姐妹》' },
+    { en: 'And one day, I will try lettuce, but not tonight.', zh: '总有一天我会试试生菜，但不是今晚。', source: '《破产姐妹》' }
+  ];
+  function dailyQuote(dayKey) {
+    if (!/^(\d{4})-(\d{2})-(\d{2})$/.test(String(dayKey || ''))) throw new Error('bad day');
+    const n = daysBetween('2026-01-01', dayKey);
+    const i = ((n % DAILY_QUOTES.length) + DAILY_QUOTES.length) % DAILY_QUOTES.length;
+    return { index: i, en: DAILY_QUOTES[i].en, zh: DAILY_QUOTES[i].zh, source: DAILY_QUOTES[i].source };
+  }
+
+  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VocabCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

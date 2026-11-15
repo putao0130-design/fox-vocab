@@ -195,21 +195,25 @@ function answer(w) {
   assert.strictEqual(q(w, '.word').textContent, 'household', 'today list persists');
   assert.ok(w.__state().books['ielts-toefl-core'].extra.some(e => e.word === 'from' && e.meaning));
 
-  // 转发：当月月历出图，系统分享优先，否则保存 / 长按
+  // 转发：每日金句方卡。页内日历还在，分享图不再画月历。
   offset = 0;
-  const dayKey = C_today(), monthFirst = dayKey.slice(0, 8) + '01', other = dayKey.endsWith('01') ? dayKey.slice(0, 8) + '02' : monthFirst;
-  store = { 'foxVocab.v2': JSON.stringify({ v: 2, bookId: 'ielts-toefl-core', settings: { dailyNew: 20, autoPlay: true }, books: {}, days: {}, studyDays: [dayKey, other, '2020-01-01'], fox: { food: 0, xp: 0, hunger: 80, lastCheck: dayKey, fed: 0, name: '豆豆' } }) };
+  const dayKey = C_today();
+  store = { 'foxVocab.v2': JSON.stringify({ v: 2, bookId: 'ielts-toefl-core', settings: { dailyNew: 20, autoPlay: true }, books: {}, days: {}, studyDays: [dayKey, '2020-01-01'], fox: { food: 0, xp: 0, hunger: 80, lastCheck: dayKey, fed: 0, name: '豆豆' } }) };
   loads = [];
   const ops = []; const srcs = [];
   w = await boot(win => {
     win.Image = function () { this.naturalWidth = 64; this.naturalHeight = 64; this.width = 64; this.height = 64; };
-    Object.defineProperty(win.Image.prototype, 'src', { configurable: true, set(v) { this._src = String(v); srcs.push(this._src); setTimeout(() => { if (this.onload) this.onload(); }, 0); }, get() { return this._src; } });
+    Object.defineProperty(win.Image.prototype, 'src', { configurable: true, set(v) { this._src = String(v); this._decoded = false; srcs.push(this._src); setTimeout(() => { if (this.onload) this.onload(); }, 0); }, get() { return this._src; } });
+    win.Image.prototype.decode = function () { const self = this; return new Promise(resolve => setTimeout(() => { self._decoded = true; resolve(); }, 5)); };
   });
   assert.strictEqual(q(w, '.sharecal').textContent, '转发', 'share entry on home');
+  assert.ok(q(w, '.cal') && txt(w).includes('近 28 天打卡'), 'calendar stays on home');
+  assert.ok(q(w, '.cal .on .paw'), 'checked day still shows a paw in the app');
   w.__go('me'); assert.strictEqual(q(w, '.sharecal').textContent, '转发', 'share entry on me');
+  assert.ok(q(w, '.cal'), 'calendar stays on me');
   w.__go('home');
   w.HTMLCanvasElement.prototype.getContext = () => new Proxy({}, {
-    get: (_, k) => k === 'measureText' ? t => ({ width: String(t).length * 18 }) : (...args) => { ops.push({ op: String(k), args }); },
+    get: (_, k) => k === 'measureText' ? t => ({ width: String(t).length * 18 }) : k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : (...args) => { ops.push({ op: String(k), args }); },
     set: (_, k, v) => { ops.push({ op: 'set', key: String(k), value: v }); return true; }
   });
   w.HTMLCanvasElement.prototype.toBlob = function (cb, type) { cb(new w.Blob(['png'], { type: type || 'image/png' })); };
@@ -219,40 +223,58 @@ function answer(w) {
   let shared = null;
   Object.defineProperty(w.navigator, 'canShare', { configurable: true, value: p => !!(p && p.files && p.files[0]) });
   Object.defineProperty(w.navigator, 'share', { configurable: true, value: p => { shared = p; return Promise.resolve(); } });
+  const quote = w.VocabCore.dailyQuote(dayKey);
+  const photos = ['kubota-garden-seattle.jpg', 'lyon-riverside-terrace.jpg', 'wallabi-beach.jpg'];
   q(w, '.sharecal').click();
-  await new Promise(r => setTimeout(r, 80));
+  await new Promise(r => setTimeout(r, 250));
   assert.ok(canvases.some(c => c.width === 1080 && c.height === 1080), 'square card');
   assert.ok(shared && shared.files[0].type === 'image/png', 'share file');
-  assert.ok(shared.files[0].name.indexOf(dayKey.slice(0, 7)) !== -1, shared.files[0].name);
-  assert.ok(shared.text.indexOf('连续打卡') !== -1 && shared.text.indexOf('累计') !== -1, shared.text);
+  assert.ok(shared.files[0].name.indexOf(dayKey) !== -1, shared.files[0].name);
+  assert.ok(shared.text.indexOf(quote.zh) !== -1 && shared.text.indexOf('《破产姐妹》') !== -1, shared.text);
+  assert.ok(shared.text.indexOf('连续打卡') === -1, 'share text is the quote');
   assert.ok(!q(w, '#sharesheet'), 'sheet stays hidden when share works');
+  assert.ok(q(w, '.cal') && txt(w).includes('近 28 天打卡'), 'calendar still in the app');
+  assert.ok(!txt(w).includes(quote.en), 'quote is on the image, not the calendar');
   const texts = ops.filter(o => o.op === 'fillText').map(o => String(o.args[0]));
-  const dim = new Date(+dayKey.slice(0, 4), +dayKey.slice(5, 7), 0).getDate();
-  assert.ok(texts.includes(dayKey.slice(0, 4) + '年' + (+dayKey.slice(5, 7)) + '月'), 'month label');
-  assert.strictEqual(texts.filter(t => /^\d+$/.test(t)).length, dim + 1, 'month days plus streak');
-  assert.ok(texts.includes(String(+dayKey.slice(8))) && texts.includes(String(+other.slice(8))), 'checked days keep their numbers');
-  assert.ok(texts.includes('连续打卡') && texts.includes('一') && texts.includes('日'));
-  assert.ok(texts.some(t => t.indexOf('豆豆') !== -1 && t.indexOf('累计') !== -1), texts.join('|'));
-  assert.ok(!texts.some(t => t.indexOf('示例') !== -1), 'no sample caption');
-  assert.strictEqual(ops.filter(o => o.op === 'stroke').length, 1, 'only today is stroked');
+  const unique = []; texts.forEach(t => { if (unique.indexOf(t) === -1) unique.push(t); });
+  const enDrawn = unique.filter(t => /^[A-Za-z0-9 ,.'’]+$/.test(t));
+  assert.strictEqual(enDrawn.join(' '), quote.en, enDrawn.join(' | '));
+  assert.ok(unique.indexOf(quote.zh) !== -1, 'chinese line');
+  assert.ok(unique.indexOf('《破产姐妹》') !== -1, 'source title');
+  assert.ok(unique.indexOf('Dog Verb  ·  每日金句') !== -1, 'brand line');
+  assert.ok(!unique.some(t => t === '连续打卡' || t.indexOf('累计') !== -1 || /^\d+$/.test(t)), unique.join('|'));
+  assert.strictEqual(ops.filter(o => o.op === 'stroke').length, 1, 'gold rule only');
   assert.ok(ops.some(o => o.op === 'set' && o.key === 'strokeStyle' && String(o.value).toUpperCase() === '#F0BB51'));
-  assert.ok(ops.some(o => o.op === 'set' && o.key === 'lineWidth' && o.value === 4));
-  assert.ok(ops.filter(o => o.op === 'fill').length < 8, 'checked days are not solid blocks');
-  const paints = ops.filter(o => o.op === 'set' && (o.key === 'fillStyle' || o.key === 'strokeStyle')).map(o => String(o.value).toUpperCase());
-  assert.ok(paints.every(c => ['#4B423E', '#A27650', '#FFFCF7', '#F0BB51'].includes(c)), paints.join(','));
-  const drawn = ops.filter(o => o.op === 'drawImage').map(o => o.args[0] && o.args[0]._src || '');
-  assert.ok(drawn.some(s => s.indexOf('paw-check') !== -1), 'paw image');
-  assert.ok(drawn.some(s => s.indexOf('logo-doubao') !== -1), 'doubao logo');
-  assert.ok(drawn.some(s => s.indexOf('dog-mascot-transparent') !== -1), 'transparent pet');
-  assert.ok(drawn.every(s => s.indexOf('dog-mascot.png') === -1), 'no watermarked mascot');
+  assert.ok(ops.some(o => o.op === 'set' && o.key === 'lineWidth' && o.value === 2));
+  const drawn = ops.filter(o => o.op === 'drawImage');
+  assert.ok(drawn.every(o => o.args[0] && o.args[0]._decoded), 'draw only after decode');
+  const drawnSrc = drawn.map(o => o.args[0] && o.args[0]._src || '');
+  assert.ok(drawnSrc.some(s => s.indexOf(photos[quote.index]) !== -1), 'today landscape ' + photos[quote.index]);
+  assert.ok(drawnSrc.some(s => s.indexOf('logo-doubao') !== -1), 'doubao logo');
+  assert.ok(drawnSrc.some(s => s.indexOf('dog-mascot-transparent') !== -1), 'transparent pet');
+  assert.ok(drawnSrc.every(s => s.indexOf('paw-check') === -1), 'calendar paw is not on the card');
+  assert.ok(drawnSrc.every(s => s.indexOf('dog-mascot.png') === -1), 'no watermarked mascot');
+  offset = 36 * 60 * 60 * 1000;
+  const day2 = w.VocabCore.dayKey(w.Date.now());
+  const quote2 = w.VocabCore.dailyQuote(day2);
+  assert.notStrictEqual(quote2.index, quote.index, 'next day is a different card');
+  ops.length = 0; shared = null;
+  q(w, '.sharecal').click();
+  await new Promise(r => setTimeout(r, 250));
+  const texts2 = [];
+  ops.filter(o => o.op === 'fillText').forEach(o => { const t = String(o.args[0]); if (texts2.indexOf(t) === -1) texts2.push(t); });
+  assert.strictEqual(texts2.filter(t => /^[A-Za-z0-9 ,.'’]+$/.test(t)).join(' '), quote2.en);
+  assert.ok(ops.some(o => o.op === 'drawImage' && String(o.args[0] && o.args[0]._src || '').indexOf(photos[quote2.index]) !== -1));
+  offset = 0;
   shared = null;
   Object.defineProperty(w.navigator, 'share', { configurable: true, value: () => { const e = new Error('abort'); e.name = 'AbortError'; return Promise.reject(e); } });
-  q(w, '.sharecal').click(); await new Promise(r => setTimeout(r, 80));
+  q(w, '.sharecal').click(); await new Promise(r => setTimeout(r, 250));
   assert.ok(!q(w, '#sharesheet'), 'cancel does not open the sheet');
   Object.defineProperty(w.navigator, 'canShare', { configurable: true, value: () => false });
-  q(w, '.sharecal').click(); await new Promise(r => setTimeout(r, 80));
+  q(w, '.sharecal').click(); await new Promise(r => setTimeout(r, 250));
   const preview = q(w, '#sharesheet img');
   assert.ok(preview && preview.getAttribute('src').indexOf('data:image/png') === 0, 'long-press image');
+  assert.ok(q(w, '[aria-label="转发每日金句"]'));
   assert.strictEqual(q(w, '#sharesave').textContent, '保存图片');
   q(w, '#shareclose').click(); assert.ok(!q(w, '#sharesheet'));
 
