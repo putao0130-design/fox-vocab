@@ -38,17 +38,22 @@
     if (!known) o.bookId = d.bookId;
     return o;
   }
+  function normalizeWordEntry(raw) {
+    const src = typeof raw === 'string' ? { word: raw } : (raw || {});
+    const word = String(src.word || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!/^[a-z][a-z' .-]{0,48}$/.test(word)) return null;
+    const examples = Array.isArray(src.examples) ? src.examples.map(String).filter(Boolean).slice(0, 3) : [];
+    return { word, ipa: String(src.ipa || ''), pos: String(src.pos || ''), meaning: String(src.meaning || '').slice(0, 120), examples };
+  }
   function normalizeCustom(b) {
     if (!b || typeof b !== 'object') return null;
     const id = String(b.id || '');
     if (!/^custom-[a-z0-9-]{4,}$/i.test(id)) return null;
     const seen = new Set(); const words = [];
     for (const raw of b.words || []) {
-      const src = typeof raw === 'string' ? { word: raw } : (raw || {});
-      const word = String(src.word || '').trim().toLowerCase().replace(/\s+/g, ' ');
-      if (!/^[a-z][a-z' .-]{0,48}$/.test(word) || seen.has(word)) continue;
-      seen.add(word);
-      words.push({ word, ipa: String(src.ipa || ''), pos: String(src.pos || ''), meaning: String(src.meaning || '').slice(0, 120), examples: Array.isArray(src.examples) ? src.examples.map(String).filter(Boolean).slice(0, 3) : [] });
+      const e = normalizeWordEntry(raw);
+      if (!e || seen.has(e.word)) continue;
+      seen.add(e.word); words.push(e);
     }
     return { id, name: String(b.name || '我的词书').trim().slice(0, 40) || '我的词书', description: '自定义词书', words };
   }
@@ -89,13 +94,42 @@
   function markStudied() { const k = today(); if (!S.studyDays.includes(k)) S.studyDays.push(k); }
   S.fox = C.applyHunger(S.fox, S.studyDays, today()); save();
 
-  const W = () => BOOK.words;
+  function bookExtras() {
+    if (!BOOK) return [];
+    const b = S.books[BOOK.id];
+    const raw = b && Array.isArray(b.extra) ? b.extra : [];
+    const seen = new Set(BOOK.words.map(w => w.word));
+    const out = [];
+    for (const rawE of raw) {
+      const e = normalizeWordEntry(rawE);
+      if (!e || !e.meaning || seen.has(e.word)) continue;
+      seen.add(e.word); out.push(e);
+    }
+    return out;
+  }
+  const W = () => BOOK.words.concat(bookExtras());
   const byWord = w => W().find(x => x.word === w);
   const learned = () => W().filter(w => cards()[w.word]);
-  const unlearned = () => W().filter(w => !cards()[w.word]);
+  function todayQueue() {
+    if (!BOOK) return [];
+    const b = S.books[BOOK.id];
+    const pins = b && Array.isArray(b.today) ? b.today : [];
+    const cs = cards(); const out = []; const seen = new Set();
+    for (const word of pins) {
+      const w = byWord(String(word || '').toLowerCase());
+      if (!w || cs[w.word] || seen.has(w.word)) continue;
+      seen.add(w.word); out.push(w);
+    }
+    return out;
+  }
+  function unlearned() {
+    const pins = todayQueue(); const seen = new Set(pins.map(w => w.word));
+    return pins.concat(W().filter(w => !cards()[w.word] && !seen.has(w.word)));
+  }
   const dueList = () => { const cs = cards(), t = now(); return W().filter(w => C.isDue(cs[w.word], t)).sort((a, b) => cs[a.word].due - cs[b.word].due); };
   const masteredCount = () => { const cs = cards(); return W().filter(w => cs[w.word] && cs[w.word].mastered).length; };
-  const newLeftToday = () => Math.max(0, S.settings.dailyNew - dayStat().new);
+  const quotaLeft = () => Math.max(0, S.settings.dailyNew - dayStat().new);
+  const newLeftToday = () => Math.max(quotaLeft(), todayQueue().length);
 
   // ---------- 英音发音：有道 type=1，失败时用 en-GB 语音合成 ----------
   let lastAudio = null;
@@ -203,8 +237,8 @@
       case 'w2m': { const o = C.shuffle([w].concat(others(3, x => x.meaning !== w.meaning))); return { title: '看词选意', prompt: wordHead(w), options: o.map(x => ({ label: x.pos + ' ' + x.meaning, ok: x === w })), say: w.word }; }
       case 'm2w': { const o = C.shuffle([w].concat(others(3))); return { title: '看意选词', prompt: `<div class="meaning-big">${esc(w.meaning)}</div><div class="ipa">${esc(w.pos)}</div>`, options: o.map(x => ({ label: x.word, ok: x === w })) }; }
       case 'pos': { const o = C.shuffle([w].concat(others(3, x => x.pos !== w.pos))); return { title: '看词性选词', prompt: `<div class="hint">请选出词性为 <b class="tag">${esc(w.pos)}</b> 且意为下列含义的词</div><div class="meaning-big">${esc(w.meaning)}</div><div class="hint">其余选项都是其他词性的词</div>`, options: o.map(x => ({ label: x.word, ok: x === w, reveal: x.word + '  ' + x.pos + ' ' + x.meaning })) }; }
-      case 'clozeChoice': { const cz = C.makeCloze(ex, w.word); const o = C.shuffle([w].concat(others(3, x => x.pos === w.pos))); return { title: '例句填空 · 选择', prompt: `<div class="sent">${esc(cz.text)}</div><div class="hint">选出空格处单词的原形</div>`, options: o.map(x => ({ label: x.word, ok: x === w })) }; }
-      case 'clozeType': { const cz = C.makeCloze(ex, w.word); return { title: '例句填空 · 拼写', prompt: `<div class="sent">${esc(cz.text)}</div><div class="hint">提示：${esc(w.pos)} ${esc(w.meaning)}，首字母 <b>${esc(cz.answer[0])}</b>；可填句中形式或原形</div>`, typed: [cz.answer, w.word] }; }
+      case 'clozeChoice': { const cz = C.makeCloze(ex, w.word); const zhRaw = zhRawFor(ex, w.word); const o = C.shuffle([w].concat(others(3, x => x.pos === w.pos))); return { title: '例句填空 · 选择', zhRaw, prompt: clozePrompt(cz.text, zhRaw, '<div class="hint">选出空格处单词的原形</div>'), options: o.map(x => ({ label: x.word, ok: x === w })) }; }
+      case 'clozeType': { const cz = C.makeCloze(ex, w.word); const zhRaw = zhRawFor(ex, w.word); return { title: '例句填空 · 拼写', zhRaw, prompt: clozePrompt(cz.text, zhRaw, `<div class="hint">提示：${esc(w.pos)} ${esc(w.meaning)}，首字母 <b>${esc(cz.answer[0])}</b>；可填句中形式或原形</div>`), typed: [cz.answer, w.word] }; }
       case 'dictation': return { title: '听音默写 · 英音', prompt: `<button class="bigsay" onclick="__speak('${esc(w.word)}')" aria-label="再听一遍">🔊</button><div class="hint">点击喇叭再听一遍 · ${esc(w.ipa)}　${esc(w.pos)}</div>`, typed: [w.word], say: w.word, forceSay: true };
       case 'meaningType': return { title: '看意默写', prompt: `<div class="meaning-big">${esc(w.meaning)}</div><div class="hint">${esc(w.pos)}　共 ${w.word.length} 个字母</div><div class="slots">${'<i></i>'.repeat(Math.min(w.word.length, 18))}</div>`, typed: [w.word] };
       case 'flash': return { title: '单词卡', prompt: wordHead(w), flash: true, say: w.word };
@@ -215,8 +249,183 @@
   const TYPE_DESC = { flash: '翻卡自评，FSRS 四档', w2m: '英文 → 中文四选一', m2w: '中文 → 英文四选一', pos: '按词性辨析', clozeChoice: '原创例句选词', clozeType: '原创例句拼写', dictation: '英音听写', meaningType: '中文提示拼写', mix: '随机题型' };
   const typeOk = (w, t) => !CLOZE.includes(t) || C.hasExample(w);
 
+  function tokenSpans(text) {
+    const re = /[A-Za-z][A-Za-z'-]*/g; let last = 0, html = '', m;
+    while ((m = re.exec(String(text || '')))) {
+      html += esc(text.slice(last, m.index));
+      html += `<span class="tok" data-w="${esc(m[0])}">${esc(m[0])}</span>`;
+      last = m.index + m[0].length;
+    }
+    return html + esc(String(text || '').slice(last));
+  }
+  function dictLists() {
+    const lists = [];
+    if (BOOK) lists.push(W());
+    for (const c of S.customBooks || []) { if ((!BOOK || c.id !== BOOK.id) && c.words) lists.push(c.words); }
+    for (const id in LOADED) { if ((!BOOK || id !== BOOK.id) && LOADED[id] && LOADED[id].words) lists.push(LOADED[id].words); }
+    return lists;
+  }
+  function findLocal(cands) {
+    for (const c of cands) {
+      for (const list of dictLists()) {
+        const hit = list.find(x => x.word === c && x.meaning);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  }
+  function exampleZhRaw(sentence) {
+    const table = window.EXAMPLE_ZH || {};
+    return table[sentence] || '';
+  }
+  function fallbackExampleZh(sentence, targetWord) {
+    const targetSet = new Set(C.wordCandidates(targetWord));
+    const re = /[A-Za-z][A-Za-z'-]*/g;
+    let last = 0, out = '', m;
+    while ((m = re.exec(sentence))) {
+      out += sentence.slice(last, m.index).replace(/\s+/g, '');
+      const cands = C.wordCandidates(m[0]);
+      const hit = findLocal(cands);
+      const gloss = hit && hit.meaning ? String(hit.meaning).split(/[；;，,]/)[0].trim() : m[0];
+      out += cands.some(c => targetSet.has(c)) ? '{' + gloss + '}' : gloss;
+      last = m.index + m[0].length;
+    }
+    out += sentence.slice(last).replace(/\s+/g, '');
+    if (!/\{[^{}]+\}/.test(out)) out += '（{' + (targetWord || '词') + '}）';
+    return out;
+  }
+  function zhRawFor(sentence, targetWord) { return exampleZhRaw(sentence) || fallbackExampleZh(sentence, targetWord); }
+  function zhEl(raw, reveal) {
+    const shown = reveal ? C.revealExampleZh(raw) : C.maskExampleZh(raw);
+    if (!shown) return '';
+    return `<div class="exzh">${esc(shown)}</div>`;
+  }
+  function clozePrompt(clozeText, zhRaw, hintHtml) {
+    return `<div class="sent"><div class="senten">${tokenSpans(clozeText)}</div>${zhEl(zhRaw, false)}</div><div class="hint senttip">长按单词加入今日学习 · 右键同样可以</div>${hintHtml}`;
+  }
+  function exampleBlocks(w, reveal) {
+    return (w.examples || []).map(e => `<div class="ex"><div class="sent"><div class="senten">${tokenSpans(e)}</div>${zhEl(zhRawFor(e, w.word), reveal)}</div></div>`).join('');
+  }
+  function ensureBookArrays() {
+    const b = bs();
+    if (!Array.isArray(b.today)) b.today = [];
+    if (!Array.isArray(b.extra)) b.extra = [];
+    return b;
+  }
+  function ensureInBook(entry) {
+    const norm = normalizeWordEntry(entry);
+    if (!norm || !norm.meaning) return null;
+    if (byWord(norm.word)) return byWord(norm.word);
+    const custom = customOf(S.bookId);
+    if (custom) {
+      const merged = normalizeCustom({ id: custom.id, name: custom.name, words: custom.words.concat([norm]) });
+      custom.words = merged.words; save(); syncCurrentBook();
+      return byWord(norm.word);
+    }
+    ensureBookArrays().extra.push(norm);
+    return norm;
+  }
+  let addLock = false, lastAdd = { word: '', at: 0 };
+  function commitAdd(entry, el) {
+    const norm = normalizeWordEntry(entry);
+    const word = norm && norm.word;
+    if (!word) { toast('请长按一个英文单词'); return; }
+    if (cards()[word]) {
+      if (Date.now() - lastAdd.at < 900 && lastAdd.word === word) return;
+      toast(C.isDue(cards()[word], now()) ? '「' + esc(word) + '」已在今日复习中' : '「' + esc(word) + '」已经学过了');
+      return;
+    }
+    if (unlearned().slice(0, newLeftToday()).some(w => w.word === word)) {
+      if (Date.now() - lastAdd.at < 900 && lastAdd.word === word) return;
+      toast('「' + esc(word) + '」已在今日学习列表');
+      return;
+    }
+    const saved = ensureInBook(norm);
+    if (!saved || !saved.meaning) { toast('没查到「' + esc(word) + '」的释义，请联网后再试'); return; }
+    const b = ensureBookArrays();
+    b.today = b.today.filter(w => { const x = byWord(String(w || '').toLowerCase()); return x && !cards()[x.word]; });
+    if (!b.today.includes(saved.word)) b.today.push(saved.word);
+    save(); lastAdd = { word: saved.word, at: Date.now() };
+    toast('已将「' + esc(saved.word) + '」加入今日学习');
+    if (el) { el.classList.add('added'); setTimeout(() => el.classList.remove('added'), 900); }
+  }
+  function youdaoUrl(word) {
+    return 'https://dict.youdao.com/jsonapi?q=' + encodeURIComponent(word) + '&le=en&dicts=' + encodeURIComponent('{"count":1,"dicts":[["ec"]]}');
+  }
+  function fetchYoudao(word) {
+    if (typeof fetch !== 'function') return Promise.reject(new Error('no fetch'));
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 8000) : null;
+    return fetch(youdaoUrl(word), ctrl ? { signal: ctrl.signal } : undefined).then(r => {
+      if (!r.ok) throw new Error('dict');
+      return r.json();
+    }).then(C.parseYoudaoEntry).finally(() => { if (timer) clearTimeout(timer); });
+  }
+  async function lookupYoudao(cands) {
+    const tried = new Set();
+    for (const c of cands) {
+      if (tried.has(c)) continue;
+      tried.add(c);
+      let entry = null;
+      try { entry = await fetchYoudao(c); } catch (e) { entry = null; }
+      if (!entry || !entry.meaning) continue;
+      const lemma = C.lemmaHint(entry.meaning);
+      if (lemma && lemma !== entry.word && !tried.has(lemma)) {
+        const local = findLocal([lemma]);
+        if (local) return local;
+        tried.add(lemma);
+        try { const base = await fetchYoudao(lemma); if (base && base.meaning) return base; } catch (e) { }
+      }
+      return entry;
+    }
+    return null;
+  }
+  async function addSentenceWord(surface, el) {
+    const cands = C.wordCandidates(surface);
+    if (!cands.length) { toast('请长按一个英文单词'); return; }
+    const local = findLocal(cands);
+    if (local) { commitAdd(local, el); return; }
+    if (addLock) return;
+    addLock = true;
+    if (el) el.classList.add('adding');
+    try {
+      const entry = await lookupYoudao(cands);
+      if (!entry) { toast('没查到「' + esc(cands[0]) + '」的释义，请联网后再试'); return; }
+      commitAdd(entry, el);
+    } catch (e) {
+      toast('没查到「' + esc(cands[0]) + '」的释义，请联网后再试');
+    } finally {
+      addLock = false;
+      if (el) el.classList.remove('adding');
+    }
+  }
+  window.__addSentenceWord = addSentenceWord;
+  let hold = null;
+  function clearHold() { if (!hold) return; clearTimeout(hold.t); if (hold.el) hold.el.classList.remove('pressing'); hold = null; }
+  $app.addEventListener('pointerdown', e => {
+    const tok = e.target.closest && e.target.closest('.sent .tok');
+    if (!tok || e.button === 2) return;
+    clearHold();
+    tok.classList.add('pressing');
+    const x = e.clientX, y = e.clientY;
+    hold = { el: tok, x, y, t: setTimeout(() => { const el = tok; clearHold(); addSentenceWord(el.dataset.w, el); }, 450) };
+  });
+  $app.addEventListener('pointermove', e => {
+    if (!hold) return;
+    if (Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 12) clearHold();
+  });
+  $app.addEventListener('pointerup', clearHold);
+  $app.addEventListener('pointercancel', clearHold);
+  $app.addEventListener('contextmenu', e => {
+    const tok = e.target.closest && e.target.closest('.sent .tok');
+    if (!tok) return;
+    e.preventDefault();
+    clearHold();
+    addSentenceWord(tok.dataset.w, tok);
+  });
+
   function detail(w) {
-    return `<div class="detail"><div class="dhead"><b>${esc(w.word)}</b> <span class="ipa">${esc(w.ipa)}</span> ${sayBtn(w.word)}</div><div class="dmean"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>` + (w.examples || []).map(e => `<div class="ex">${esc(e)}</div>`).join('') + '</div>';
+    return `<div class="detail"><div class="dhead"><b>${esc(w.word)}</b> <span class="ipa">${esc(w.ipa)}</span> ${sayBtn(w.word)}</div><div class="dmean"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>` + exampleBlocks(w, true) + '</div>';
   }
   function gradeButtons(card) {
     const p = C.preview(card, now());
@@ -247,6 +456,7 @@
       const ok = rating > 1; const m = record(w, rating);
       if (SESS) { SESS.done++; if (ok) SESS.correct++; }
       flash(qc, ok ? 'good' : 'bad');
+      if (q.zhRaw) { const z = container.querySelector('.prompt .exzh'); if (z) z.textContent = C.revealExampleZh(q.zhRaw); }
       fb.innerHTML = (pre || '') + `<div class="verdict ${ok ? 'ok' : 'err'}"><b>${q.flash ? C.RATING_LABELS[rating] : ok ? '✔ 正确' : '✘ 再接再厉'}</b> <span>${esc(m)}</span></div>${detail(w)}<button class="primary block" id="nx">下一个 →<kbd>Enter</kbd></button>`;
       const b = fb.querySelector('#nx'); b.onclick = next; try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); }
     }
@@ -553,7 +763,7 @@
     auto(w.word);
     $app.querySelector('#show').onclick = () => {
       flash($app.querySelector('#qc'), 'flip');
-      $app.querySelector('#reveal').innerHTML = `<div class="dmean big"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>${(w.examples || []).map(e => `<div class="ex">${esc(e)}</div>`).join('')}
+      $app.querySelector('#reveal').innerHTML = `<div class="dmean big"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>${exampleBlocks(w, true)}
       <div class="hint center">你对这个词的熟悉程度？</div>${gradeButtons(null)}
       <button class="ghost block" id="known">😎 太熟了，直接标为掌握</button>`;
       const add = (rating, known) => { cards()[w.word] = known ? C.markKnown(null, now()) : C.learnCard(rating, now()); dayStat().new++; markStudied(); if (known) S.fox.food += 5; if (SESS) { SESS.done++; if (known || rating > 1) SESS.correct++; } save(); views.learn(); };
@@ -618,7 +828,7 @@
       <div class="row"><button class="primary" id="chk">检查并保存</button><button class="ghost" id="ref" ${exs.length ? '' : 'disabled title="该词暂无参考例句"'}>看参考例句${exs.length ? '' : '（无）'}</button><button class="ghost" id="nxt">换一个词</button></div>
       <div class="row"><input type="text" id="pickw" placeholder="指定单词" style="flex:1;min-width:0"><button class="ghost" id="pk">指定</button></div><div id="fb"></div>
       <div id="refbox"></div></div><div class="card"><div class="ctitle">我为这个词写过的句子（${mine.length}）</div>${mine.map(s => `<div class="mine">${esc(s.text)} <span class="muted">${s.date}</span></div>`).join('') || '<div class="muted">暂无</div>'}</div>`;
-    $app.querySelector('#ref').onclick = () => $app.querySelector('#refbox').innerHTML = exs.map(e => `<div class="ex">${esc(e)}</div>`).join('');
+    $app.querySelector('#ref').onclick = () => $app.querySelector('#refbox').innerHTML = exampleBlocks(w, true);
     $app.querySelector('#nxt').onclick = () => views.sentence();
     $app.querySelector('#pk').onclick = () => { const v = C.norm($app.querySelector('#pickw').value); if (byWord(v)) views.sentence(v); else alert('词书中没有这个词'); };
     $app.querySelector('#chk').onclick = () => {

@@ -11,7 +11,7 @@ async function boot(setup) {
   w.Audio = function (src) { audios.push(src); this.src = src; this.play = () => Promise.resolve(); this.pause = () => {}; };
   w.__bookLoader = file => { loads.push(file); w.eval(read(file.split('?')[0])); return Promise.resolve(); };
   if (setup) setup(w);
-  for (const f of ['vendor/ts-fsrs.umd.js', 'data/books-index.js', 'core.js', 'app.js']) w.eval(read(f));
+  for (const f of ['vendor/ts-fsrs.umd.js', 'data/books-index.js', 'data/example-zh.js', 'core.js', 'app.js']) w.eval(read(f));
   await w.__ready; return w;
 }
 const q = (w, s) => w.document.querySelector(s), txt = w => w.document.getElementById('app').textContent;
@@ -144,6 +144,57 @@ function answer(w) {
   assert.strictEqual(imp.ok, true);
   assert.strictEqual(w.__state().customBooks[0].name, '旅游');
   assert.strictEqual(w.__state().customBooks[0].words.length, 4);
+  // 例句填空：中文译文先遮住目标词；长按/右键把句中生词加入今日学习
+  store = {}; loads = []; w = await boot();
+  w.__go('learn'); q(w, '#show').click(); q(w, '[data-g="3"]').click();
+  w.__go('practice'); q(w, '[data-m="clozeChoice"]').click();
+  const sent = q(w, '.prompt .sent');
+  assert.ok(sent.textContent.includes('_____') && !sent.textContent.includes('analysed'), 'cloze hides the answer');
+  const masked = q(w, '.prompt .exzh').textContent;
+  assert.ok(masked.includes('____') && masked.includes('研究人员') && !masked.includes('分析') && !masked.includes('{'), 'zh masked ' + masked);
+  assert.ok(txt(w).includes('长按单词加入今日学习'));
+  const households = [...w.document.querySelectorAll('.prompt .sent .tok')].find(el => el.dataset.w === 'households');
+  assert.ok(households, 'households token');
+  const menu = new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+  households.dispatchEvent(menu);
+  assert.strictEqual(menu.defaultPrevented, true, 'callout suppressed');
+  assert.ok([...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('已将「household」加入今日学习')));
+  assert.ok(w.__state().books['ielts-toefl-core'].today.includes('household'));
+  assert.ok(!(w.__state().books['ielts-toefl-core'].extra || []).some(e => e.word === 'household'), 'reused the book entry');
+  offset += 1000;
+  households.dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+  assert.ok([...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('「household」已在今日学习列表')));
+  const calls = [];
+  w.fetch = url => {
+    const word = decodeURIComponent(String(url).split('q=')[1].split('&')[0]);
+    calls.push(word);
+    if (word !== 'from') return Promise.reject(new Error('unexpected ' + word));
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({ input: 'from', ec: { word: [{ ukphone: 'frɒm', 'return-phrase': { l: { i: 'from' } }, trs: [{ tr: [{ l: { i: ['prep. 从，来自'] } }] }] }] } }) });
+  };
+  const thousand = [...w.document.querySelectorAll('.prompt .sent .tok')].find(el => el.dataset.w === 'thousand');
+  thousand.dispatchEvent(new w.MouseEvent('pointerdown', { bubbles: true, clientX: 4, clientY: 4, button: 0 }));
+  thousand.dispatchEvent(new w.MouseEvent('pointerup', { bubbles: true, clientX: 4, clientY: 4, button: 0 }));
+  await new Promise(r => setTimeout(r, 520));
+  assert.ok(!calls.includes('thousand'), 'short press does not add');
+  const from = [...w.document.querySelectorAll('.prompt .sent .tok')].find(el => el.dataset.w === 'from');
+  from.dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+  await new Promise(r => setTimeout(r, 30));
+  const extra = w.__state().books['ielts-toefl-core'].extra.find(e => e.word === 'from');
+  assert.ok(extra && extra.meaning.includes('从') && extra.ipa === '/frɒm/' && extra.pos === 'prep.', JSON.stringify(extra));
+  const todayList = w.__state().books['ielts-toefl-core'].today;
+  assert.ok(Array.isArray(todayList) && todayList.join(',') === 'household,from', JSON.stringify(todayList));
+  [...w.document.querySelectorAll('#ans button')].find(b => b.textContent === 'analyse').click();
+  assert.ok(q(w, '.prompt .exzh').textContent.includes('分析') && !q(w, '.prompt .exzh').textContent.includes('____'));
+  assert.ok([...w.document.querySelectorAll('.detail .exzh')].every(el => el.textContent.includes('分析') && !el.textContent.includes('{')));
+  w.__go('learn');
+  assert.strictEqual(q(w, '.word').textContent, 'household', 'pinned word is today\'s next new word');
+  q(w, '#show').click();
+  assert.ok(txt(w).includes('家庭') || txt(w).includes('一家人'), 'definition reused');
+  w = await boot();
+  w.__go('learn');
+  assert.strictEqual(q(w, '.word').textContent, 'household', 'today list persists');
+  assert.ok(w.__state().books['ielts-toefl-core'].extra.some(e => e.word === 'from' && e.meaning));
+
   // 转发：当月月历出图，系统分享优先，否则保存 / 长按
   offset = 0;
   const dayKey = C_today(), monthFirst = dayKey.slice(0, 8) + '01', other = dayKey.endsWith('01') ? dayKey.slice(0, 8) + '02' : monthFirst;
