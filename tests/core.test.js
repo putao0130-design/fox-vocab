@@ -105,8 +105,17 @@ assert.ok(timeoutMsg.includes('超时') && httpMsg.includes('失败'));
 assert.strictEqual(new Set([offlineMsg, timeoutMsg, httpMsg, noneMsg]).size, 4);
 assert.strictEqual(C.imeBottom(844, 508, 0), 336);
 assert.strictEqual(C.imeBottom(844, 844, 0), 0);
-assert.strictEqual(C.imeBottom(844, 800, 50), 0);
-assert.strictEqual(C.imeBottom(844, 400, 20), 424);
+// offsetTop 把「遮挡底部」吃掉时，仍保持键盘高度，而不是落到 0。
+assert.strictEqual(C.imeBottom(844, 800, 50), 44);
+assert.strictEqual(C.imeBottom(844, 400, 20), 444);
+assert.strictEqual(C.imeBottom(844, 508, 200), 336);
+assert.strictEqual(C.imeBottom(844, 508, 336), 336);
+assert.strictEqual(C.imeBottom(844, 844, 40), 0);
+// 布局高度短暂等于可视高度时，沿用上一次的键盘高度。
+assert.strictEqual(C.imeBottom(508, 508, 0, 336), 336);
+assert.strictEqual(C.imeBottom(508, 508, 180, 336), 336);
+assert.strictEqual(C.imeBottom(508, 508, 0), 0);
+assert.strictEqual(C.imeBottom(844, 508, 0, 100), 336);
 assert.strictEqual(C.maskExampleZh('研究人员{分析}了数据。'), '研究人员____了数据。');
 assert.strictEqual(C.revealExampleZh('研究人员{分析}了数据。'), '研究人员分析了数据。');
 assert.strictEqual(C.lemmaHint('n. 研究人员（researcher 的复数）'), 'researcher');

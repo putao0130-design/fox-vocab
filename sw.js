@@ -1,10 +1,10 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Shell query is v=22: daily quote card on top of cloze lookup and the keyboard dock. */
-const CACHE = 'dog-verb-shell-v22';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=23 for the in-tree keyboard dock. */
+const CACHE = 'dog-verb-shell-v23';
 const SHELL = [
   './index.html',
-  './style.css?v=22',
-  './app.js?v=22',
-  './core.js?v=22',
+  './style.css?v=23',
+  './app.js?v=23',
+  './core.js?v=23',
   './data/books-index.js?v=18',
   './data/example-zh.js?v=22',
   './data/t2s.js?v=22',

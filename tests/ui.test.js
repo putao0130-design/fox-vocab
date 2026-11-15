@@ -222,49 +222,165 @@ function answer(w) {
   assert.strictEqual(q(w, '.word').textContent, 'household', 'today list persists');
   assert.ok(w.__state().books['ielts-toefl-core'].extra.some(e => e.word === 'from' && e.meaning));
 
-  // 窄屏键盘：输入坞贴在 visualViewport 上方，选择题不启用
+  // 窄屏键盘：坞留在题目里，贴在 visualViewport 上方；选择题不启用
   const css = read('style.css');
+  const html = read('index.html');
+  const appSrc = read('app.js');
   assert.ok(css.includes('bottom:calc(env(safe-area-inset-bottom) + 64px + 12px)'));
   assert.ok(css.includes('bottom:calc(var(--ime-bottom) + var(--dock-h, 0px) + 12px)'));
   assert.ok(css.includes('body.kb-open #nav{display:none}'));
   assert.ok(!css.includes('bottom:110px'));
+  assert.ok(html.includes('content="width=device-width, initial-scale=1, viewport-fit=cover"'));
+  assert.ok(!html.includes('interactive-widget'), 'viewport must not resize layout with the keyboard');
+  assert.ok(!appSrc.includes('takeIntoDock') && !appSrc.includes('restoreImeDock') && !appSrc.includes('appendChild(dock)'));
+  async function pump() { await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0)); }
+  const GRACE = 260;
   w = await boot(win => {
-    let vh = 844, top = 0; const ls = {};
+    let vh = 844, top = 0, ih = 844; const ls = {};
     const fake = {
       get height() { return vh; }, get offsetTop() { return top; }, width: 390,
       addEventListener(t, fn) { (ls[t] = ls[t] || []).push(fn); }, removeEventListener() {},
-      dispatch() { (ls.resize || []).forEach(fn => fn()); }
     };
+    const resizeFns = [], scrollFns = [];
+    const origAdd = win.addEventListener.bind(win);
+    win.addEventListener = (t, fn, o) => {
+      if (t === 'resize') resizeFns.push(fn);
+      else if (t === 'scroll') scrollFns.push(fn);
+      return origAdd(t, fn, o);
+    };
+    win.requestAnimationFrame = fn => setTimeout(() => fn(Date.now()), 0);
+    win.cancelAnimationFrame = id => clearTimeout(id);
     Object.defineProperty(win, 'visualViewport', { configurable: true, get: () => fake });
-    Object.defineProperty(win, 'innerHeight', { configurable: true, get: () => 844 });
+    Object.defineProperty(win, 'innerHeight', { configurable: true, get: () => ih });
     win.matchMedia = q => ({ matches: /max-width:\s*759/.test(String(q)), addEventListener() {}, removeEventListener() {} });
-    win.__ime = { set(h, off) { vh = h; top = off || 0; fake.dispatch(); } };
+    const fire = () => {
+      (ls.resize || []).forEach(fn => fn());
+      (ls.scroll || []).forEach(fn => fn());
+      resizeFns.forEach(fn => fn());
+      scrollFns.forEach(fn => fn());
+    };
+    win.__ime = {
+      set(h, off, layout) { vh = h; top = off || 0; if (layout != null) ih = layout; fire(); },
+      fire,
+    };
   });
   w.__go('learn'); q(w, '#show').click(); q(w, '[data-g="3"]').click();
   w.__go('practice'); q(w, '[data-m="clozeType"]').click();
-  assert.ok(q(w, '#ans #inp'), 'spelling input starts in the card');
-  assert.ok(!w.document.body.classList.contains('kb-open'));
-  w.__ime.set(844 - 336, 0);
-  assert.ok(w.document.body.classList.contains('kb-open'));
-  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '336px');
+  const inp = q(w, '#ans #inp');
+  const parent = inp.parentNode;
+  assert.ok(inp, 'spelling input starts in the card');
+  assert.ok(parent.closest('#ans'), 'input stays inside #ans');
+  assert.notStrictEqual(parent, w.document.body);
+  assert.notStrictEqual(w.document.getElementById('ime-dock').parentNode, w.document.body);
   const dock = w.document.getElementById('ime-dock');
-  assert.ok(dock && dock.querySelector('#inp') && dock.querySelector('.senttip'), 'dock holds the hint and the input');
-  assert.ok(!q(w, '#ans #inp'));
+  assert.ok(dock.querySelector('#inp') && dock.querySelector('.senttip'), 'in-tree dock holds the hint and the input');
   assert.ok(dock.querySelector('.senttip').textContent.includes('长按单词加入今日学习'));
-  w.__ime.set(844 - 336, 20);
-  assert.ok(w.document.getElementById('ime-dock').querySelector('#inp'), 'a second viewport event keeps the dock');
-  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '316px');
-  w.__go('practice'); q(w, '[data-m="clozeChoice"]').click();
-  w.__ime.set(844 - 336, 0);
-  assert.ok(!w.document.getElementById('ime-dock'), 'choice questions do not dock');
-  w.__ime.set(844, 0);
-  w.__go('sentence', 'analyse');
-  w.__ime.set(844 - 300, 12);
-  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '288px');
-  assert.ok(w.document.getElementById('ime-dock').querySelector('#s'), 'sentence box docks');
-  w.__ime.set(844, 0);
+  const en = q(w, '.sent .senten');
+  let scrolls = 0;
+  en.scrollIntoView = () => { scrolls++; w.__ime.fire(); };
+  let focuses = 0;
+  const origFocus = inp.focus;
+  inp.focus = function (...args) { focuses++; return origFocus.apply(this, args); };
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'), 'focused spelling field opens the dock');
+  assert.strictEqual(scrolls, 1, 'sentence scrolls into view once when the dock opens');
+  assert.strictEqual(inp.parentNode, parent);
+  w.__ime.set(844 - 336, 0, 844);
+  await pump();
+  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '336px');
+  assert.strictEqual(focuses, 0, 'viewport sync does not refocus');
+  for (let i = 0; i < 24; i++) {
+    const off = [0, 40, 120, 280, 336, 16][i % 6];
+    if (i % 3 === 0) w.__ime.set(508, off, 508);
+    else w.__ime.set(508, off, 844);
+  }
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'), 'offsetTop jumps and innerHeight races keep the dock open');
+  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '336px');
+  assert.strictEqual(inp.parentNode, parent, 'input is not reparented');
+  assert.strictEqual(q(w, '#inp'), inp, 'input element is not recreated');
+  assert.strictEqual(scrolls, 1, 'later viewport events do not scroll again');
+  assert.strictEqual(focuses, 0);
+  for (let i = 0; i < 8; i++) {
+    w.__ime.set(508, 80 * i, i % 2 ? 508 : 844);
+    await pump();
+    assert.ok(w.document.body.classList.contains('kb-open'));
+    assert.strictEqual(inp.parentNode, parent);
+    assert.strictEqual(q(w, '#inp'), inp);
+  }
+  q(w, '#sub').focus();
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'), 'submit in the same row does not flash the dock closed');
+  await new Promise(r => setTimeout(r, GRACE));
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'));
+  assert.strictEqual(inp.parentNode, parent);
+  q(w, '#sub').blur();
+  await new Promise(r => setTimeout(r, 40));
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'), 'blur grace keeps the dock up');
+  await new Promise(r => setTimeout(r, GRACE));
+  await pump();
+  assert.ok(!w.document.body.classList.contains('kb-open'), 'blur leaves kb-open after the grace');
+  assert.strictEqual(inp.parentNode, parent, 'closing the dock does not move the input');
+  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '0px');
+  inp.focus();
+  await pump();
+  w.__ime.set(508, 0, 844);
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'));
+  inp.blur();
+  await new Promise(r => setTimeout(r, GRACE));
+  await pump();
   assert.ok(!w.document.body.classList.contains('kb-open'));
-  assert.ok(q(w, '#s'), 'textarea returns after the keyboard closes');
+  w.__go('practice'); q(w, '[data-m="clozeChoice"]').click();
+  const choiceBtn = q(w, '#ans button');
+  choiceBtn.focus();
+  w.__ime.set(508, 0, 844);
+  await pump();
+  await new Promise(r => setTimeout(r, GRACE));
+  await pump();
+  assert.ok(!w.document.body.classList.contains('kb-open'));
+  assert.ok(!w.document.getElementById('ime-dock'), 'choice questions do not dock');
+  for (const m of ['dictation', 'meaningType']) {
+    w.__go('practice'); q(w, `[data-m="${m}"]`).click();
+    const field = q(w, '#ans #inp');
+    const home = field.parentNode;
+    assert.ok(home.closest('#ans') && home.closest('#ime-dock'), m + ' dock stays in the card');
+    assert.notStrictEqual(w.document.getElementById('ime-dock').parentNode, w.document.body);
+    await pump();
+    assert.ok(w.document.body.classList.contains('kb-open'), m + ' opens while focused');
+    w.__ime.set(508, 220, 508);
+    await pump();
+    assert.ok(w.document.body.classList.contains('kb-open'), m + ' stays open through an offsetTop race');
+    assert.strictEqual(field.parentNode, home, m + ' input is not reparented');
+    assert.strictEqual(q(w, '#inp'), field);
+  }
+  w.__ime.set(844, 0, 844);
+  w.__go('sentence', 'analyse');
+  const area = q(w, '#s');
+  const areaParent = area.parentNode;
+  assert.strictEqual(areaParent.id, 'ime-dock');
+  assert.ok(area.closest('.qcard'), 'sentence box stays in the card');
+  assert.notStrictEqual(areaParent.parentNode, w.document.body);
+  assert.ok(!w.document.body.classList.contains('kb-open'));
+  area.focus();
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'), 'sentence field opens the dock');
+  w.__ime.set(844 - 300, 180, 844);
+  await pump();
+  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '300px');
+  assert.strictEqual(area.parentNode, areaParent);
+  w.__ime.set(544, 400, 544);
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'));
+  assert.strictEqual(w.document.documentElement.style.getPropertyValue('--ime-bottom'), '300px');
+  assert.strictEqual(area.parentNode, areaParent);
+  area.blur();
+  await new Promise(r => setTimeout(r, GRACE));
+  await pump();
+  assert.ok(!w.document.body.classList.contains('kb-open'));
+  assert.strictEqual(area.parentNode, areaParent, 'textarea stays put after the keyboard closes');
 
   // 转发：每日金句方卡。页内日历还在，分享图不再画月历。
   offset = 0;
