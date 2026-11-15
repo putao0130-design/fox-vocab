@@ -36,6 +36,18 @@ assert.strictEqual(C.pickVoice([{ lang: 'en-US', name: 'a' }, { lang: 'en-GB', n
 // 其他（沿用 v1）
 assert.strictEqual(C.streak(['2026-11-01', '2026-11-02', '2026-11-03'], '2026-11-03'), 3);
 assert.strictEqual(C.streak(['2026-11-01'], '2026-11-03'), 0);
+// 当月月历：周一开头、6 行，本月以外的打卡不占格
+const nov = C.monthGrid(['2026-11-01', '2026-11-03', '2026-10-31'], '2026-11-15');
+assert.strictEqual(nov.cells.length, 42); assert.strictEqual(nov.rows, 6); assert.deepStrictEqual(nov.weekdays, ['一', '二', '三', '四', '五', '六', '日']);
+assert.strictEqual(nov.label, '2026年11月'); assert.strictEqual(nov.cells[6].day, 1); assert.strictEqual(nov.cells[6].on, true);
+assert.strictEqual(nov.cells[8].key, '2026-11-03'); assert.strictEqual(nov.cells[8].on, true);
+assert.strictEqual(nov.cells[20].today, true); assert.strictEqual(nov.cells[20].day, 15);
+assert.ok(nov.cells.every(c => !c || c.key.startsWith('2026-11-')));
+assert.strictEqual(nov.streak, 0); assert.strictEqual(nov.total, 3);
+const mar = C.monthGrid(['2026-03-31'], '2026-03-01');
+assert.strictEqual(mar.cells[36].key, '2026-03-31'); assert.strictEqual(mar.cells[36].on, true); assert.strictEqual(mar.cells[41], null);
+assert.strictEqual(C.monthGrid([], '2026-02-01').cells.filter(Boolean).length, 28);
+assert.throws(() => C.monthGrid([], 'bad'));
 assert.strictEqual(C.findForm('Researchers analysed the data.', 'analyse').form, 'analysed');
 assert.strictEqual(C.findForm('Farmland occupies most land.', 'occupy').form, 'occupies');
 assert.ok(C.checkSentence('Scientists analyse samples every single week.', 'analyse').ok);

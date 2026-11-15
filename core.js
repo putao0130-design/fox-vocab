@@ -74,6 +74,23 @@
   function pickVoice(voices) { voices = voices || []; return voices.find(v => /^en[-_]GB/i.test(v.lang)) || null; }
 
   function streak(days, todayKey) { const set = new Set(days); let k = todayKey, n = 0; if (!set.has(k)) k = shiftDay(k, -1); while (set.has(k)) { n++; k = shiftDay(k, -1); } return n; }
+  // 当月月历：周一开头，固定 6 行。只标 studyDays 里落在本月的日期。
+  function monthGrid(days, todayKey) {
+    days = Array.isArray(days) ? days : [];
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(todayKey || ''));
+    if (!m) throw new Error('bad day');
+    const year = +m[1], month = +m[2], dim = new Date(year, month, 0).getDate();
+    const lead = (new Date(m[1] + '-' + m[2] + '-01T12:00:00').getDay() + 6) % 7;
+    const set = new Set(days);
+    const cells = [];
+    for (let i = 0; i < 42; i++) {
+      const day = i - lead + 1;
+      if (day < 1 || day > dim) { cells.push(null); continue; }
+      const key = m[1] + '-' + m[2] + '-' + (day < 10 ? '0' : '') + day;
+      cells.push({ key, day, on: set.has(key), today: key === todayKey });
+    }
+    return { year, month, label: year + '年' + month + '月', rows: 6, weekdays: ['一', '二', '三', '四', '五', '六', '日'], cells, streak: streak(days, todayKey), total: days.length };
+  }
   function shiftDay(k, d) { const t = new Date(k + 'T12:00:00'); t.setDate(t.getDate() + d); return dayKey(t.getTime()); }
 
   function stemOf(w) { w = w.toLowerCase(); if (w.length > 4 && /[ey]$/.test(w)) return w.slice(0, -1); return w; }
@@ -176,6 +193,6 @@
     return { word: surface, ipa: one ? '/' + one + '/' : '', pos, meaning, examples: [] };
   }
 
-  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry };
+  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VocabCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

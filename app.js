@@ -531,6 +531,176 @@
     for (let i = 0; i < 28; i++) { const k = C.shiftDay(start, i); const on = S.studyDays.includes(k); cal += `<div class="${on ? 'on' : ''} ${k === today() ? 'td' : ''}" title="${k}">${on ? paw : +k.slice(8)}</div>`; }
     return `<div class="cal">${cal}</div>`;
   }
+  function calendarCard() {
+    return `<div class="card calcard"><div class="ctitle"><span>近 28 天打卡</span><button type="button" class="sharecal">转发</button></div>${calendar()}</div>`;
+  }
+
+  // D 朋友圈方卡 1080×1080。首页 28 天条不动。宠物只用去水印新路径，不画 dog-mascot.png，也不画「示例数据」。
+  const SHARE_PAW = 'assets/paw-check-128.png';
+  const SHARE_LOGO = 'assets/icons/logo-doubao-2048.png';
+  const SHARE_PET = 'assets/dog-mascot-transparent.png';
+  const SHARE_INK = '#4B423E', SHARE_BROWN = '#A27650', SHARE_PAPER = '#FFFCF7', SHARE_GOLD = '#F0BB51';
+  const SHARE_FONT = '"Noto Sans CJK SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei","WenQuanYi Micro Hei",sans-serif';
+  const shareImg = {};
+  function loadShareImage(src) {
+    if (shareImg[src]) return shareImg[src];
+    shareImg[src] = new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve((img.naturalWidth || img.width) ? img : null);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+    return shareImg[src];
+  }
+  function shareModel() {
+    const model = C.monthGrid(S.studyDays, today());
+    model.petName = S.fox && S.fox.name || '';
+    return model;
+  }
+  function traceRound(g, x, y, w, h, r) {
+    g.beginPath();
+    if (g.roundRect) { g.roundRect(x, y, w, h, r); return; }
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+  function opaqueBox(img) {
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height || iw;
+    const full = { x: 0, y: 0, w: iw, h: ih };
+    try {
+      const c = document.createElement('canvas');
+      const s = Math.min(1, 240 / Math.max(iw, ih));
+      c.width = Math.max(1, Math.round(iw * s)); c.height = Math.max(1, Math.round(ih * s));
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      if (!ctx || !ctx.getImageData) return full;
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      const data = ctx.getImageData(0, 0, c.width, c.height).data;
+      if (!data) return full;
+      let minX = c.width, minY = c.height, maxX = 0, maxY = 0, any = false;
+      for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+        if (data[(y * c.width + x) * 4 + 3] > 16) {
+          any = true; if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+        }
+      }
+      if (!any) return full;
+      return { x: minX / s, y: minY / s, w: (maxX - minX + 1) / s, h: (maxY - minY + 1) / s };
+    } catch (e) { return full; }
+  }
+  function cropSize(img, dh) {
+    const b = opaqueBox(img), s = dh / b.h;
+    return { b, dw: b.w * s, dh };
+  }
+  function drawCropped(g, img, x, y, dh) {
+    const m = cropSize(img, dh);
+    g.drawImage(img, m.b.x, m.b.y, m.b.w, m.b.h, x, y, m.dw, m.dh);
+    return m.dw;
+  }
+  function drawPawMark(g, img, x, y, size) {
+    if (img) { g.drawImage(img, x, y, size, size); return; }
+    g.save();
+    g.translate(x, y); g.scale(size / 64, size / 64); g.fillStyle = SHARE_INK;
+    [[32, 43, 16, 15], [14, 22, 8, 9], [26, 14, 8, 10], [38, 14, 8, 10], [50, 22, 8, 9]].forEach(p => {
+      g.beginPath(); g.ellipse(p[0], p[1], p[2], p[3], 0, 0, Math.PI * 2); g.fill();
+    });
+    g.restore();
+  }
+  function canvasBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      if (!canvas.toBlob) { reject(new Error('no image')); return; }
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('empty image')), 'image/png');
+    });
+  }
+  async function renderMonthCard(model) {
+    const paw = await loadShareImage(SHARE_PAW);
+    const logo = await loadShareImage(SHARE_LOGO);
+    const pet = await loadShareImage(SHARE_PET);
+    const W = 1080, H = 1080, cell = 88, gap = 8;
+    const gridW = cell * 7 + gap * 6, gridH = cell * 6 + gap * 5;
+    const cardPadX = 32, cardPadTop = 28, weekH = 36, cardPadBot = 28;
+    const cardW = gridW + cardPadX * 2, cardH = cardPadTop + weekH + 8 + gridH + cardPadBot;
+    const cardX = Math.round((W - cardW) / 2), cardY = 292;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const g = canvas.getContext('2d');
+    if (!g) throw new Error('no canvas');
+    g.fillStyle = SHARE_INK; g.fillRect(0, 0, W, H);
+    g.fillStyle = SHARE_PAPER; traceRound(g, cardX, cardY, cardW, cardH, 32); g.fill();
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = SHARE_GOLD;
+    g.font = '600 26px ' + SHARE_FONT; g.fillText('连续打卡', 68, 108);
+    g.font = '800 108px ' + SHARE_FONT;
+    const num = String(model.streak);
+    g.fillText(num, 68, 230);
+    const numW = g.measureText(num).width;
+    g.font = '700 36px ' + SHARE_FONT; g.fillText('天', 68 + numW + 16, 230);
+    g.fillStyle = SHARE_PAPER; g.font = '600 28px ' + SHARE_FONT; g.fillText(model.label, 68, 278);
+    if (pet) {
+      const fit = cropSize(pet, 268), dw = Math.min(fit.dw, 400), dh = fit.dh * dw / fit.dw;
+      drawCropped(g, pet, W - 40 - dw, 16, dh);
+    }
+    const gridX = cardX + cardPadX, gridY = cardY + cardPadTop + weekH + 8;
+    g.fillStyle = SHARE_BROWN; g.font = '600 26px ' + SHARE_FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
+    model.weekdays.forEach((d, i) => g.fillText(d, gridX + i * (cell + gap) + cell / 2, cardY + cardPadTop + weekH / 2));
+    model.cells.forEach((c, i) => {
+      if (!c) return;
+      const x = gridX + (i % 7) * (cell + gap), y = gridY + Math.floor(i / 7) * (cell + gap);
+      if (c.on) drawPawMark(g, paw, x + (cell - cell * 0.5) / 2, y + cell * 0.04, cell * 0.5);
+      g.globalAlpha = c.on ? 1 : 0.5;
+      g.fillStyle = SHARE_BROWN; g.font = '600 22px ' + SHARE_FONT;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(String(c.day), x + cell / 2, y + cell * 0.82);
+      g.globalAlpha = 1;
+      if (c.today) { g.strokeStyle = SHARE_GOLD; g.lineWidth = 4; traceRound(g, x + 2, y + 2, cell - 4, cell - 4, Math.round(cell * 0.18)); g.stroke(); }
+    });
+    const footY = cardY + cardH + 28;
+    const caption = (model.petName || '小狗') + ' · 累计 ' + model.total + ' 天';
+    g.fillStyle = SHARE_GOLD; g.beginPath(); g.arc(80, footY + 22, 5, 0, Math.PI * 2); g.fill();
+    g.fillStyle = SHARE_PAPER; g.font = '600 28px ' + SHARE_FONT; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.save(); g.beginPath(); g.rect(96, footY, 400, 48); g.clip(); g.fillText(caption, 96, footY + 22); g.restore();
+    if (logo) { const dh = 68, dw = cropSize(logo, dh).dw; drawCropped(g, logo, (W - dw) / 2, footY - 4, dh); }
+    return { blob: await canvasBlob(canvas), model };
+  }
+  function closeShareSheet() { const el = document.getElementById('sharesheet'); if (el) el.remove(); }
+  function showShareSheet(dataUrl, filename) {
+    closeShareSheet();
+    const el = document.createElement('div');
+    el.className = 'sharesheet'; el.id = 'sharesheet';
+    el.innerHTML = `<div class="sharepanel" role="dialog" aria-label="转发本月打卡"><img class="sharepreview" alt="本月打卡卡片，长按可保存"><p class="hint">长按图片保存到相册，再转发到微信</p><div class="row"><button type="button" class="primary" id="sharesave">保存图片</button><button type="button" class="ghost" id="shareclose">关闭</button></div></div>`;
+    el.querySelector('img').src = dataUrl;
+    el.addEventListener('click', e => { if (e.target === el) closeShareSheet(); });
+    el.querySelector('#shareclose').onclick = closeShareSheet;
+    el.querySelector('#sharesave').onclick = () => { const a = document.createElement('a'); a.href = dataUrl; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); };
+    document.body.appendChild(el);
+  }
+  function blobDataUrl(blob) {
+    return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(r.error); r.readAsDataURL(blob); });
+  }
+  let sharing = false;
+  async function shareCheckin() {
+    if (sharing) return;
+    sharing = true;
+    const btn = $app.querySelector('.sharecal');
+    if (btn) btn.disabled = true;
+    try {
+      const { blob, model } = await renderMonthCard(shareModel());
+      const filename = 'dog-verb-' + model.year + '-' + String(model.month).padStart(2, '0') + '.png';
+      const file = new File([blob], filename, { type: 'image/png' });
+      const payload = { files: [file], title: 'Dog Verb ' + model.label, text: '连续打卡 ' + model.streak + ' 天，累计 ' + model.total + ' 天' };
+      if (navigator.canShare && navigator.canShare(payload)) {
+        try { await navigator.share(payload); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+      }
+      showShareSheet(await blobDataUrl(blob), filename);
+    } catch (e) { alert('生成打卡卡片失败，请重试'); }
+    finally { sharing = false; if (btn && btn.isConnected) btn.disabled = false; }
+  }
+  function bindShare() {
+    const b = $app.querySelector('.sharecal');
+    if (b) b.onclick = () => { shareCheckin(); };
+    loadShareImage(SHARE_PAW); loadShareImage(SHARE_LOGO); loadShareImage(SHARE_PET);
+  }
 
   views.home = function () {
     const d = dayStat(), total = W().length, m = masteredCount(), due = dueList().length;
@@ -562,7 +732,8 @@
       <div class="quick"><button onclick="__go('review')">📖 复习 ${due}</button><button onclick="__go('learn')">✨ 新词 ${left}</button><button onclick="__go('preview')">🔭 预习</button><button onclick="__go('pet')">🦴 狗粮 ${S.fox.food}</button></div></div>
     </div></div>
     ${S.migratedFrom === 1 ? '<div class="note">已从 v1 自动迁移学习进度到 FSRS 记忆算法（原数据已备份）。</div>' : ''}
-    <div class="card"><div class="ctitle">近 28 天打卡</div>${calendar()}</div>`;
+    ${calendarCard()}`;
+    bindShare();
   };
 
   views.study = function () {
@@ -707,7 +878,8 @@
     $app.innerHTML = `<div class="card mehead"><div class="avatar">${dogSVG(fi.st, S.fox.hunger)}</div><div><h2>我的学习</h2><div class="muted">${esc(BOOK.name)} · 连续 ${st} 天 · 累计 ${S.studyDays.length} 天</div></div></div>
       <div class="stats three"><div class="stat"><span>已学</span><b>${learned().length}</b></div><div class="stat"><span>已掌握</span><b>${fi.m}</b></div><div class="stat"><span>待复习</span><b>${dueList().length}</b></div></div>
       <div class="menu"><button onclick="__go('books')">📚 词书<span>›</span></button><button onclick="__go('words')">📖 词表<span>›</span></button><button onclick="__go('preview')">🔭 预习<span>›</span></button><button onclick="__go('sentence')">✍️ 造句<span>›</span></button><button onclick="__go('settings')">⚙️ 设置与备份<span>›</span></button></div>
-      <div class="card"><div class="ctitle">近 28 天打卡</div>${calendar()}</div>`;
+      ${calendarCard()}`;
+    bindShare();
   };
 
   views.words = function () {
