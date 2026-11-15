@@ -1,14 +1,17 @@
-/* Dog Verb shell cache. Install identity is app-v18 on install-v18 icon paths. */
-const CACHE = 'dog-verb-shell-v18';
+/* Dog Verb shell cache. Install identity stays app-v18. Shell query bumped for the check-in share card. */
+const CACHE = 'dog-verb-shell-v19';
 const SHELL = [
   './index.html',
-  './style.css?v=18',
-  './app.js?v=18',
-  './core.js?v=18',
+  './style.css?v=19',
+  './app.js?v=19',
+  './core.js?v=19',
   './data/books-index.js?v=18',
   './vendor/ts-fsrs.umd.js',
   './assets/dog-mascot.png?v=15',
+  './assets/dog-mascot-transparent.png',
   './assets/paw.svg?v=15',
+  './assets/paw-check-128.png',
+  './assets/icons/logo-doubao-2048.png',
   './assets/icons/install-v18/apple-180.png?v=18',
   './assets/icons/install-v18/favicon-48.png?v=18',
   './assets/icons/install-v18/icon-192.png?v=18',
