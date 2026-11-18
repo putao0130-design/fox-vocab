@@ -179,9 +179,10 @@ for (const line of [ieltsHead, ielts.description, kyHead, kaoyan.description]) {
 assert.ok(!ieltsHead.includes('KyleBing') && !ielts.description.includes('KyleBing'));
 const indexHtml = fs.readFileSync(nodePath.join(__dirname, '../index.html'), 'utf8');
 const sw = fs.readFileSync(nodePath.join(__dirname, '../sw.js'), 'utf8');
-assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v24'"));
-assert.ok(indexHtml.includes('style.css?v=24') && indexHtml.includes('core.js?v=24') && indexHtml.includes('app.js?v=24') && indexHtml.includes('sw.js?v=24'));
-assert.ok(indexHtml.includes('data/books-index.js?v=24') && sw.includes('./data/books-index.js?v=24'));
+assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v25'"));
+assert.ok(indexHtml.includes('style.css?v=25') && indexHtml.includes('core.js?v=25') && indexHtml.includes('app.js?v=25') && indexHtml.includes('sw.js?v=25'));
+assert.ok(indexHtml.includes('data/books-index.js?v=25') && sw.includes('./data/books-index.js?v=25'));
+assert.ok(!indexHtml.includes('?v=24') && !sw.includes('?v=24') && !sw.includes('shell-v24'));
 assert.ok(sw.includes('./data/book-ielts.js') && sw.includes('./data/book-kaoyan.js'));
 assert.ok(indexHtml.includes('data/example-zh.js?v=22') && indexHtml.includes('data/t2s.js?v=22'));
 assert.ok(sw.includes('example-zh.js?v=22') && sw.includes('t2s.js?v=22') && sw.includes('logo-doubao-2048.png?v=22'));

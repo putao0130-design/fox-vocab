@@ -105,6 +105,11 @@ textarea{margin-top:12px;resize:vertical}
 .sessbar .back{min-height:36px;width:36px;padding:0;border-radius:50%;background:var(--card);box-shadow:var(--sh)}
 .qhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 4px 10px;color:var(--mute);font-size:14px}
 .qcard{text-align:center;padding:26px 20px;perspective:800px}
+.qcard.ielts-freq{background:linear-gradient(180deg,#F0BB51 0%,#F8E3B0 36%,#FFF6DE 100%);border:2px solid #A27650;box-shadow:0 12px 28px rgba(75,66,62,.16)}
+.qcard.ielts-freq .word{color:#4B423E}
+.qcard.ielts-freq .qtype{background:#FFFCF7;color:#A27650;box-shadow:0 0 0 1px #A27650}
+.qcard.ielts-freq .qtype .new{background:#4B423E;color:#F0BB51}
+.ielts-badge{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:99px;background:#4B423E;color:#F0BB51;font-size:12px;font-weight:800;letter-spacing:.04em;vertical-align:1px}
 .qtype{display:inline-block;font-size:13px;color:var(--acc);background:var(--accs);border-radius:99px;padding:3px 12px;margin-bottom:12px;font-weight:600}
 .qtype .new{background:var(--color-accent);color:var(--color-ink);border-radius:6px;padding:0 5px;font-size:11px;margin-left:4px}
 .word{font-size:42px;font-weight:800;letter-spacing:.5px;word-break:break-word;line-height:1.2;font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,var(--zh,sans-serif)}
