@@ -454,9 +454,21 @@
     if (kind === 'http') return '词典请求失败，没能查询「' + w + '」，请稍后再试';
     return '没有找到「' + w + '」的中文释义';
   }
-  function imeBottom(layoutHeight, viewportHeight, offsetTop) {
-    const n = Number(layoutHeight) - Number(viewportHeight) - Number(offsetTop);
-    return n > 0 ? n : 0;
+  // 键盘挡住布局视口底部的高度。offsetTop 是 iOS 为了露出光标而上移可视视口的平移，
+  // 减进去会把键盘高度算成 0。平移时保持 keyboard = layout - visual；
+  // 布局高度短暂追上可视高度（innerHeight 与 vv.height 同帧）时，沿用 held。
+  function imeBottom(layoutHeight, viewportHeight, offsetTop, held) {
+    const layout = Number(layoutHeight);
+    const view = Number(viewportHeight);
+    const pan = Number(offsetTop);
+    const keyboard = (Number.isFinite(layout) ? layout : 0) - (Number.isFinite(view) ? view : 0);
+    const occluded = keyboard - (Number.isFinite(pan) && pan > 0 ? pan : 0);
+    let inset = keyboard > 0 && pan > 0 && occluded < keyboard ? keyboard : occluded;
+    if (!(inset > 0)) {
+      const keep = Number(held);
+      if (keep > 0) inset = keep;
+    }
+    return inset > 0 ? inset : 0;
   }
 
   const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom };

@@ -180,69 +180,144 @@
   function flash(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
   function toast(html) { const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
 
-  // 手机键盘：visualViewport 比 layout 矮出的一段就是键盘（含候选栏）。超过约 80px 才当键盘，避免浏览器工具条抖动。
-  function imeInset() {
-    const vv = window.visualViewport;
-    if (!vv) return 0;
-    return C.imeBottom(window.innerHeight, vv.height, vv.offsetTop);
-  }
+  // 窄屏键盘坞：输入框留在题目里。body.kb-open 只在填空/造句框正聚焦，且键盘真的挡住一段高度时加上。
+  // 设置和词书里的粘贴框（#bpaste、#apaste）以及其他输入框就算 inset 超过 80px 也不加 kb-open，底栏不跟着闪。
+  // 同步只改 CSS 变量和这一个 class，数值没变就不写。不搬节点，也不在同步里聚焦或滚动页面。
+  // 刚聚焦、点提交、长按例句，以及一两帧的 inset 抖动都保持原样，避免 iOS 把键盘拆掉。
+  const IME_GRACE = 200;
+  const IME_JITTER = 12;
+  const IME_OPEN = 120;
+  const IME_HOLD = 80;
+  let imeQueued = false, imeTimer = 0, insetTimer = 0, kbWanted = false, heldIme = 0, imePressHold = 0;
+  let paintedOpen = false, paintedInset = 0, paintedDock = '0px';
   function narrowScreen() { return !!(window.matchMedia && window.matchMedia('(max-width: 759px)').matches); }
-  let imeWasOpen = false;
-  function takeIntoDock(el, dock) {
-    if (!el || el.parentElement === dock) return;
-    if (!el.__imeHome) el.__imeHome = { parent: el.parentElement, next: el.nextSibling };
-    dock.appendChild(el);
+  function typingEl(el) {
+    if (!el || el.nodeType !== 1) return false;
+    // 只认题目卡片里的填空框和造句框。粘贴词表、搜索、指定单词、设置数字框都不算。
+    if (el.id === 'inp' && el.closest && el.closest('.typerow')) return true;
+    return el.tagName === 'TEXTAREA' && el.id === 's';
   }
-  function discardImeDock() {
+  function rowButton(el) {
+    return !!(el && el.nodeType === 1 && el.tagName === 'BUTTON' && el.closest && el.closest('#ime-dock .typerow'));
+  }
+  function imeHeldNow() {
+    const el = document.activeElement;
+    return typingEl(el) || rowButton(el);
+  }
+  function tokenPressing() { return imePressHold > 0; }
+  function scheduleIme() {
+    if (imeQueued) return;
+    imeQueued = true;
+    const raf = window.requestAnimationFrame || (fn => setTimeout(fn, 16));
+    raf(() => { imeQueued = false; syncIme(); });
+  }
+  function clearInsetHold() {
+    if (insetTimer) { clearTimeout(insetTimer); insetTimer = 0; }
+  }
+  function releaseIme() {
+    if (imeTimer) { clearTimeout(imeTimer); imeTimer = 0; }
+    clearInsetHold();
+    kbWanted = false;
+    heldIme = 0;
+    syncIme();
+  }
+  function settleImeFocus(grace) {
+    if (imeTimer) clearTimeout(imeTimer);
+    imeTimer = setTimeout(() => {
+      imeTimer = 0;
+      if (imeHeldNow() || tokenPressing()) { kbWanted = true; scheduleIme(); return; }
+      if (!kbWanted) return;
+      kbWanted = false;
+      heldIme = 0;
+      scheduleIme();
+    }, grace);
+  }
+  function onImeFocusIn() {
+    if (imeTimer) { clearTimeout(imeTimer); imeTimer = 0; }
+    if (imeHeldNow()) { kbWanted = true; scheduleIme(); return; }
+    if (kbWanted) settleImeFocus(IME_GRACE);
+  }
+  function onImeFocusOut() { settleImeFocus(IME_GRACE); }
+  function readInset() {
+    const vv = window.visualViewport;
+    if (!vv || typeof vv.height !== 'number') return 0;
+    // 不把上一次的高度传进 imeBottom。iOS 把这一帧吃成 0 时，由下面的滞回保住，避免焦点一到就把坞打开。
+    const next = Math.round(C.imeBottom(window.innerHeight, vv.height, vv.offsetTop || 0, 0));
+    return next > 0 ? next : 0;
+  }
+  function paintIme(open, inset) {
+    if (open === paintedOpen && inset === paintedInset && (!open || paintedDock !== '0px')) return;
+    const root = document.documentElement;
+    if (inset !== paintedInset) {
+      root.style.setProperty('--ime-bottom', inset + 'px');
+      paintedInset = inset;
+    }
+    if (open !== paintedOpen) {
+      document.body.classList.toggle('kb-open', open);
+      paintedOpen = open;
+    }
+    if (!open) {
+      if (paintedDock !== '0px') {
+        root.style.setProperty('--dock-h', '0px');
+        paintedDock = '0px';
+      }
+      return;
+    }
     const dock = document.getElementById('ime-dock');
-    if (dock) dock.remove();
-    document.documentElement.style.setProperty('--dock-h', '0px');
+    const dockH = dock && dock.getBoundingClientRect ? (Math.ceil(dock.getBoundingClientRect().height) || 0) : 0;
+    const dockPx = dockH + 'px';
+    if (dockPx !== paintedDock) {
+      root.style.setProperty('--dock-h', dockPx);
+      paintedDock = dockPx;
+    }
   }
-  function restoreImeDock() {
-    const dock = document.getElementById('ime-dock');
-    if (!dock) { document.documentElement.style.setProperty('--dock-h', '0px'); return; }
-    [...dock.children].forEach(el => {
-      const home = el.__imeHome;
-      if (!home || !home.parent || !home.parent.isConnected) return;
-      const next = home.next && home.next.parentNode === home.parent ? home.next : null;
-      home.parent.insertBefore(el, next);
-    });
-    dock.remove();
-    document.documentElement.style.setProperty('--dock-h', '0px');
-  }
-  function mountImeDock() {
-    const row = document.querySelector('#ans .typerow, #ime-dock .typerow');
-    const area = document.querySelector('textarea#s');
-    if (!row && !area) { restoreImeDock(); return; }
-    let dock = document.getElementById('ime-dock');
-    if (!dock) { dock = document.createElement('div'); dock.id = 'ime-dock'; document.body.appendChild(dock); }
-    const tip = row && document.querySelector('.senttip');
-    if (tip) takeIntoDock(tip, dock);
-    if (row) takeIntoDock(row, dock);
-    if (area) takeIntoDock(area, dock);
-    const active = document.activeElement;
-    if (active && dock.contains(active)) { try { active.focus({ preventScroll: true }); } catch (e) { try { active.focus(); } catch (e2) { } } }
-    document.documentElement.style.setProperty('--dock-h', Math.ceil(dock.getBoundingClientRect().height) + 'px');
-  }
-  function revealSentence() {
-    const en = document.querySelector('.sent .senten') || document.querySelector('.sent');
-    if (!en || !en.scrollIntoView) return;
-    try { en.scrollIntoView({ block: 'nearest' }); } catch (e) { try { en.scrollIntoView(false); } catch (e2) { } }
+  function armInsetHold() {
+    if (insetTimer) return;
+    insetTimer = setTimeout(() => {
+      insetTimer = 0;
+      if (tokenPressing()) return;
+      heldIme = 0;
+      scheduleIme();
+    }, IME_GRACE);
   }
   function syncIme() {
-    const inset = Math.round(imeInset());
-    document.documentElement.style.setProperty('--ime-bottom', inset + 'px');
-    const open = inset > 80 && narrowScreen();
-    document.body.classList.toggle('kb-open', open);
-    if (open) { mountImeDock(); if (!imeWasOpen) revealSentence(); }
-    else restoreImeDock();
-    imeWasOpen = open;
+    const wanted = !!(kbWanted && narrowScreen());
+    if (!wanted) {
+      clearInsetHold();
+      heldIme = 0;
+      paintIme(false, 0);
+      return;
+    }
+    const measured = readInset();
+    if (paintedOpen && measured > 0 && Math.abs(measured - paintedInset) < IME_JITTER) {
+      clearInsetHold();
+      heldIme = paintedInset;
+      return;
+    }
+    const bar = paintedOpen ? IME_HOLD : IME_OPEN;
+    if (measured >= bar) {
+      clearInsetHold();
+      heldIme = measured;
+      paintIme(true, measured);
+      return;
+    }
+    // 长按例句单词时不要收起坞，否则句子一跳，iOS 会取消这次长按。
+    if (tokenPressing() && paintedOpen) return;
+    if (paintedOpen && heldIme >= IME_HOLD) {
+      armInsetHold();
+      return;
+    }
+    heldIme = 0;
+    paintIme(false, 0);
   }
   function bindIme() {
     const vv = window.visualViewport;
-    if (vv) { vv.addEventListener('resize', syncIme); vv.addEventListener('scroll', syncIme); }
-    window.addEventListener('resize', syncIme);
-    syncIme();
+    if (vv) { vv.addEventListener('resize', scheduleIme); vv.addEventListener('scroll', scheduleIme); }
+    window.addEventListener('resize', scheduleIme);
+    window.addEventListener('scroll', scheduleIme);
+    document.addEventListener('focusin', onImeFocusIn);
+    document.addEventListener('focusout', onImeFocusOut);
+    scheduleIme();
   }
 
   // ---------- 锁定稿小狗 PNG（四阶段同一张图） ----------
@@ -303,7 +378,7 @@
       case 'm2w': { const o = C.shuffle([w].concat(others(3))); return { title: '看意选词', prompt: `<div class="meaning-big">${esc(w.meaning)}</div><div class="ipa">${esc(w.pos)}</div>`, options: o.map(x => ({ label: x.word, ok: x === w })) }; }
       case 'pos': { const o = C.shuffle([w].concat(others(3, x => x.pos !== w.pos))); return { title: '看词性选词', prompt: `<div class="hint">请选出词性为 <b class="tag">${esc(w.pos)}</b> 且意为下列含义的词</div><div class="meaning-big">${esc(w.meaning)}</div><div class="hint">其余选项都是其他词性的词</div>`, options: o.map(x => ({ label: x.word, ok: x === w, reveal: x.word + '  ' + x.pos + ' ' + x.meaning })) }; }
       case 'clozeChoice': { const cz = C.makeCloze(ex, w.word); const zhRaw = zhRawFor(ex, w.word); const o = C.shuffle([w].concat(others(3, x => x.pos === w.pos))); return { title: '例句填空 · 选择', zhRaw, prompt: clozePrompt(cz.text, zhRaw, '<div class="hint">选出空格处单词的原形</div>'), options: o.map(x => ({ label: x.word, ok: x === w })) }; }
-      case 'clozeType': { const cz = C.makeCloze(ex, w.word); const zhRaw = zhRawFor(ex, w.word); return { title: '例句填空 · 拼写', zhRaw, prompt: clozePrompt(cz.text, zhRaw, `<div class="hint">提示：${esc(w.pos)} ${esc(w.meaning)}，首字母 <b>${esc(cz.answer[0])}</b>；可填句中形式或原形</div>`), typed: [cz.answer, w.word] }; }
+      case 'clozeType': { const cz = C.makeCloze(ex, w.word); const zhRaw = zhRawFor(ex, w.word); return { title: '例句填空 · 拼写', zhRaw, dockTip: true, prompt: clozePrompt(cz.text, zhRaw, `<div class="hint">提示：${esc(w.pos)} ${esc(w.meaning)}，首字母 <b>${esc(cz.answer[0])}</b>；可填句中形式或原形</div>`, true), typed: [cz.answer, w.word] }; }
       case 'dictation': return { title: '听音默写 · 英音', prompt: `<button class="bigsay" onclick="__speak('${esc(w.word)}')" aria-label="再听一遍">🔊</button><div class="hint">点击喇叭再听一遍 · ${esc(w.ipa)}　${esc(w.pos)}</div>`, typed: [w.word], say: w.word, forceSay: true };
       case 'meaningType': return { title: '看意默写', prompt: `<div class="meaning-big">${esc(w.meaning)}</div><div class="hint">${esc(w.pos)}　共 ${w.word.length} 个字母</div><div class="slots">${'<i></i>'.repeat(Math.min(w.word.length, 18))}</div>`, typed: [w.word] };
       case 'flash': return { title: '单词卡', prompt: wordHead(w), flash: true, say: w.word };
@@ -357,8 +432,9 @@
     if (!shown) return '';
     return `<div class="exzh">${esc(shown)}</div>`;
   }
-  function clozePrompt(clozeText, zhRaw, hintHtml) {
-    return `<div class="sent"><div class="senten">${tokenSpans(clozeText)}</div>${zhEl(zhRaw, false)}</div><div class="hint senttip">长按单词加入今日学习 · 右键同样可以</div>${hintHtml}`;
+  const SENT_TIP_HTML = '<div class="hint senttip">长按单词加入今日学习 · 右键同样可以</div>';
+  function clozePrompt(clozeText, zhRaw, hintHtml, tipInDock) {
+    return `<div class="sent"><div class="senten">${tokenSpans(clozeText)}</div>${zhEl(zhRaw, false)}</div>${tipInDock ? '' : SENT_TIP_HTML}${hintHtml}`;
   }
   function exampleBlocks(w, reveal) {
     return (w.examples || []).map(e => `<div class="ex"><div class="sent"><div class="senten">${tokenSpans(e)}</div>${zhEl(zhRawFor(e, w.word), reveal)}</div></div>`).join('');
@@ -479,7 +555,14 @@
   }
   window.__addSentenceWord = addSentenceWord;
   let hold = null;
-  function clearHold() { if (!hold) return; clearTimeout(hold.t); if (hold.el) hold.el.classList.remove('pressing'); hold = null; }
+  function clearHold() {
+    if (!hold) return;
+    clearTimeout(hold.t);
+    if (hold.el) hold.el.classList.remove('pressing');
+    hold = null;
+    imePressHold = 0;
+    if (!imeHeldNow()) settleImeFocus(IME_GRACE);
+  }
   $app.addEventListener('pointerdown', e => {
     const tok = e.target.closest && e.target.closest('.sent .tok');
     if (!tok || e.button === 2) return;
@@ -487,6 +570,7 @@
     tok.classList.add('pressing');
     const x = e.clientX, y = e.clientY;
     hold = { el: tok, x, y, t: setTimeout(() => { const el = tok; clearHold(); addSentenceWord(el.dataset.w, el); }, 450) };
+    imePressHold = 1;
   });
   $app.addEventListener('pointermove', e => {
     if (!hold) return;
@@ -526,12 +610,12 @@
   }
 
   function showQ(container, w, type, next) {
-    discardImeDock();
     const q = makeQ(w, type);
     container.innerHTML = `<div class="card qcard enter" id="qc"><div class="qtype">${q.title}</div><div class="prompt">${q.prompt}</div><div id="ans"></div><div id="fb"></div></div>`;
     const ans = container.querySelector('#ans'), fb = container.querySelector('#fb'), qc = container.querySelector('#qc');
     if (q.say && (q.forceSay || S.settings.autoPlay)) setTimeout(() => speak(q.say), 200);
     function finish(rating, pre) {
+      releaseIme();
       const ok = rating > 1; const m = record(w, rating);
       if (SESS) { SESS.done++; if (ok) SESS.correct++; }
       flash(qc, ok ? 'good' : 'bad');
@@ -540,6 +624,7 @@
       const b = fb.querySelector('#nx'); b.onclick = next; try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); }
     }
     if (q.flash) {
+      releaseIme();
       ans.innerHTML = `<button class="primary block" id="show">想一想，然后查看释义<kbd>空格</kbd></button>`;
       ans.querySelector('#show').onclick = () => {
         flash(qc, 'flip');
@@ -547,20 +632,20 @@
         ans.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { ans.innerHTML = ''; finish(+b.dataset.g); });
       };
     } else if (q.options) {
+      releaseIme();
       ans.className = 'opts';
       q.options.forEach(o => { const b = document.createElement('button'); b.textContent = o.label; b.onclick = () => {
         [...ans.children].forEach((c, i) => { c.disabled = true; if (q.options[i].ok) c.classList.add('right'); if (q.options[i].reveal) c.textContent = q.options[i].reveal; });
         if (!o.ok) b.classList.add('wrong'); finish(o.ok ? C.Rating.Good : C.Rating.Again); }; ans.appendChild(b); });
     } else {
-      ans.innerHTML = `<div class="typerow"><input type="text" id="inp" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入英文单词"><button class="primary" id="sub">提交</button><button class="ghost" id="skip">不会</button></div>`;
+      ans.innerHTML = `<div id="ime-dock">${q.dockTip ? SENT_TIP_HTML : ''}<div class="typerow"><input type="text" id="inp" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入英文单词"><button class="primary" id="sub">提交</button><button class="ghost" id="skip">不会</button></div></div>`;
       const inp = ans.querySelector('#inp'); try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); }
       const go = (give) => { if (inp.disabled) return; inp.disabled = true; const ok = !give && q.typed.some(t => C.answerMatch(inp.value, t));
         finish(ok ? C.Rating.Good : C.Rating.Again, ok ? '' : `<div class="answer">正确答案：<b>${esc(q.typed[0])}</b>${inp.value ? '，你的答案：<s>' + esc(inp.value) + '</s>' : ''}</div>`); };
       ans.querySelector('#sub').onclick = () => go(false); ans.querySelector('#skip').onclick = () => go(true);
       inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); go(false); } };
+      scheduleIme();
     }
-    syncIme();
-    if (document.body.classList.contains('kb-open')) revealSentence();
   }
 
   // ---------- 键盘快捷键（桌面） ----------
@@ -583,7 +668,7 @@
   let navSeq = 0;
   function go(v, arg) {
     if (!(v in views)) v = 'home';
-    discardImeDock();
+    releaseIme();
     document.querySelectorAll('#nav [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === TAB_OF[v]));
     document.body.dataset.view = v;
     location.hash = v; const seq = ++navSeq;
@@ -987,13 +1072,13 @@
   };
 
   views.sentence = function (wordArg) {
-    discardImeDock();
+    releaseIme();
     const l = learned(); const pool = l.length ? l : W().filter(C.hasExample);
     const w = (wordArg && byWord(wordArg)) || pool[Math.floor(Math.random() * pool.length)];
     const mine = bs().sentences[w.word] || []; const exs = w.examples || [];
     $app.innerHTML = `<h2 class="ph">造句</h2><div class="card qcard"><div class="qtype">离线检查：含目标词或变形、≥5 个词、首字母大写、句末标点</div>
       ${wordHead(w)}<div class="dmean center"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>
-      <textarea id="s" rows="3" placeholder="用 ${esc(w.word)} 写一个英文句子"></textarea>
+      <div id="ime-dock"><textarea id="s" rows="3" placeholder="用 ${esc(w.word)} 写一个英文句子"></textarea></div>
       <div class="row"><button class="primary" id="chk">检查并保存</button><button class="ghost" id="ref" ${exs.length ? '' : 'disabled title="该词暂无参考例句"'}>看参考例句${exs.length ? '' : '（无）'}</button><button class="ghost" id="nxt">换一个词</button></div>
       <div class="row"><input type="text" id="pickw" placeholder="指定单词" style="flex:1;min-width:0"><button class="ghost" id="pk">指定</button></div><div id="fb"></div>
       <div id="refbox"></div></div><div class="card"><div class="ctitle">我为这个词写过的句子（${mine.length}）</div>${mine.map(s => `<div class="mine">${esc(s.text)} <span class="muted">${s.date}</span></div>`).join('') || '<div class="muted">暂无</div>'}</div>`;
@@ -1009,7 +1094,6 @@
       $app.querySelector('#fb').innerHTML = `<div class="verdict ok">✔ 句子格式检查通过，已保存。${esc(m)}</div><div class="hint">注：离线检查只看格式和是否用到该词，不判断语法与用法是否地道${exs.length ? '，请对照参考例句' : ''}。</div>`;
       flash($app.querySelector('.qcard'), 'good');
     };
-    syncIme();
   };
 
   views.pet = function (fedN) {
