@@ -180,15 +180,20 @@
   function flash(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
   function toast(html) { const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
 
-  // 窄屏键盘坞：只在填空框或造句框真正聚焦时打开。输入框留在题目里，用 CSS 把已有的 #ime-dock 固定到键盘上方。
-  // 不搬动节点、不在同步里 focus，避免 iOS 的 visualViewport 事件把坞拆了又装上。
+  // 窄屏键盘坞：输入框留在题目里。body.kb-open 只在填空/造句框正聚焦，且键盘真的挡住一段高度时加上。
+  // 设置和词书里的粘贴框（#bpaste、#apaste）以及其他输入框就算 inset 超过 80px 也不加 kb-open，底栏不跟着闪。
+  // 同步只改 CSS 变量和这一个 class，数值没变就不写。不搬节点，也不在同步里聚焦或滚动页面。
+  // 刚聚焦、点提交、长按例句，以及一两帧的 inset 抖动都保持原样，避免 iOS 把键盘拆掉。
   const IME_GRACE = 200;
   const IME_JITTER = 12;
-  let imeQueued = false, imeTimer = 0, kbWanted = false, heldIme = 0;
-  let paintedOpen = false, paintedInset = 0, paintedDock = '0px', didReveal = false;
+  const IME_OPEN = 120;
+  const IME_HOLD = 80;
+  let imeQueued = false, imeTimer = 0, insetTimer = 0, kbWanted = false, heldIme = 0, imePressHold = 0;
+  let paintedOpen = false, paintedInset = 0, paintedDock = '0px';
   function narrowScreen() { return !!(window.matchMedia && window.matchMedia('(max-width: 759px)').matches); }
   function typingEl(el) {
     if (!el || el.nodeType !== 1) return false;
+    // 只认题目卡片里的填空框和造句框。粘贴词表、搜索、指定单词、设置数字框都不算。
     if (el.id === 'inp' && el.closest && el.closest('.typerow')) return true;
     return el.tagName === 'TEXTAREA' && el.id === 's';
   }
@@ -199,24 +204,28 @@
     const el = document.activeElement;
     return typingEl(el) || rowButton(el);
   }
+  function tokenPressing() { return imePressHold > 0; }
   function scheduleIme() {
     if (imeQueued) return;
     imeQueued = true;
     const raf = window.requestAnimationFrame || (fn => setTimeout(fn, 16));
     raf(() => { imeQueued = false; syncIme(); });
   }
+  function clearInsetHold() {
+    if (insetTimer) { clearTimeout(insetTimer); insetTimer = 0; }
+  }
   function releaseIme() {
     if (imeTimer) { clearTimeout(imeTimer); imeTimer = 0; }
+    clearInsetHold();
     kbWanted = false;
     heldIme = 0;
-    didReveal = false;
     syncIme();
   }
   function settleImeFocus(grace) {
     if (imeTimer) clearTimeout(imeTimer);
     imeTimer = setTimeout(() => {
       imeTimer = 0;
-      if (imeHeldNow()) { kbWanted = true; scheduleIme(); return; }
+      if (imeHeldNow() || tokenPressing()) { kbWanted = true; scheduleIme(); return; }
       if (!kbWanted) return;
       kbWanted = false;
       heldIme = 0;
@@ -229,24 +238,15 @@
     if (kbWanted) settleImeFocus(IME_GRACE);
   }
   function onImeFocusOut() { settleImeFocus(IME_GRACE); }
-  function revealSentence() {
-    const en = document.querySelector('.sent .senten') || document.querySelector('.sent');
-    if (!en || !en.scrollIntoView) return;
-    try { en.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { try { en.scrollIntoView(false); } catch (e2) { } }
-  }
-  function syncIme() {
-    const open = !!(kbWanted && narrowScreen());
+  function readInset() {
     const vv = window.visualViewport;
-    let inset = 0;
-    if (open && vv && typeof vv.height === 'number') {
-      let next = Math.round(C.imeBottom(window.innerHeight, vv.height, vv.offsetTop || 0, heldIme));
-      if (paintedInset > 0 && next > 0 && Math.abs(next - paintedInset) < IME_JITTER) next = paintedInset;
-      if (next > 0) heldIme = next;
-      inset = next > 0 ? next : 0;
-    } else {
-      heldIme = 0;
-      inset = 0;
-    }
+    if (!vv || typeof vv.height !== 'number') return 0;
+    // 不把上一次的高度传进 imeBottom。iOS 把这一帧吃成 0 时，由下面的滞回保住，避免焦点一到就把坞打开。
+    const next = Math.round(C.imeBottom(window.innerHeight, vv.height, vv.offsetTop || 0, 0));
+    return next > 0 ? next : 0;
+  }
+  function paintIme(open, inset) {
+    if (open === paintedOpen && inset === paintedInset && (!open || paintedDock !== '0px')) return;
     const root = document.documentElement;
     if (inset !== paintedInset) {
       root.style.setProperty('--ime-bottom', inset + 'px');
@@ -255,19 +255,60 @@
     if (open !== paintedOpen) {
       document.body.classList.toggle('kb-open', open);
       paintedOpen = open;
-      if (open) { if (!didReveal) { didReveal = true; revealSentence(); } }
-      else didReveal = false;
     }
-    let dockH = 0;
-    if (open) {
-      const dock = document.getElementById('ime-dock');
-      if (dock && dock.getBoundingClientRect) dockH = Math.ceil(dock.getBoundingClientRect().height) || 0;
+    if (!open) {
+      if (paintedDock !== '0px') {
+        root.style.setProperty('--dock-h', '0px');
+        paintedDock = '0px';
+      }
+      return;
     }
+    const dock = document.getElementById('ime-dock');
+    const dockH = dock && dock.getBoundingClientRect ? (Math.ceil(dock.getBoundingClientRect().height) || 0) : 0;
     const dockPx = dockH + 'px';
     if (dockPx !== paintedDock) {
       root.style.setProperty('--dock-h', dockPx);
       paintedDock = dockPx;
     }
+  }
+  function armInsetHold() {
+    if (insetTimer) return;
+    insetTimer = setTimeout(() => {
+      insetTimer = 0;
+      if (tokenPressing()) return;
+      heldIme = 0;
+      scheduleIme();
+    }, IME_GRACE);
+  }
+  function syncIme() {
+    const wanted = !!(kbWanted && narrowScreen());
+    if (!wanted) {
+      clearInsetHold();
+      heldIme = 0;
+      paintIme(false, 0);
+      return;
+    }
+    const measured = readInset();
+    if (paintedOpen && measured > 0 && Math.abs(measured - paintedInset) < IME_JITTER) {
+      clearInsetHold();
+      heldIme = paintedInset;
+      return;
+    }
+    const bar = paintedOpen ? IME_HOLD : IME_OPEN;
+    if (measured >= bar) {
+      clearInsetHold();
+      heldIme = measured;
+      paintIme(true, measured);
+      return;
+    }
+    // 长按例句单词时不要收起坞，否则句子一跳，iOS 会取消这次长按。
+    if (tokenPressing() && paintedOpen) return;
+    if (paintedOpen && heldIme >= IME_HOLD) {
+      armInsetHold();
+      return;
+    }
+    heldIme = 0;
+    paintIme(false, 0);
   }
   function bindIme() {
     const vv = window.visualViewport;
@@ -514,7 +555,14 @@
   }
   window.__addSentenceWord = addSentenceWord;
   let hold = null;
-  function clearHold() { if (!hold) return; clearTimeout(hold.t); if (hold.el) hold.el.classList.remove('pressing'); hold = null; }
+  function clearHold() {
+    if (!hold) return;
+    clearTimeout(hold.t);
+    if (hold.el) hold.el.classList.remove('pressing');
+    hold = null;
+    imePressHold = 0;
+    if (!imeHeldNow()) settleImeFocus(IME_GRACE);
+  }
   $app.addEventListener('pointerdown', e => {
     const tok = e.target.closest && e.target.closest('.sent .tok');
     if (!tok || e.button === 2) return;
@@ -522,6 +570,7 @@
     tok.classList.add('pressing');
     const x = e.clientX, y = e.clientY;
     hold = { el: tok, x, y, t: setTimeout(() => { const el = tok; clearHold(); addSentenceWord(el.dataset.w, el); }, 450) };
+    imePressHold = 1;
   });
   $app.addEventListener('pointermove', e => {
     if (!hold) return;
