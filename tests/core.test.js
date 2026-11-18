@@ -148,6 +148,43 @@ for (const w of orig) {
   const full = C.revealExampleZh(raw);
   assert.ok(full.includes(inner[1]) && !full.includes('{') && !full.includes('}'));
 }
-assert.ok(core.words.length >= 2000 && core.words.length <= 3000, 'core size');
-assert.ok(books['ielts-toefl-full'].words.length > core.words.length);
+assert.strictEqual(core.words.length, 2209, 'core count unchanged');
+assert.strictEqual(books['ielts-toefl-full'].words.length, 12883, 'full count unchanged');
+assert.deepStrictEqual(window.VOCAB_BOOK_INDEX.map(b => b.id), ['ielts-toefl-core', 'ielts-toefl-full', 'ielts', 'kaoyan']);
+assert.deepStrictEqual(window.VOCAB_BOOK_INDEX.map(b => b.name), ['雅思托福核心词', '雅思托福全部词', '雅思专项', '考研英语']);
+const ielts = books.ielts, kaoyan = books.kaoyan;
+assert.strictEqual(ielts.words.length, 4958);
+assert.strictEqual(kaoyan.words.length, 5005);
+const origBy = {}; for (const o of orig) origBy[o.word] = o;
+const lead = [];
+for (const w of ielts.words) { if (!origBy[w.word]) break; lead.push(w); }
+assert.deepStrictEqual(lead.map(w => w.word), orig.filter(o => lead.some(w => w.word === o.word)).map(o => o.word));
+assert.strictEqual(lead.length, 274, 'only the ielts-tagged original words lead the book');
+for (const w of lead) assert.strictEqual(w.examples[0], origBy[w.word].examples[0], 'original example first ' + w.word);
+for (const w of ielts.words.slice(lead.length)) { assert.strictEqual(w.examples.length, 0); assert.ok(!origBy[w.word]); }
+assert.ok(!ielts.words.some(w => w.word === 'analyse'), 'analyse has no ielts tag');
+assert.ok(!ielts.words.some(w => w.word === 'concept'), 'concept is toefl-only');
+assert.ok(!ielts.words.some(w => w.word === 'core'));
+assert.strictEqual(ielts.words.find(w => w.word === 'approach').examples[0], origBy.approach.examples[0]);
+assert.deepStrictEqual(kaoyan.words.slice(0, 3).map(w => w.word), ['act', 'action', 'activate']);
+assert.ok(!kaoyan.words.some(w => w.word === 'monday' || w.word === 'internet'));
+const fs = require('fs'), nodePath = require('path');
+const ieltsHead = fs.readFileSync(nodePath.join(__dirname, '../data/book-ielts.js'), 'utf8').split('\n')[0];
+const kyHead = fs.readFileSync(nodePath.join(__dirname, '../data/book-kaoyan.js'), 'utf8').split('\n')[0];
+assert.strictEqual(ieltsHead, '// 自动生成：tools/build-books.py。来源 ECDICT(MIT)');
+assert.ok(kyHead.includes('KyleBing/english-vocabulary(BSD-3)') && kyHead.includes('ECDICT(MIT)'));
+for (const line of [ieltsHead, ielts.description, kyHead, kaoyan.description]) {
+  assert.ok(!line.includes('不背') && !line.includes('新东方') && !line.includes('红宝书'), line);
+}
+assert.ok(!ieltsHead.includes('KyleBing') && !ielts.description.includes('KyleBing'));
+const indexHtml = fs.readFileSync(nodePath.join(__dirname, '../index.html'), 'utf8');
+const sw = fs.readFileSync(nodePath.join(__dirname, '../sw.js'), 'utf8');
+assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v24'"));
+assert.ok(indexHtml.includes('style.css?v=24') && indexHtml.includes('core.js?v=24') && indexHtml.includes('app.js?v=24') && indexHtml.includes('sw.js?v=24'));
+assert.ok(indexHtml.includes('data/books-index.js?v=24') && sw.includes('./data/books-index.js?v=24'));
+assert.ok(sw.includes('./data/book-ielts.js') && sw.includes('./data/book-kaoyan.js'));
+assert.ok(indexHtml.includes('data/example-zh.js?v=22') && indexHtml.includes('data/t2s.js?v=22'));
+assert.ok(sw.includes('example-zh.js?v=22') && sw.includes('t2s.js?v=22') && sw.includes('logo-doubao-2048.png?v=22'));
+assert.ok(indexHtml.includes('install-v18/apple-180.png?v=18') && sw.includes('install-v18/icon-512.png?v=18') && sw.includes('manifest.webmanifest?v=18'));
+assert.ok(!indexHtml.includes('?v=23') && !sw.includes('?v=23') && !sw.includes('shell-v23'));
 console.log('core tests passed;', Object.entries(books).map(([k, b]) => k + '=' + b.words.length).join(', '), '; mastered after', path.length, 'Good reviews');

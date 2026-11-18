@@ -13,5 +13,19 @@ window.VOCAB_BOOK_INDEX = [
   "description": "ECDICT 中标为雅思或托福的全部词 + KyleBing 托福词表。",
   "count": 12883,
   "file": "data/book-ielts-toefl-full.js"
+ },
+ {
+  "id": "ielts",
+  "name": "雅思专项",
+  "description": "ECDICT 中标签含 ielts 的词。若该词也在原创例句词表里，原例句放在该词条最前。",
+  "count": 4958,
+  "file": "data/book-ielts.js"
+ },
+ {
+  "id": "kaoyan",
+  "name": "考研英语",
+  "description": "KyleBing 考研顺序词表，释义与英式音标取自 ECDICT。没有释义或词性的词不收录。",
+  "count": 5005,
+  "file": "data/book-kaoyan.js"
  }
 ];
