@@ -1,11 +1,13 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=23 for the in-tree keyboard dock. */
-const CACHE = 'dog-verb-shell-v23';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=24: the in-tree keyboard dock, plus the IELTS-only and postgraduate books. */
+const CACHE = 'dog-verb-shell-v24';
 const SHELL = [
   './index.html',
-  './style.css?v=23',
-  './app.js?v=23',
-  './core.js?v=23',
-  './data/books-index.js?v=18',
+  './style.css?v=24',
+  './app.js?v=24',
+  './core.js?v=24',
+  './data/books-index.js?v=24',
+  './data/book-ielts.js',
+  './data/book-kaoyan.js',
   './data/example-zh.js?v=22',
   './data/t2s.js?v=22',
   './vendor/ts-fsrs.umd.js',

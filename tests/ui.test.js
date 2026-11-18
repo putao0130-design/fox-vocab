@@ -117,6 +117,10 @@ function answer(w) {
   // 自助词书：创建、加词、进度与内置词书分开
   store = {}; loads = []; w = await boot();
   w.__go('books');
+  assert.ok(txt(w).includes('雅思托福核心词') && txt(w).includes('2209 词'), 'core book on the picker');
+  assert.ok(txt(w).includes('雅思托福全部词') && txt(w).includes('12883 词'), 'full book on the picker');
+  assert.ok(txt(w).includes('雅思专项') && txt(w).includes('4958 词'), 'ielts book on the picker');
+  assert.ok(txt(w).includes('考研英语') && txt(w).includes('5005 词'), 'kaoyan book on the picker');
   q(w, '#bname').value = '旅游';
   q(w, '#bpaste').value = 'apple\t苹果\nbanana 香蕉\norange';
   q(w, '#bcreate').click();
