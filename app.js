@@ -2,7 +2,8 @@
   const C = window.VocabCore, KEY = 'foxVocab.v2', OLD_KEY = 'foxVocab.v1', BACKUP_KEY = 'foxVocab.v1.backup';
   const INDEX = window.VOCAB_BOOK_INDEX || [];
   const LOADED = {}; // id -> book
-  window.__registerBook = b => { LOADED[b.id] = b; };
+  let ieltsBook = null; // 雅思专项词书对象。每日学习只拿它做成员判断，不放进 LOADED，避免其它页的查词把这本词书当成已打开的词典。
+  window.__registerBook = b => { LOADED[b.id] = b; if (b && b.id === 'ielts') ieltsBook = b; };
   const $app = document.getElementById('app');
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const now = () => Date.now(), today = () => C.dayKey(now());
@@ -17,8 +18,17 @@
     if (custom) return Promise.resolve(asCustomBook(custom));
     if (LOADED[id]) return Promise.resolve(LOADED[id]);
     const meta = INDEX.find(b => b.id === id) || INDEX[0];
+    if (!LOADED[meta.id] && meta.id === 'ielts' && ieltsBook) { LOADED.ielts = ieltsBook; return Promise.resolve(ieltsBook); }
     if (LOADED[meta.id]) return Promise.resolve(LOADED[meta.id]);
-    if (!pending[meta.id]) pending[meta.id] = (window.__bookLoader || defaultLoader)(meta.file).then(() => { if (!LOADED[meta.id]) throw new Error('book missing'); return LOADED[meta.id]; }).finally(() => delete pending[meta.id]);
+    if (!pending[meta.id]) {
+      let book = null;
+      pending[meta.id] = (window.__bookLoader || defaultLoader)(meta.file).then(() => {
+        book = book || LOADED[meta.id];
+        if (!book) throw new Error('book missing');
+        return book;
+      }).finally(() => delete pending[meta.id]);
+      if (LOADED[meta.id]) book = LOADED[meta.id];
+    }
     return pending[meta.id];
   }
   window.__loadedBooks = () => Object.keys(LOADED);
@@ -998,6 +1008,37 @@
       <button class="tile t4" onclick="__go('sentence')"><span class="ti">✍️</span><b>造句</b><small>用学过的词写句子</small></button></div>`;
   };
 
+  // 每日学习单词卡：当前词若在内置「雅思专项」里，换一套底色并标「雅思常考」。
+  // 成员只看 data/book-ielts.js 加载后的词条，不另存一份词表。
+  let ieltsSet = null;
+  const IELTS_BADGE = '<span class="ielts-badge">雅思常考</span>';
+  function ensureIeltsSet(book) {
+    if (!ieltsSet && book && book.words) ieltsSet = new Set(book.words.map(item => item.word));
+    return ieltsSet;
+  }
+  function ieltsFrequent(word) {
+    const key = String(word || '').toLowerCase();
+    if (!ieltsSet) {
+      const book = LOADED.ielts || ieltsBook;
+      if (book) ensureIeltsSet(book);
+      else return null;
+    }
+    return ieltsSet.has(key);
+  }
+  function hideIeltsLookup() { if (!BOOK || BOOK.id !== 'ielts') delete LOADED.ielts; }
+  function watchIeltsCard(card, word) {
+    const pendingBook = loadBook('ielts');
+    hideIeltsLookup();
+    pendingBook.then(book => {
+      ensureIeltsSet(book);
+      hideIeltsLookup();
+      if (!card.isConnected || card.dataset.word !== word || !ieltsSet.has(word)) return;
+      card.classList.add('ielts-freq');
+      const qtype = card.querySelector('.qtype');
+      if (qtype && !qtype.querySelector('.ielts-badge')) qtype.insertAdjacentHTML('beforeend', IELTS_BADGE);
+    }).catch(() => {});
+  }
+
   views.learn = function () {
     const left = newLeftToday(); const list = unlearned();
     if (!W().length) { $app.innerHTML = '<div class="card summary"><h2>这本词书还没有词</h2><p class="muted">先添加几个单词再开始。</p><button class="primary" onclick="__go(\'books\')">去词书</button></div>'; return; }
@@ -1011,8 +1052,12 @@
     }
     if (!SESS || SESS.kind !== 'learn') startSess('learn', left);
     const w = list[0], n = dayStat().new;
-    $app.innerHTML = progressBar(n, S.settings.dailyNew, `${n + 1}/${S.settings.dailyNew}`) + `<div class="card qcard enter" id="qc"><div class="qtype">学新词 <span class="new">NEW</span></div>${wordHead(w)}
+    const frequent = ieltsFrequent(w.word);
+    const freqCls = frequent ? ' ielts-freq' : '';
+    const badge = frequent ? IELTS_BADGE : '';
+    $app.innerHTML = progressBar(n, S.settings.dailyNew, `${n + 1}/${S.settings.dailyNew}`) + `<div class="card qcard enter${freqCls}" id="qc" data-word="${esc(w.word)}"><div class="qtype">学新词 <span class="new">NEW</span>${badge}</div>${wordHead(w)}
       <div id="reveal"><div class="blur">${esc(w.pos)} ••••••</div><button class="primary block" id="show">想一想，然后查看释义<kbd>空格</kbd></button></div></div>`;
+    if (frequent === null) watchIeltsCard($app.querySelector('#qc'), w.word);
     auto(w.word);
     $app.querySelector('#show').onclick = () => {
       flash($app.querySelector('#qc'), 'flip');

@@ -675,6 +675,50 @@ function answer(w) {
   assert.strictEqual(q(w, '#sharesave').textContent, '保存图片');
   q(w, '#shareclose').click(); assert.ok(!q(w, '#sharesheet'));
 
+  // 每日学习单词卡：只在词属于雅思专项（book-ielts.js）时换样式，文案只写「雅思常考」
+  store = {}; loads = []; audios = [];
+  w = await boot();
+  assert.deepStrictEqual(loads, ['data/book-ielts-toefl-core.js'], 'home does not preload the ielts set');
+  w.__go('learn');
+  assert.strictEqual(q(w, '.word').textContent, 'analyse');
+  assert.strictEqual(q(w, '#qc').dataset.word, 'analyse');
+  assert.ok(loads.includes('data/book-ielts.js'), 'daily study reuses book-ielts.js');
+  await new Promise(r => setTimeout(r, 20));
+  assert.ok(!q(w, '#qc').classList.contains('ielts-freq'), 'analyse is not in the ielts set');
+  assert.ok(!q(w, '.ielts-badge'));
+  assert.ok(!txt(w).includes('雅思常考') && !txt(w).includes('剑桥真题') && !txt(w).includes('官方真题'));
+  q(w, '#show').click();
+  q(w, '[data-g="3"]').click();
+  assert.strictEqual(q(w, '.word').textContent, 'approach');
+  assert.ok(q(w, '#qc').classList.contains('ielts-freq'), 'approach is in the ielts set');
+  assert.strictEqual(q(w, '.ielts-badge').textContent, '雅思常考');
+  w.__go('settings'); q(w, '#bk').value = 'kaoyan'; q(w, '#sv').click();
+  await new Promise(r => setTimeout(r, 20));
+  w.__go('learn');
+  assert.strictEqual(q(w, '.word').textContent, 'act');
+  await new Promise(r => setTimeout(r, 20));
+  assert.ok(!q(w, '#qc').classList.contains('ielts-freq'), '考研 act is not in the ielts set');
+  assert.ok(!q(w, '.ielts-badge'));
+  q(w, '#show').click();
+  q(w, '[data-g="3"]').click();
+  assert.strictEqual(q(w, '.word').textContent, 'action');
+  assert.ok(q(w, '#qc').classList.contains('ielts-freq'), '考研 action is in the ielts set');
+  assert.strictEqual(q(w, '.ielts-badge').textContent, '雅思常考');
+  w.__go('settings'); q(w, '#bk').value = 'ielts'; q(w, '#sv').click();
+  await new Promise(r => setTimeout(r, 20));
+  w.__go('learn');
+  assert.strictEqual(q(w, '.word').textContent, 'approach');
+  assert.ok(q(w, '#qc').classList.contains('ielts-freq'), '雅思专项 card keeps the frequent style');
+  assert.strictEqual(q(w, '.ielts-badge').textContent, '雅思常考');
+  assert.ok(!txt(w).includes('剑桥真题') && !txt(w).includes('官方真题'));
+  w.__go('settings'); q(w, '#bk').value = 'ielts-toefl-core'; q(w, '#sv').click();
+  await new Promise(r => setTimeout(r, 20));
+  w.__go('practice'); q(w, '[data-m="flash"]').click();
+  assert.ok(q(w, '#qc') && !q(w, '#qc').classList.contains('ielts-freq') && !q(w, '.ielts-badge'), 'practice cards stay plain');
+  assert.ok(css.includes('.qcard.ielts-freq') && css.includes('#F0BB51') && css.includes('#4B423E'));
+  assert.ok(appSrc.includes('雅思常考') && !appSrc.includes('剑桥真题') && !appSrc.includes('官方真题'));
+  assert.ok(appSrc.includes("loadBook('ielts')") && !appSrc.includes('ielts-word-list'));
+
   console.log('UI tests passed');
 })().catch(e => { console.error(e); process.exit(1); });
 function C_today() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
