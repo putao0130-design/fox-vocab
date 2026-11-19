@@ -723,6 +723,7 @@
   const SHARE_ZH = '28px "Noto Serif SC", "Songti SC", "Noto Serif CJK SC", serif';
   const SHARE_TITLE = '24px "Noto Sans SC", "PingFang SC", "Noto Sans CJK SC", sans-serif';
   const SHARE_SMALL = '18px "Noto Sans SC", "PingFang SC", "Noto Sans CJK SC", sans-serif';
+  const SHARE_STATS = '32px "Noto Sans SC", "PingFang SC", "Noto Sans CJK SC", sans-serif';
   const QUOTE_LAYOUT = [
     { en: ["I'd love to stay and talk,", 'but I just remembered I have to run away.'], zh: ['我很想留下来聊，但我突然想起我得逃走了。'], photo: 'assets/landscapes/kubota-garden-seattle.jpg?v=22', focus: [0.48, 0.68] },
     { en: ["I don't cry.", 'I sold my tear ducts to an organ bank', 'for cash two years ago.'], zh: ['我不哭。两年前我就把泪腺卖给器官库套现了。'], photo: 'assets/landscapes/lyon-riverside-terrace.jpg?v=22', focus: [0.36, 0.46] },
@@ -862,9 +863,17 @@
     await Promise.all([
       fonts.load('italic 38px "Inria Serif"'),
       fonts.load('28px "Noto Serif SC"'),
+      fonts.load('32px "Noto Sans SC"'),
       fonts.load('24px "Noto Sans SC"'),
       fonts.load('18px "Noto Sans SC"')
     ].map(job => Promise.resolve(job).catch(() => {})));
+  }
+  // 当天已经完成的数量。new 在学完一个新词时 +1；review 只在到期卡完成复习时 +1。
+  // 不读每日目标 settings.dailyNew，也不读还没做的待复习队列。
+  function finishedToday(dayKey) {
+    const row = S.days && S.days[dayKey];
+    const num = v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0; };
+    return { studied: num(row && row.new), reviewed: num(row && row.review) };
   }
   async function renderQuoteCard(dayKey) {
     const quote = C.dailyQuote(dayKey);
@@ -916,11 +925,13 @@
     drawCentered(g, y, quote.source, SHARE_TITLE, 'rgb(210,188,150)', W);
     y += 32;
     drawCentered(g, y, SHARE_BRAND, SHARE_SMALL, 'rgba(200,180,150,0.902)', W);
+    const counts = finishedToday(dayKey);
+    drawCentered(g, y + 36, '本日学习 ' + counts.studied + ' 个，复习 ' + counts.reviewed + ' 个', SHARE_STATS, SHARE_CREAM, W);
     assertCardPainted(g, W, H,
       { bitmap: logo.bitmap, box: logoBox, x: 36 + pad, y: 36 + pad, w: logoW, h: logoH },
       { bitmap: dog.bitmap, box: dogBox, x: dogX, y: dogY, w: dogW, h: dogH });
     await paintSettled();
-    return { blob: await canvasBlob(canvas), quote, dayKey };
+    return { blob: await canvasBlob(canvas), quote, dayKey, studied: counts.studied, reviewed: counts.reviewed };
   }
   function closeShareSheet() { const el = document.getElementById('sharesheet'); if (el) el.remove(); }
   function showShareSheet(dataUrl, filename) {

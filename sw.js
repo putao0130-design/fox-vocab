@@ -1,11 +1,11 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=25: IELTS-frequent styling on the daily study card, plus the in-tree keyboard dock and the IELTS-only and postgraduate books. */
-const CACHE = 'dog-verb-shell-v25';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=26: completed study and review counts on the quote card, IELTS-frequent styling on the daily study card, plus the in-tree keyboard dock and the IELTS-only and postgraduate books. */
+const CACHE = 'dog-verb-shell-v26';
 const SHELL = [
   './index.html',
-  './style.css?v=25',
-  './app.js?v=25',
-  './core.js?v=25',
-  './data/books-index.js?v=25',
+  './style.css?v=26',
+  './app.js?v=26',
+  './core.js?v=26',
+  './data/books-index.js?v=26',
   './data/book-ielts.js',
   './data/book-kaoyan.js',
   './data/example-zh.js?v=22',
