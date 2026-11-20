@@ -639,6 +639,12 @@ function answer(w) {
   assert.ok(unique.indexOf(quote.zh) !== -1, 'chinese line');
   assert.ok(unique.indexOf('《破产姐妹》') !== -1, 'source title');
   assert.ok(unique.indexOf('Dog Verb  ·  每日金句') !== -1, 'brand line');
+  assert.ok(unique.indexOf('本日学习 0 个，复习 0 个') !== -1, 'zero counts still render');
+  assert.strictEqual(textTop(ops, quote.zh), 888, 'chinese quote stays put');
+  assert.strictEqual(textTop(ops, '《破产姐妹》'), 946, 'source stays put');
+  assert.strictEqual(textTop(ops, 'Dog Verb  ·  每日金句'), 978, 'brand stays put');
+  assert.strictEqual(textTop(ops, '本日学习 0 个，复习 0 个'), 1014, 'stats sit under the brand');
+  assert.ok(textTop(ops, '本日学习 0 个，复习 0 个') + 32 < 1080, 'stats are not clipped');
   assert.ok(!unique.some(t => t === '连续打卡' || t.indexOf('累计') !== -1 || /^\d+$/.test(t)), unique.join('|'));
   assert.strictEqual(ops.filter(o => o.op === 'stroke').length, 1, 'gold rule only');
   assert.ok(ops.some(o => o.op === 'set' && o.key === 'strokeStyle' && String(o.value).toUpperCase() === '#F0BB51'));
@@ -648,9 +654,9 @@ function answer(w) {
   const drawnSrc = drawn.map(o => o.args[0] && o.args[0]._src || '');
   assert.ok(drawnSrc.some(s => s.indexOf(photos[quote.index]) !== -1), 'today landscape ' + photos[quote.index]);
   assert.ok(drawnSrc.some(s => s.indexOf('logo-doubao') !== -1), 'doubao logo');
-  assert.ok(drawnSrc.some(s => s.indexOf('dog-mascot-transparent') !== -1), 'transparent pet');
+  assert.ok(drawnSrc.every(s => s.indexOf('dog-mascot-transparent') === -1), 'share card has no second dog');
   assert.ok(drawnSrc.every(s => s.indexOf('paw-check') === -1), 'calendar paw is not on the card');
-  assert.ok(drawnSrc.every(s => s.indexOf('dog-mascot.png') === -1), 'no watermarked mascot');
+  assert.ok(drawnSrc.every(s => s.indexOf('dog-mascot.png') === -1), 'in-app mascot stays off the card');
   offset = 36 * 60 * 60 * 1000;
   const day2 = w.VocabCore.dayKey(w.Date.now());
   const quote2 = w.VocabCore.dailyQuote(day2);
@@ -661,7 +667,9 @@ function answer(w) {
   const texts2 = [];
   ops.filter(o => o.op === 'fillText').forEach(o => { const t = String(o.args[0]); if (texts2.indexOf(t) === -1) texts2.push(t); });
   assert.strictEqual(texts2.filter(t => /^[A-Za-z0-9 ,.'’]+$/.test(t)).join(' '), quote2.en);
+  assert.ok(texts2.indexOf('本日学习 0 个，复习 0 个') !== -1, 'next day with no finished counts still shows zeros');
   assert.ok(ops.some(o => o.op === 'drawImage' && String(o.args[0] && o.args[0]._src || '').indexOf(photos[quote2.index]) !== -1));
+  assert.ok(ops.filter(o => o.op === 'drawImage').every(o => String(o.args[0] && o.args[0]._src || '').indexOf('dog-mascot') === -1), 'next card also has only the logo');
   offset = 0;
   shared = null;
   Object.defineProperty(w.navigator, 'share', { configurable: true, value: () => { const e = new Error('abort'); e.name = 'AbortError'; return Promise.reject(e); } });
@@ -674,6 +682,35 @@ function answer(w) {
   assert.ok(q(w, '[aria-label="转发每日金句"]'));
   assert.strictEqual(q(w, '#sharesave').textContent, '保存图片');
   q(w, '#shareclose').click(); assert.ok(!q(w, '#sharesheet'));
+
+  // 完成数读当天 days.new / days.review。7 不是每日目标 20，4 不是待复习 11，也不是 4+11。
+  const dueWords = ['analyse', 'approach', 'area', 'assess', 'assume', 'authority', 'available', 'benefit', 'concept', 'consist', 'context'];
+  const st = w.__state();
+  st.settings.dailyNew = 20;
+  st.days[dayKey] = { new: 7, review: 4, correct: 11, wrong: 1 };
+  const past = w.Date.now() - 60 * 1000;
+  if (!st.books['ielts-toefl-core']) st.books['ielts-toefl-core'] = { cards: {}, sentences: {} };
+  st.books['ielts-toefl-core'].cards = {};
+  dueWords.forEach(word => {
+    st.books['ielts-toefl-core'].cards[word] = { due: past, stability: 2, difficulty: 5, elapsed_days: 1, scheduled_days: 1, learning_steps: 0, reps: 2, lapses: 0, state: 2, last_review: past - 86400000, learnedAt: past - 86400000, mastered: false, masteredAt: null };
+  });
+  w.__go('home');
+  assert.ok(txt(w).includes('今日新学7/20'), txt(w));
+  assert.ok(txt(w).includes('今日已复习4'), txt(w));
+  assert.ok(txt(w).includes('待复习11'), txt(w));
+  ops.length = 0;
+  q(w, '.sharecal').click();
+  await new Promise(r => setTimeout(r, 250));
+  const statsDrawn = ops.filter(o => o.op === 'fillText').map(o => String(o.args[0]));
+  assert.ok(statsDrawn.includes('本日学习 7 个，复习 4 个'), statsDrawn.filter((t, i, a) => a.indexOf(t) === i).join('|'));
+  assert.ok(!statsDrawn.includes('本日学习 20 个，复习 4 个') && !statsDrawn.includes('本日学习 7 个，复习 11 个') && !statsDrawn.includes('本日学习 7 个，复习 15 个'));
+  assert.strictEqual(textTop(ops, quote.zh), 888, 'seeded card does not move the quote');
+  assert.strictEqual(textTop(ops, '本日学习 7 个，复习 4 个'), 1014);
+  const card = await w.__renderQuoteCard(dayKey);
+  assert.strictEqual(card.studied, 7);
+  assert.strictEqual(card.reviewed, 4);
+  assert.strictEqual(card.dayKey, dayKey);
+  q(w, '#shareclose').click();
 
   // 每日学习单词卡：只在词属于雅思专项（book-ielts.js）时换样式，文案只写「雅思常考」
   store = {}; loads = []; audios = [];
@@ -721,5 +758,10 @@ function answer(w) {
 
   console.log('UI tests passed');
 })().catch(e => { console.error(e); process.exit(1); });
+function textTop(ops, text) {
+  const ys = ops.filter(o => o.op === 'fillText' && o.args[0] === text).map(o => o.args[2]);
+  assert.ok(ys.length >= 1, text + ' ' + ys.join(','));
+  return Math.min.apply(null, ys);
+}
 function C_today() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function C_shift(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
