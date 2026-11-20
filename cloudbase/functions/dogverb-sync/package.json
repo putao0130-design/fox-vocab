@@ -1,0 +1,7 @@
+{
+  "name": "dogverb-sync",
+  "private": true,
+  "dependencies": {
+    "@cloudbase/node-sdk": "3.10.1"
+  }
+}

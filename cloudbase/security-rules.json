@@ -1,0 +1,12 @@
+{
+  "database": "document",
+  "note": "Document-database security rules. These are JSON expressions, not SQL. auth.uid is the web login id, including anonymous login, and is not the Dog Verb space. Direct client access is denied. Cloud functions are not limited by these rules, so every mutation goes through dogverb-sync. delete is set explicitly because an omitted delete inherits write.",
+  "collections": {
+    "dogverb_spaces": { "read": false, "write": false, "delete": false },
+    "dogverb_devices": { "read": false, "write": false, "delete": false },
+    "dogverb_pairing": { "read": false, "write": false, "delete": false },
+    "dogverb_sessions": { "read": false, "write": false, "delete": false },
+    "dogverb_nonces": { "read": false, "write": false, "delete": false },
+    "dogverb_rate": { "read": false, "write": false, "delete": false }
+  }
+}
