@@ -221,9 +221,10 @@ for (const line of [ieltsHead, ielts.description, kyHead, kaoyan.description]) {
 assert.ok(!ieltsHead.includes('KyleBing') && !ielts.description.includes('KyleBing'));
 const indexHtml = fs.readFileSync(nodePath.join(__dirname, '../index.html'), 'utf8');
 const sw = fs.readFileSync(nodePath.join(__dirname, '../sw.js'), 'utf8');
-assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v28'"));
-assert.ok(indexHtml.includes('style.css?v=28') && indexHtml.includes('core.js?v=28') && indexHtml.includes('app.js?v=28') && indexHtml.includes('sw.js?v=28'));
-assert.ok(indexHtml.includes('data/books-index.js?v=28') && sw.includes('./data/books-index.js?v=28'));
+assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v29'"));
+assert.ok(indexHtml.includes('style.css?v=29') && indexHtml.includes('core.js?v=29') && indexHtml.includes('app.js?v=29') && indexHtml.includes('sw.js?v=29'));
+assert.ok(indexHtml.includes('data/books-index.js?v=29') && sw.includes('./data/books-index.js?v=29'));
+assert.ok(!indexHtml.includes('?v=28') && !sw.includes('?v=28') && !sw.includes('shell-v28'));
 assert.ok(!indexHtml.includes('?v=27') && !sw.includes('?v=27') && !sw.includes('shell-v27'));
 assert.ok(!indexHtml.includes('?v=26') && !sw.includes('?v=26') && !sw.includes('shell-v26'));
 assert.ok(!indexHtml.includes('?v=25') && !sw.includes('?v=25') && !sw.includes('shell-v25'));
@@ -238,5 +239,5 @@ assert.ok(appJs.includes("'本日学习 ' + counts.studied + ' 个，复习 ' + 
 assert.ok(appJs.includes('wallabi-beach.jpg?v=22') && appJs.includes('logo-doubao-2048.png?v=22'));
 assert.ok(appJs.includes('kubota-garden-seattle.jpg?v=22') && appJs.includes('lyon-riverside-terrace.jpg?v=22'));
 assert.ok(appJs.includes('assets/dog-mascot.png?v=15') && !appJs.includes('dog-mascot-transparent'));
-assert.ok(!appJs.includes('?v=28') && !appJs.includes('?v=27') && !appJs.includes('?v=26') && !appJs.includes('?v=25'));
+assert.ok(!appJs.includes('?v=29') && !appJs.includes('?v=28') && !appJs.includes('?v=27') && !appJs.includes('?v=26') && !appJs.includes('?v=25'));
 console.log('core tests passed;', Object.entries(books).map(([k, b]) => k + '=' + b.words.length).join(', '), '; mastered after', path.length, 'Good reviews');

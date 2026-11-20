@@ -141,24 +141,54 @@
   const quotaLeft = () => Math.max(0, S.settings.dailyNew - dayStat().new);
   const newLeftToday = () => Math.max(quotaLeft(), todayQueue().length);
 
-  // ---------- 英音发音：有道 type=1，失败时用 en-GB 语音合成 ----------
-  let lastAudio = null;
+  // ---------- 英音发音：有道 type=1。本机合成只在确实有 en-GB 声线时使用，避免落到默认的美音。 ----------
+  let lastAudio = null, speakSeq = 0, speakWait = 0;
+  function cancelSpeakWait() { if (speakWait) { clearTimeout(speakWait); speakWait = 0; } }
+  function laterSpeak(word, ms) { cancelSpeakWait(); speakWait = setTimeout(() => { speakWait = 0; speak(word); }, ms); }
+  function gbVoice() {
+    try {
+      if (!('speechSynthesis' in window) || !speechSynthesis.getVoices) return null;
+      return C.pickVoice(speechSynthesis.getVoices()) || null;
+    } catch (e) { return null; }
+  }
   function tts(word) {
-    if (!('speechSynthesis' in window)) return false;
-    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(word); u.lang = 'en-GB'; const v = C.pickVoice(speechSynthesis.getVoices()); if (v) u.voice = v; u.rate = 0.9; speechSynthesis.speak(u); return true; } catch (e) { return false; }
+    const voice = gbVoice();
+    if (!voice) return false;
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(word); u.lang = 'en-GB'; u.voice = voice; u.rate = 0.9; speechSynthesis.speak(u); return true; } catch (e) { return false; }
+  }
+  function listenStatus(text, state) {
+    const el = document.getElementById('listen-status');
+    if (!el) return;
+    el.textContent = text || '';
+    if (state) el.dataset.state = state; else el.removeAttribute('data-state');
   }
   function speak(word) {
+    const seq = ++speakSeq;
+    cancelSpeakWait();
     window.__lastSpoken = { word, url: C.audioUrl(word) };
+    const noteFail = (kind) => {
+      if (seq !== speakSeq) return;
+      if (tts(word)) { listenStatus('正在用本机英音播放', 'tts'); return; }
+      listenStatus(kind === 'gesture' ? '请点喇叭再听一次' : '读音没有播放出来，点喇叭再试一次', 'error');
+    };
     try {
-      if (lastAudio) lastAudio.pause();
-      const a = new Audio(C.audioUrl(word)); lastAudio = a; let fell = false;
-      const fb = () => { if (!fell) { fell = true; tts(word); } };
-      a.onerror = fb; const p = a.play(); if (p && p.catch) p.catch(fb);
+      if (lastAudio) { try { lastAudio.pause(); } catch (e) {} }
+      const a = new Audio(C.audioUrl(word)); lastAudio = a;
+      const onFail = (err) => {
+        if (seq !== speakSeq || lastAudio !== a) return;
+        noteFail(err && err.name === 'NotAllowedError' ? 'gesture' : 'audio');
+      };
+      a.onerror = () => onFail(a.error || { name: 'error' });
+      const p = a.play();
+      if (p && p.then) p.then(() => {
+        if (seq !== speakSeq || lastAudio !== a || a.error) return;
+        listenStatus('正在播放英音', 'playing');
+      }).catch(onFail);
       return true;
-    } catch (e) { return tts(word); }
+    } catch (e) { noteFail('audio'); return false; }
   }
   window.__speak = speak;
-  const auto = w => { if (S.settings.autoPlay) setTimeout(() => speak(w), 150); };
+  const auto = w => { if (S.settings.autoPlay) laterSpeak(w, 150); };
   const sayBtn = w => `<button class="say" onclick="event.stopPropagation();__speak('${esc(w)}')" title="英音发音" aria-label="英音发音">🔊</button>`;
 
   // 记录答题，喂给 FSRS
@@ -655,7 +685,7 @@
     const q = makeQ(w, type);
     container.innerHTML = `<div class="card qcard enter" id="qc"><div class="qtype">${q.title}</div><div class="prompt">${q.prompt}</div><div id="ans"></div><div id="fb"></div></div>`;
     const ans = container.querySelector('#ans'), fb = container.querySelector('#fb'), qc = container.querySelector('#qc');
-    if (q.say && (q.forceSay || S.settings.autoPlay)) setTimeout(() => speak(q.say), 200);
+    if (q.say && (q.forceSay || S.settings.autoPlay)) laterSpeak(q.say, 200);
     function finish(rating, pre) {
       releaseIme();
       const ok = rating > 1; const m = record(w, rating);
@@ -1240,7 +1270,7 @@
     const listen = kind === 'listen';
     const title = listen ? '听音默写单词' : '看意单词默写';
     const prompt = listen
-      ? `<button type="button" class="bigsay" id="replay" aria-label="再听一遍">🔊</button><div class="hint">听英音，写出单词。点喇叭可以重听</div>`
+      ? `<button type="button" class="bigsay" id="replay" aria-label="再听一遍">🔊</button><div class="hint">听英音，写出单词。点喇叭可以重听</div><div id="listen-status" class="hint listen-status" role="status"></div>`
       : `<div class="meaning-big">${esc(entry.meaning)}</div><div class="hint">${entry.pos ? esc(entry.pos) + ' · ' : ''}看中文，写出英文单词</div>`;
     const n = dayStat().new;
     $app.innerHTML = progressBar(n, S.settings.dailyNew, `默写 ${n}/${S.settings.dailyNew}`) + `<div class="card qcard enter" id="qc" data-dict="${listen ? 'listen' : 'gloss'}"><div class="qtype">${title}</div><div class="prompt">${prompt}</div><div id="ans"></div><div id="fb"></div></div>`;
@@ -1248,9 +1278,10 @@
     ans.innerHTML = `<div id="ime-dock"><div class="typerow"><input type="text" id="inp" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入英文单词"><button class="primary" id="sub">提交</button><button class="ghost" id="skip">不会</button></div></div>`;
     const replay = $app.querySelector('#replay');
     if (replay) replay.onclick = () => speak(entry.word);
-    // 听音卡在窄屏不自动聚焦，避免键盘弹起来把刚开始的英音打断。宽屏没有软键盘，仍聚焦输入框。
+    // 评分点击的同一次调用里就开始播放。120ms 的定时器不在这次手势的调用栈上，而且会再 pause 一次，把这 120ms 里点喇叭已经开始的声音停掉。
+    // 窄屏不自动聚焦，避免键盘弹起来打断刚开始的英音。宽屏没有软键盘，仍聚焦输入框。同步只改播放，不搬输入框，也不滚动。
     const deferFocus = listen && narrowScreen();
-    if (listen) setTimeout(() => speak(entry.word), 120);
+    if (listen) speak(entry.word);
     const inp = ans.querySelector('#inp');
     if (!deferFocus) { try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); } }
     const go = (give) => {
