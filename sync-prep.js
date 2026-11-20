@@ -514,7 +514,10 @@
     if (!acc) return null;
     const days = {};
     Object.keys(acc.legacyDays).sort().forEach(function (key) { days[key] = clone(acc.legacyDays[key]); });
-    Object.keys(acc.eventDays).sort().forEach(function (key) { days[key] = clone(acc.eventDays[key]); });
+    Object.keys(acc.eventDays).sort().forEach(function (key) {
+      if (!days[key]) { days[key] = clone(acc.eventDays[key]); return; }
+      ['new', 'review', 'correct', 'wrong'].forEach(function (field) { days[key][field] = (days[key][field] || 0) + (acc.eventDays[key][field] || 0); });
+    });
     const books = {};
     Object.keys(acc.books).sort().forEach(function (id) {
       if (acc.tombstones[id]) return;

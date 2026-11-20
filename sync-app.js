@@ -17,7 +17,21 @@
 
   function cfg() {
     const c = root.DOGVERB_SYNC_CONFIG;
-    return c && c.api ? c : null;
+    if (!c) return null;
+    if (c.envId && /^[A-Za-z0-9-]{4,64}$/.test(String(c.envId))) return c;
+    return c.api ? c : null;
+  }
+  function backend() {
+    const c = cfg();
+    if (c && c.envId) {
+      if (!root.DogverbCloudBase) { const err = new Error('cloudbase-sdk-missing'); err.data = { error: 'cloudbase-sdk-missing' }; throw err; }
+      return root.DogverbCloudBase.bind(c);
+    }
+    return sync;
+  }
+  function endpoint() {
+    const c = cfg();
+    return c && c.envId ? 'cloudbase:' + c.envId : c.api;
   }
   function opted() { return !!(cfg() && localStorage.getItem(ON) === '1'); }
   function readBox() { try { return JSON.parse(localStorage.getItem(OUT) || '[]'); } catch (e) { return []; } }
@@ -117,7 +131,7 @@
   }
   async function ensureSession() {
     if (session && session.accessToken) return session;
-    session = await sync.resume({ server: cfg().api, storage: sync.idbStorage() });
+    session = await backend().resume({ server: endpoint(), storage: sync.idbStorage() });
     return session;
   }
   async function flush() {
@@ -127,7 +141,7 @@
     try {
       await ensureSession();
       if (!session) return { skipped: true };
-      const res = await sync.pushEvents(session, box);
+      const res = await backend().pushEvents(session, box);
       if (res && res.offline) { statusText = '离线，本机进度已记下，联网后会继续传'; errorText = ''; paint(); return res; }
       const bad = (res.results || []).filter(function (row) { return row.reason && row.reason !== 'duplicate'; });
       localStorage.setItem(OUT, '[]');
@@ -147,7 +161,7 @@
     try {
       await ensureSession();
       if (!session) return;
-      const remote = await sync.pull(session);
+      const remote = await backend().pull(session);
       if (readBox().length) return;
       if (root.__dogverbFieldBusy && root.__dogverbFieldBusy()) return;
       const local = root.__dogverbReadState();
@@ -266,13 +280,13 @@
     const button = document.getElementById('sync-go');
     if (button) button.onclick = async function () {
       try {
-        const made = await sync.createSpace({ server: cfg().api, deviceName: '这台设备', storage: sync.idbStorage() });
+        const made = await backend().createSpace({ server: endpoint(), deviceName: '这台设备', storage: sync.idbStorage() });
         session = made.session;
         recoveryOnce = made.recoverySecret;
         const secret = document.getElementById('sync-secret');
         if (secret) secret.value = recoveryOnce;
         if (!learningEmpty(state)) {
-          const uploaded = await sync.pushLegacy(session, state);
+          const uploaded = await backend().pushLegacy(session, state);
           if (uploaded && uploaded.legacy && uploaded.legacy.limitation) errorText = '重叠的旧进度按较大值合并，不会把两边次数相加';
         }
         localStorage.setItem(BASE, JSON.stringify(state));
@@ -281,7 +295,7 @@
         statusText = '已连接。配对码只在这里显示，它本身打不开进度。';
         errorText = '';
         const code = document.getElementById('sync-code');
-        const minted = await sync.mintPairing(session);
+        const minted = await backend().mintPairing(session);
         joining = null;
         if (code) code.value = minted.payload;
         paint();
@@ -295,15 +309,15 @@
     if (!payload) return;
     errorText = '';
     try {
-      joining = await sync.submitPairing({ server: cfg().api, payload: payload, deviceName: '新设备', storage: sync.idbStorage() });
+      joining = await backend().submitPairing({ server: endpoint(), payload: payload, deviceName: '新设备', storage: sync.idbStorage() });
       statusText = '已提交，等原来的那台确认指纹 ' + joining.fingerprint.slice(0, 8);
       paint();
       const wait = async function () {
         if (!joining) return;
         try {
-          session = await sync.claimPairing(joining.session);
+          session = await backend().claimPairing(joining.session);
           localStorage.setItem(ON, '1');
-          const remote = await sync.pull(session);
+          const remote = await backend().pull(session);
           const next = project(remote.state, root.__dogverbReadState());
           if (next) root.__dogverbApplyRemote(next);
           localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
@@ -323,8 +337,8 @@
   async function refreshPending() {
     if (!session || session.role === 'member') return;
     try {
-      const proof = await sync.pull(session);
-      const waiting = await sync.pendingPairings(session);
+      const proof = await backend().pull(session);
+      const waiting = await backend().pendingPairings(session);
       const box = document.getElementById('sync-pending');
       if (!box) return;
       box.innerHTML = '';
@@ -336,7 +350,7 @@
         const ok = document.createElement('button');
         ok.type = 'button'; ok.className = 'primary sm'; ok.textContent = '确认这台设备';
         ok.onclick = async function () {
-          await sync.confirmPairing(session, item.pairingId, item.fingerprint);
+          await backend().confirmPairing(session, item.pairingId, item.fingerprint);
           statusText = '已确认';
           paint();
           refreshPending();
@@ -352,7 +366,7 @@
         const revoke = document.createElement('button');
         revoke.type = 'button'; revoke.className = 'danger sm'; revoke.textContent = '移除';
         revoke.onclick = async function () {
-          await sync.revokeDevice(session, device.deviceId);
+          await backend().revokeDevice(session, device.deviceId);
           statusText = '已移除一台设备';
           paint();
           refreshPending();
@@ -379,7 +393,7 @@
       ensureSession().then(function () {
         arm();
         const code = document.getElementById('sync-code');
-        if (session && code && !code.value) sync.mintPairing(session).then(function (minted) { code.value = minted.payload; refreshPending(); }).catch(function () { errorText = '配对码没有生成'; paint(); });
+        if (session && code && !code.value) backend().mintPairing(session).then(function (minted) { code.value = minted.payload; refreshPending(); }).catch(function () { errorText = '配对码没有生成'; paint(); });
       });
     }
     if (pendingBox) pendingBox.addEventListener('click', function () {});
