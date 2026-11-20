@@ -189,6 +189,13 @@
   async function pushLegacy(session, snapshot) {
     return authed(session, '/v1/sync/push', { legacy: snapshot, events: [] }, 'sync', '');
   }
+  async function pendingPairings(session) {
+    try { return await post(session.server + '/v1/pair/pending', {}, session); }
+    catch (e) {
+      if (e.status === 401 && e.data && e.data.error === 'expired') { await refresh(session); return await post(session.server + '/v1/pair/pending', {}, session); }
+      throw e;
+    }
+  }
   async function pull(session) {
     try { return await post(session.server + '/v1/sync/pull', {}, session); }
     catch (e) {
@@ -224,7 +231,7 @@
   const api = {
     memoryStorage: memoryStorage, idbStorage: idbStorage, createSpace: createSpace, mintPairing: mintPairing,
     submitPairing: submitPairing, confirmPairing: confirmPairing, claimPairing: claimPairing, resume: resume,
-    pushEvents: pushEvents, pushLegacy: pushLegacy, pull: pull, revokeDevice: revokeDevice, recover: recover,
+    pushEvents: pushEvents, pushLegacy: pushLegacy, pull: pull, pendingPairings: pendingPairings, revokeDevice: revokeDevice, recover: recover,
     linkAccount: linkAccount, privateKeyExportFails: privateKeyExportFails
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

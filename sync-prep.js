@@ -43,7 +43,7 @@
     return {
       migrations: {}, events: {}, seq: 0,
       settings: null, settingsRev: 0, settingsConflicts: [],
-      fox: null, legacyDays: {}, eventDays: {}, studyMarks: {},
+      fox: null, foxDelta: { food: 0, xp: 0, fed: 0 }, legacyDays: {}, eventDays: {}, studyMarks: {},
       books: {}, customBooks: {}, tombstones: {}, cardLineage: {},
       limitations: [], exports: []
     };
@@ -295,6 +295,82 @@
     acc.exports.push(report);
     return { ok: true, applied: true, noop: false, migrationId: id, export: report };
   }
+  function clampCount(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    const t = Math.trunc(n);
+    if (t > 100000) return 100000;
+    if (t < -100000) return -100000;
+    return t;
+  }
+  function materializedFox(acc) {
+    const base = acc.fox || { food: 0, xp: 0, fed: 0, name: '小狗' };
+    const delta = acc.foxDelta || { food: 0, xp: 0, fed: 0 };
+    return { food: Math.max(0, num(base.food) + clampCount(delta.food)), xp: Math.max(0, num(base.xp) + clampCount(delta.xp)), fed: Math.max(0, num(base.fed) + clampCount(delta.fed)), name: base.name || '小狗' };
+  }
+  function applyCommitOps(acc, ops) {
+    if (!acc.foxDelta) acc.foxDelta = { food: 0, xp: 0, fed: 0 };
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      if (!op || typeof op.kind !== 'string') continue;
+      if (op.kind === 'card' && op.bookId && op.word && op.card && !acc.tombstones[op.bookId]) {
+        const book = ensureBook(acc, op.bookId);
+        const incoming = clone(op.card);
+        if (!book.cards[op.word]) book.cards[op.word] = incoming;
+        else book.cards[op.word] = chooseCard(book.cards[op.word], incoming).card;
+        acc.cardLineage[lineageKey(op.bookId, op.word)] = 'event';
+      } else if (op.kind === 'day' && DAY_RE.test(op.day || '') && (op.zone === ZONE_LEGACY || op.zone === ZONE_PRODUCT)) {
+        const key = bucketKey(op.zone, op.day);
+        if (!acc.eventDays[key]) acc.eventDays[key] = { new: 0, review: 0, correct: 0, wrong: 0, zone: op.zone, day: op.day, origin: 'event' };
+        const delta = op.delta || {};
+        ['new', 'review', 'correct', 'wrong'].forEach(function (field) {
+          acc.eventDays[key][field] = Math.max(0, acc.eventDays[key][field] + clampCount(delta[field]));
+        });
+        if (rowPositive(acc.eventDays[key])) acc.studyMarks[key] = { day: op.day, zone: op.zone, source: 'event' };
+      } else if (op.kind === 'study' && DAY_RE.test(op.day || '')) {
+        const zone = op.zone === ZONE_PRODUCT ? ZONE_PRODUCT : ZONE_LEGACY;
+        const key = bucketKey(zone, op.day);
+        if (!acc.studyMarks[key]) acc.studyMarks[key] = { day: op.day, zone: zone, source: 'event' };
+      } else if (op.kind === 'settings') {
+        const patch = op.patch || {};
+        if (op.baseRev !== acc.settingsRev) acc.settingsConflicts.push({ kept: clone(acc.settings), other: patch, rev: acc.settingsRev, reason: 'server-rev-not-client-clock' });
+        else {
+          if (!acc.settings) acc.settings = { dailyNew: 20, autoPlay: true, bookId: '' };
+          const daily = Number(patch.dailyNew);
+          if (Number.isInteger(daily) && daily >= 1 && daily <= 200) acc.settings.dailyNew = daily;
+          if (typeof patch.autoPlay === 'boolean') acc.settings.autoPlay = patch.autoPlay;
+          if (typeof patch.bookId === 'string') acc.settings.bookId = patch.bookId;
+          acc.settingsRev += 1;
+        }
+      } else if (op.kind === 'tombstone' && typeof op.bookId === 'string' && op.bookId.indexOf('custom-') === 0) {
+        acc.tombstones[op.bookId] = { eventId: 'commit' };
+        delete acc.customBooks[op.bookId];
+        delete acc.books[op.bookId];
+      } else if (op.kind === 'custom' && op.book && typeof op.book.id === 'string' && op.book.id.indexOf('custom-') === 0 && !acc.tombstones[op.book.id]) {
+        if (!acc.customBooks[op.book.id]) acc.customBooks[op.book.id] = { id: op.book.id, name: String(op.book.name || '我的词书'), words: {} };
+        if (op.book.name) acc.customBooks[op.book.id].name = String(op.book.name).slice(0, 40);
+        const words = Array.isArray(op.book.words) ? op.book.words : [];
+        for (let w = 0; w < words.length; w++) if (words[w] && words[w].word && !acc.customBooks[op.book.id].words[words[w].word]) acc.customBooks[op.book.id].words[words[w].word] = clone(words[w]);
+      } else if (op.kind === 'pin' && op.bookId && op.word && !acc.tombstones[op.bookId]) {
+        ensureBook(acc, op.bookId).today[String(op.word)] = true;
+      } else if (op.kind === 'extra' && op.bookId && op.entry && op.entry.word && !acc.tombstones[op.bookId]) {
+        const book = ensureBook(acc, op.bookId);
+        if (!book.extra[op.entry.word]) book.extra[op.entry.word] = clone(op.entry);
+      } else if (op.kind === 'sentence' && op.bookId && op.word && op.text && !acc.tombstones[op.bookId]) {
+        const book = ensureBook(acc, op.bookId);
+        const zone = op.zone === ZONE_PRODUCT ? ZONE_PRODUCT : ZONE_LEGACY;
+        const date = DAY_RE.test(op.date || '') ? op.date : '';
+        const skey = op.word + '\n' + op.text + '\n' + date + '\n' + zone;
+        if (!book.sentences[skey]) book.sentences[skey] = { word: op.word, text: op.text, date: date, zone: zone };
+      } else if (op.kind === 'fox') {
+        acc.foxDelta.food += clampCount(op.food);
+        acc.foxDelta.xp += clampCount(op.xp);
+        acc.foxDelta.fed += clampCount(op.fed);
+        if (!acc.fox) acc.fox = { food: 0, xp: 0, fed: 0, name: '小狗' };
+        if (typeof op.name === 'string' && op.name.trim()) acc.fox.name = op.name.trim().slice(0, 20);
+      }
+    }
+  }
   function ratingOf(value) {
     if (typeof value === 'boolean') return value ? C.Rating.Good : C.Rating.Again;
     const n = Number(value);
@@ -383,6 +459,12 @@
       Object.keys(acc.cardLineage).forEach(function (key) { if (key.indexOf(prefix) === 0) delete acc.cardLineage[key]; });
       return { tombstone: ev.bookId };
     }
+    if (ev.type === 'commit') {
+      if (!Array.isArray(ev.ops) || !ev.ops.length) return { consume: false, reason: 'bad-commit' };
+      if (ev.ops.some(function (op) { return op && op.kind === 'reset'; })) return { consume: false, reason: 'reset-not-synced' };
+      applyCommitOps(acc, ev.ops);
+      return { commit: ev.ops.length, clientNowIgnored: true };
+    }
     if (ev.type === 'feed') {
       if (!acc.fox) acc.fox = { food: 0, xp: 0, fed: 0, name: '小狗' };
       const fed = C.feed(acc.fox);
@@ -447,7 +529,7 @@
     return {
       accountId: accountId, v: 2,
       settings: clone(acc.settings), settingsRev: acc.settingsRev, settingsConflicts: clone(acc.settingsConflicts),
-      fox: clone(acc.fox),
+      fox: materializedFox(acc),
       days: days,
       studyDays: Object.keys(acc.studyMarks).sort().map(function (key) { return clone(acc.studyMarks[key]); }),
       books: books,

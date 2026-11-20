@@ -33,6 +33,8 @@ function createReferenceServer(options) {
   const allow = opts.origins || [];
   const log = opts.log || function () {};
   const db = new DatabaseSync(opts.dbPath || ':memory:');
+  db.exec('PRAGMA journal_mode=WAL');
+  db.exec('PRAGMA synchronous=FULL');
   db.exec(`
     CREATE TABLE IF NOT EXISTS spaces (
       id TEXT PRIMARY KEY, recovery_hash TEXT NOT NULL, linked_account TEXT,
@@ -151,8 +153,15 @@ function createReferenceServer(options) {
     if (req.method === 'GET') return get(req, res, url);
     if (req.method !== 'POST') return json(res, req, 405, { error: 'method' });
     if (req.headers[HEADER] !== '1') return json(res, req, 400, { error: 'missing-header' });
+    const bodyLimit = url.pathname === '/v1/sync/push' ? BODY_LIMIT : 16 * 1024;
+    const declared = Number(req.headers['content-length']);
+    if (Number.isFinite(declared) && declared > bodyLimit) {
+      json(res, req, 413, { error: 'too-large' });
+      req.destroy();
+      return;
+    }
     let body;
-    try { body = await readBody(req); }
+    try { body = await readBody(req, bodyLimit); }
     catch (e) { return json(res, req, e.status || 400, { error: e.code || 'bad-body' }); }
     try { await exclusive(function () { return route(req, res, url.pathname, body); }); }
     catch (e) { if (!res.headersSent) return json(res, req, 500, { error: 'server' }); }
@@ -295,11 +304,21 @@ function createReferenceServer(options) {
     if (!ok) return json(res, req, 401, { error: 'proof-invalid' });
     if (!row.consumed_at) return json(res, req, 409, { error: 'pair-not-confirmed' });
     if (row.claimed_at) return json(res, req, 409, { error: 'pair-replay' });
-    const changed = q('UPDATE pairing SET claimed_at = ? WHERE id = ? AND claimed_at IS NULL AND consumed_at IS NOT NULL').run(now(), row.id);
-    if (changed.changes !== 1) return json(res, req, 409, { error: 'pair-replay' });
-    const device = deviceById(row.device_id);
-    if (!device || device.revoked_at) return json(res, req, 401, { error: 'revoked' });
-    return json(res, req, 200, tokensFor(device));
+    let issued = null;
+    try {
+      issued = tx(function () {
+        const changed = q('UPDATE pairing SET claimed_at = ? WHERE id = ? AND claimed_at IS NULL AND consumed_at IS NOT NULL').run(now(), row.id);
+        if (changed.changes !== 1) return { error: 'pair-replay' };
+        const device = deviceById(row.device_id);
+        if (!device || device.revoked_at) { const err = new Error('revoked'); err.code = 'revoked'; throw err; }
+        return { tokens: tokensFor(device) };
+      });
+    } catch (e) {
+      if (e.code === 'revoked') return json(res, req, 401, { error: 'revoked' });
+      throw e;
+    }
+    if (issued.error) return json(res, req, 409, { error: issued.error });
+    return json(res, req, 200, issued.tokens);
   }
 
   async function refresh(req, res, body) {
@@ -311,10 +330,10 @@ function createReferenceServer(options) {
     const rotated = tx(function () {
       const gone = q('DELETE FROM sessions WHERE token_hash = ? AND kind = ?').run(hashSecret(body.refreshToken), 'refresh');
       if (gone.changes !== 1) return null;
-      return true;
+      return tokensFor(presented.device);
     });
     if (!rotated) return json(res, req, 401, { error: 'unauthorized' });
-    return json(res, req, 200, tokensFor(presented.device));
+    return json(res, req, 200, rotated);
   }
 
   async function revoke(req, res, body) {
@@ -365,22 +384,28 @@ function createReferenceServer(options) {
   async function push(req, res, body) {
     const gate = await gateMember(req, body, 'sync');
     if (gate.error) return json(res, req, gate.status, { error: gate.error });
-    const store = loadStore(gate.device.space_id);
-    let legacy = null;
-    if (body.legacy) {
-      legacy = prep.importLegacy(store, gate.device.space_id, body.legacy);
-      if (!legacy.ok && legacy.reason !== 'empty-snapshot') return json(res, req, 400, { error: legacy.reason });
-      if (legacy.reason === 'empty-snapshot') return json(res, req, 409, { error: 'empty-snapshot' });
-    }
-    const events = prep.acceptEvents(store, gate.device.space_id, body.events || [], { appliedAt: now() });
-    if (!events.ok) return json(res, req, 400, { error: events.reason });
-    saveStore(gate.device.space_id, store);
-    const view = prep.materialize(store, gate.device.space_id);
-    return json(res, req, 200, {
-      legacy: legacy ? { applied: !!legacy.applied, noop: !!legacy.noop, migrationId: legacy.migrationId || null, limitation: legacy.export ? legacy.export.limitation : null } : null,
-      results: events.results.map(function (row) { return { id: row.id, consumed: !!row.consumed, noop: !!row.noop, reason: row.reason || null }; }),
-      limitations: view.limitations
+    const outcome = tx(function () {
+      const store = loadStore(gate.device.space_id);
+      let legacy = null;
+      if (body.legacy) {
+        legacy = prep.importLegacy(store, gate.device.space_id, body.legacy);
+        if (!legacy.ok && legacy.reason !== 'empty-snapshot') return { status: 400, error: legacy.reason || 'bad-snapshot' };
+        if (legacy.reason === 'empty-snapshot') return { status: 409, error: 'empty-snapshot' };
+      }
+      const events = prep.acceptEvents(store, gate.device.space_id, body.events || [], { appliedAt: now() });
+      if (!events.ok) return { status: 400, error: events.reason || 'bad-events' };
+      saveStore(gate.device.space_id, store);
+      const view = prep.materialize(store, gate.device.space_id);
+      return {
+        status: 200,
+        body: {
+          legacy: legacy ? { applied: !!legacy.applied, noop: !!legacy.noop, migrationId: legacy.migrationId || null, limitation: legacy.export ? legacy.export.limitation : null } : null,
+          results: events.results.map(function (row) { return { id: row.id, consumed: !!row.consumed, noop: !!row.noop, reason: row.reason || null }; }),
+          limitations: view.limitations
+        }
+      };
     });
+    return json(res, req, outcome.status, outcome.body || { error: outcome.error });
   }
 
   async function pull(req, res) {
@@ -388,7 +413,11 @@ function createReferenceServer(options) {
     if (auth.error) return json(res, req, 401, { error: auth.error });
     const view = prep.materialize(loadStore(auth.device.space_id), auth.device.space_id) || Object.assign(prep.emptyAccount(), { accountId: auth.device.space_id, v: 2 });
     const space = q('SELECT linked_account FROM spaces WHERE id = ?').get(auth.device.space_id);
-    return json(res, req, 200, { spaceId: auth.device.space_id, linkedAccount: space.linked_account, state: view });
+    const devices = q('SELECT id, name, role, fingerprint, revoked_at FROM devices WHERE space_id = ?').all(auth.device.space_id);
+    return json(res, req, 200, {
+      spaceId: auth.device.space_id, linkedAccount: space.linked_account, state: view,
+      devices: devices.map(function (device) { return { deviceId: device.id, name: device.name, role: device.role, fingerprint: device.fingerprint, revoked: !!device.revoked_at }; })
+    });
   }
 
   async function gateTrusted(req, body, purpose, extra) {
@@ -437,12 +466,12 @@ function createReferenceServer(options) {
     res.end(buf);
     log({ method: 'GET', path: new URL(req.url, 'http://127.0.0.1').pathname, status: 200 });
   }
-  function readBody(req) {
+  function readBody(req, limit) {
     return new Promise(function (resolve, reject) {
       const chunks = []; let size = 0;
       req.on('data', function (chunk) {
         size += chunk.length;
-        if (size > BODY_LIMIT) { reject(Object.assign(new Error('too-large'), { status: 413, code: 'too-large' })); req.destroy(); return; }
+        if (size > limit) { reject(Object.assign(new Error('too-large'), { status: 413, code: 'too-large' })); req.destroy(); return; }
         chunks.push(chunk);
       });
       req.on('end', function () {

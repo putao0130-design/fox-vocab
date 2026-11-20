@@ -296,9 +296,10 @@ const root = path.join(__dirname, '..');
 const appJs = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-assert.ok(!appJs.includes('sync-prep') && !appJs.includes('VocabSyncPrep') && !appJs.includes('foxVocab.precloud'));
+assert.ok(!appJs.includes('foxVocab.precloud'));
+assert.ok(appJs.includes("localStorage.setItem(KEY, JSON.stringify(S))"));
 assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v28'"));
-assert.ok(html.includes('app.js?v=28') && html.includes('sw.js?v=28'));
-assert.ok(!html.includes('sync-prep'));
+assert.ok(html.includes('app.js?v=28') && html.includes('sw.js?v=28') && html.includes('sync-app.js?v=28'));
+assert.ok(!sw.includes('sync-app.js'));
 
 console.log('sync-prep tests ok');

@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fs = require('fs');
+const http = require('http');
 const os = require('os');
 const path = require('path');
 const { createReferenceServer } = require('../sync-server.js');
@@ -35,7 +36,8 @@ async function withServer(opts, fn) {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  assert.ok(html.indexOf('sync-client') < 0 && html.indexOf('sync-server') < 0 && app.indexOf('sync-client') < 0);
+  assert.ok(html.indexOf('sync-server') < 0 && app.indexOf('sync-client.js') < 0);
+  assert.ok(html.indexOf('DOGVERB_SYNC_CONFIG') < 0, 'the shipped page does not turn sync on');
   assert.ok(sw.indexOf("const CACHE = 'dog-verb-shell-v28'") >= 0);
 
   await withServer({}, async function (ctx) {
@@ -209,6 +211,62 @@ async function withServer(opts, fn) {
     assert.strictEqual(blocked.status, 403);
     assert.strictEqual(blocked.data.error, 'origin-rejected');
     assert.strictEqual(blocked.headers.get('access-control-allow-origin'), null);
+  });
+
+  await withServer({ origins: ['https://putao0130-design.github.io'] }, async function (ctx) {
+    const owner = await client.createSpace({ server: ctx.url, deviceName: 'phone', storage: client.memoryStorage() });
+    const bare = await post(ctx.url + '/v1/sync/pull', {});
+    assert.strictEqual(bare.status, 401, 'an allowed origin without a token is not authenticated');
+    const evil = await fetch(ctx.url + '/v1/sync/pull', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dogverb-request': '1', authorization: 'Bearer ' + owner.session.accessToken, origin: 'https://evil.example' }, body: '{}' });
+    const evilBody = await evil.json();
+    assert.strictEqual(evil.status, 403);
+    assert.strictEqual(JSON.stringify(evilBody).indexOf('ielts'), -1);
+    const code = await client.mintPairing(owner.session);
+    const raw = code.code.replace(/-/g, '');
+    assert.strictEqual(raw.length, 16);
+    assert.ok(/^[0-9A-HJKMNP-TV-Z]+$/.test(raw));
+    await client.pushEvents(owner.session, [{ id: 'commit-security', type: 'commit', ops: [{ kind: 'card', bookId: 'ielts-toefl-core', word: 'benefit', card: card(3000, 2) }, { kind: 'day', zone: 'device-local', day: '2026-11-08', delta: { new: 1, review: 0, correct: 1, wrong: 0 } }] }]);
+    const again = await client.pushEvents(owner.session, [{ id: 'commit-security', type: 'commit', ops: [{ kind: 'day', zone: 'device-local', day: '2026-11-08', delta: { new: 1, review: 0, correct: 0, wrong: 0 } }] }]);
+    assert.ok(again.results.some(function (row) { return row.id === 'commit-security' && row.noop; }));
+    const view = await client.pull(owner.session);
+    assert.strictEqual(view.state.days['device-local|2026-11-08'].new, 1);
+    assert.strictEqual(view.state.books['ielts-toefl-core'].cards.benefit.reps, 2);
+    const reset = await client.pushEvents(owner.session, [{ id: 'commit-reset', type: 'commit', ops: [{ kind: 'reset' }] }]);
+    assert.ok(reset.results.some(function (row) { return row.id === 'commit-reset' && row.reason === 'reset-not-synced'; }));
+    await client.revokeDevice(owner.session, owner.session.deviceId);
+    let originalDead = null;
+    try { await client.pull(owner.session); } catch (e) { originalDead = e.data.error; }
+    assert.strictEqual(originalDead, 'unauthorized');
+    const recovered = await client.recover({ server: ctx.url, recoverySecret: owner.recoverySecret, deviceName: 'restored', storage: client.memoryStorage() });
+    assert.strictEqual((await client.pull(recovered.session)).state.books['ielts-toefl-core'].cards.benefit.reps, 2);
+    const copy = Object.assign({}, recovered.session, { storage: client.memoryStorage() });
+    await copy.storage.set('device', { refreshToken: recovered.session.refreshToken, privateKey: recovered.session.privateKey, publicJwk: recovered.session.publicJwk, fingerprint: recovered.session.fingerprint, server: ctx.url, spaceId: recovered.session.spaceId, deviceId: recovered.session.deviceId });
+    ctx.clock.t += 1000 * 60 * 10;
+    const raced = await Promise.allSettled([client.pull(recovered.session), client.pull(copy)]);
+    assert.strictEqual(raced.filter(function (row) { return row.status === 'fulfilled'; }).length, 1);
+    assert.strictEqual(raced.filter(function (row) { return row.status === 'rejected'; }).length, 1);
+  });
+
+  await new Promise(function (resolve, reject) {
+    const srv = createReferenceServer({ log: function () {} });
+    srv.listen(0).then(function (url) {
+      const req = http.request(url + '/v1/pair/submit', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dogverb-request': '1', 'content-length': String(32 * 1024 * 1024) } });
+      const timer = setTimeout(function () { req.destroy(); reject(new Error('oversized header was not rejected before the body')); }, 1000);
+      req.on('response', function (res) {
+        clearTimeout(timer);
+        let body = '';
+        res.on('data', function (c) { body += c; });
+        res.on('end', function () {
+          srv.close().then(function () {
+            assert.strictEqual(res.statusCode, 413);
+            assert.ok(body.indexOf('too-large') >= 0);
+            resolve();
+          });
+        });
+      });
+      req.on('error', function () { clearTimeout(timer); resolve(); });
+      req.end();
+    }).catch(reject);
   });
 
   console.log('sync-http tests ok');
