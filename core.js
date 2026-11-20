@@ -106,8 +106,25 @@
   }
   function makeCloze(sentence, word) { if (!sentence) return null; const f = findForm(sentence, word); if (!f) return null; return { text: sentence.slice(0, f.index) + '_____' + sentence.slice(f.index + f.form.length), answer: f.form }; }
   function hasExample(w) { return !!(w.examples && w.examples.length && makeCloze(w.examples[0], w.word)); }
-  function norm(s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); }
-  function answerMatch(input, expected) { return norm(input) === norm(expected); }
+function norm(s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+function answerMatch(input, expected) { return norm(input) === norm(expected); }
+// 默写对答案：忽略大小写、首尾空白和简单标点。词条只有一种拼写时，英式/美式变体也算对，仍以词头为准。
+function dictationNorm(s) {
+  return String(s || '').trim().toLowerCase()
+    .replace(/[.,!?;:"“”()[\]{}，。！？；：、（）【】…·「」『』]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function dictationMatch(input, headword) {
+  const got = dictationNorm(input);
+  const want = dictationNorm(headword);
+  if (!got || !want) return false;
+  if (got === want) return true;
+  const variant = spellingVariant(String(headword || '').trim().toLowerCase().replace(/\s+/g, ' '));
+  return !!variant && got === dictationNorm(variant);
+}
+// 今日新词学完第 n 个（从 1 计）后的默写题型。奇数看意，偶数听音，一场里两种都会出现。
+function learnDictationKind(n) { return (n | 0) % 2 === 1 ? 'gloss' : 'listen'; }
   function checkSentence(s, word) {
     const errors = []; s = String(s || '').trim();
     if (!findForm(s, word)) errors.push('句子中没有出现目标词「' + word + '」（或其变形）');
@@ -471,6 +488,6 @@
     return inset > 0 ? inset : 0;
   }
 
-  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom };
+  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, dictationMatch, learnDictationKind, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VocabCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

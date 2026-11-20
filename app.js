@@ -416,6 +416,37 @@
     return lists;
   }
   function findLocal(cands) { return C.findInLists(cands, dictLists()); }
+  // 生词自动补全只读本机已经带的词书，不请求新的词表。查完就从 LOADED 拿掉，避免把没打开的词书留在例句查词里。
+  const SHIPPED = {};
+  async function shippedBook(id) {
+    if (SHIPPED[id]) return SHIPPED[id];
+    if (id === 'ielts' && ieltsBook) { SHIPPED.ielts = ieltsBook; return ieltsBook; }
+    const kept = !!LOADED[id];
+    const book = await loadBook(id);
+    if (book) SHIPPED[id] = book;
+    if (!kept && book && (!BOOK || BOOK.id !== id)) {
+      if (id === 'ielts') hideIeltsLookup();
+      else delete LOADED[id];
+    }
+    return book;
+  }
+  async function lookupShipped(surface) {
+    const cands = C.wordCandidates(surface);
+    if (!cands.length) return null;
+    const local = findLocal(cands);
+    if (local) return local;
+    const order = ['ielts', 'kaoyan', 'ielts-toefl-core', 'ielts-toefl-full'];
+    for (let i = 0; i < order.length; i++) {
+      const id = order[i];
+      if (BOOK && BOOK.id === id) continue;
+      try {
+        const book = await shippedBook(id);
+        const hit = book && C.findInLists(cands, [book.words]);
+        if (hit) return hit;
+      } catch (e) { }
+    }
+    return null;
+  }
   function exampleZhRaw(sentence) {
     const table = window.EXAMPLE_ZH || {};
     return table[sentence] || '';
@@ -472,25 +503,26 @@
   function commitAdd(entry, el) {
     const norm = normalizeWordEntry(entry);
     const word = norm && norm.word;
-    if (!word) { toast('请长按一个英文单词'); return; }
+    if (!word) { toast('请长按一个英文单词'); return 'empty'; }
     if (cards()[word]) {
-      if (Date.now() - lastAdd.at < 900 && lastAdd.word === word) return;
+      if (el && Date.now() - lastAdd.at < 900 && lastAdd.word === word) return 'learned';
       toast(C.isDue(cards()[word], now()) ? '「' + esc(word) + '」已在今日复习中' : '「' + esc(word) + '」已经学过了');
-      return;
+      return 'learned';
     }
     if (unlearned().slice(0, newLeftToday()).some(w => w.word === word)) {
-      if (Date.now() - lastAdd.at < 900 && lastAdd.word === word) return;
+      if (el && Date.now() - lastAdd.at < 900 && lastAdd.word === word) return 'queued';
       toast('「' + esc(word) + '」已在今日学习列表');
-      return;
+      return 'queued';
     }
     const saved = ensureInBook(norm);
-    if (!saved || !saved.meaning) { toast(esc(C.lookupFailureMessage('none', word))); return; }
+    if (!saved || !saved.meaning) { toast(esc(C.lookupFailureMessage('none', word))); return 'none'; }
     const b = ensureBookArrays();
     b.today = b.today.filter(w => { const x = byWord(String(w || '').toLowerCase()); return x && !cards()[x.word]; });
     if (!b.today.includes(saved.word)) b.today.push(saved.word);
     save(); lastAdd = { word: saved.word, at: Date.now() };
     toast('已将「' + esc(saved.word) + '」加入今日学习');
     if (el) { el.classList.add('added'); setTimeout(() => el.classList.remove('added'), 900); }
+    return 'added';
   }
   // 有道 jsonapi 在带 Origin（GitHub Pages / iOS Safari）时返回 403 且没有 CORS 头，页面里的 fetch 读不到释义。
   // 英文维基词典 action API 加 origin=* 会返回 Access-Control-Allow-Origin: *，并能给出中文释义。英音仍走 dictvoice?type=1。
@@ -604,8 +636,8 @@
     return `<div class="grades">${[1, 2, 3, 4].map(g => `<button class="g${g}" data-g="${g}">${C.RATING_LABELS[g]}<small>${C.fmtInterval(p[g])}</small></button>`).join('')}</div>`;
   }
 
-  // 会话统计
-  let SESS = null;
+  // 会话统计。learnDict 是当前新词单词卡打完分、还没做的那一道默写。
+  let SESS = null, learnDict = null;
   function startSess(kind, total) { SESS = { kind, total, done: 0, correct: 0, food0: S.fox.food, t0: now() }; }
   function progressBar(done, total, label) {
     const pct = total ? Math.min(100, done / total * 100) : 0;
@@ -674,11 +706,12 @@
 
   // ---------- 视图 ----------
   const views = {};
-  const TAB_OF = { home: 'home', study: 'study', learn: 'study', review: 'study', preview: 'study', practice: 'practice', sentence: 'practice', pet: 'pet', me: 'me', words: 'me', settings: 'me', books: 'me' };
+  const TAB_OF = { home: 'home', study: 'study', learn: 'study', review: 'study', preview: 'study', practice: 'practice', sentence: 'practice', pet: 'pet', me: 'me', words: 'me', settings: 'me', books: 'me', capture: 'home' };
   let navSeq = 0;
   function go(v, arg) {
     if (!(v in views)) v = 'home';
     releaseIme();
+    if (!BOOK || BOOK.id !== S.bookId) learnDict = null;
     document.querySelectorAll('#nav [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === TAB_OF[v]));
     document.body.dataset.view = v;
     location.hash = v; const seq = ++navSeq;
@@ -985,6 +1018,7 @@
       <div class="ringwrap">${ring(pct, 150)}<div class="ringtxt"><b>${Math.round(pct * 100)}<small>%</small></b><span>今日进度</span></div></div>
       <div class="ringlegend"><div><i class="dot n"></i>新词 <b>${d.new}/${S.settings.dailyNew}</b></div><div><i class="dot r"></i>复习 <b>${d.review}/${d.review + due}</b></div></div>
       ${cta}
+      <button type="button" class="newword" id="newword" onclick="__go('capture')">生词<small>记下今天看到的词</small></button>
     </div>
     <div class="col">
     <div class="stats">
@@ -1000,6 +1034,61 @@
     ${S.migratedFrom === 1 ? '<div class="note">已从 v1 自动迁移学习进度到 FSRS 记忆算法（原数据已备份）。</div>' : ''}
     ${calendarCard()}`;
     bindShare();
+    const addWord = $app.querySelector('#newword');
+    if (addWord) addWord.onclick = () => go('capture');
+  };
+
+  views.capture = function () {
+    let capTimer = 0, capSeq = 0, capHit = null, capAuto = '';
+    $app.innerHTML = `<h2 class="ph">生词</h2><div class="card"><p class="muted">看到一个词，记在这台设备上，并排进今天的新词。词书里已有的词会自动填上释义。</p>
+      <label class="field">英文单词<input id="nw" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="例如 household"></label>
+      <label class="field">中文释义<input id="nm" type="text" autocomplete="off" placeholder="词书里有的话会自动填上"></label>
+      <div class="hint" id="nwmeta"></div>
+      <button type="button" class="primary block" id="nwadd">加入今日学习</button></div>`;
+    const nw = $app.querySelector('#nw'), nm = $app.querySelector('#nm'), meta = $app.querySelector('#nwmeta');
+    async function runLookup() {
+      const seq = ++capSeq;
+      const wordEl = nw, meanEl = nm;
+      const norm = normalizeWordEntry({ word: wordEl.value });
+      if (!norm) { capHit = null; capAuto = ''; meta.textContent = ''; return null; }
+      const hit = await lookupShipped(norm.word);
+      if (seq !== capSeq || !$app.querySelector('#nw') || $app.querySelector('#nw') !== wordEl) return null;
+      if (hit) {
+        capHit = hit;
+        if (!meanEl.value || meanEl.value === capAuto) { meanEl.value = hit.meaning; capAuto = hit.meaning; }
+        meta.textContent = [hit.ipa, hit.pos, '已从本机词书填入'].filter(Boolean).join(' ');
+      } else {
+        capHit = null;
+        if (meanEl.value === capAuto) { meanEl.value = ''; capAuto = ''; }
+        meta.textContent = '本机词书没有这个词，请自己写中文释义';
+      }
+      return hit;
+    }
+    nw.addEventListener('input', () => {
+      if (capTimer) clearTimeout(capTimer);
+      capTimer = setTimeout(() => { capTimer = 0; runLookup(); }, 180);
+    });
+    nw.addEventListener('blur', () => {
+      if (capTimer) { clearTimeout(capTimer); capTimer = 0; }
+      runLookup();
+    });
+    $app.querySelector('#nwadd').onclick = async () => {
+      if (capTimer) { clearTimeout(capTimer); capTimer = 0; }
+      await runLookup();
+      const typed = nm.value.trim();
+      const norm = normalizeWordEntry({ word: nw.value, meaning: typed });
+      if (!norm) { toast('请输入英文单词'); return; }
+      let entry = null;
+      if (capHit && C.wordCandidates(norm.word).includes(capHit.word)) {
+        entry = { word: capHit.word, ipa: capHit.ipa || '', pos: capHit.pos || '', meaning: capHit.meaning, examples: capHit.examples || [] };
+        if (typed && typed !== capHit.meaning) entry.meaning = typed.slice(0, 120);
+      } else if (norm.meaning) entry = norm;
+      else { toast('本机词书没有这个词，请补上中文释义'); return; }
+      if (commitAdd(entry) === 'added') {
+        nw.value = ''; nm.value = ''; capHit = null; capAuto = '';
+        meta.textContent = '已加入今日新词。学习时会先看单词卡，再默写一次。';
+      }
+    };
   };
 
   views.study = function () {
@@ -1042,7 +1131,42 @@
     }).catch(() => {});
   }
 
+  function renderLearnDict(entry, kind) {
+    const listen = kind === 'listen';
+    const title = listen ? '听音默写单词' : '看意单词默写';
+    const prompt = listen
+      ? `<button type="button" class="bigsay" id="replay" aria-label="再听一遍">🔊</button><div class="hint">听英音，写出单词。点喇叭可以重听</div>`
+      : `<div class="meaning-big">${esc(entry.meaning)}</div><div class="hint">${entry.pos ? esc(entry.pos) + ' · ' : ''}看中文，写出英文单词</div>`;
+    const n = dayStat().new;
+    $app.innerHTML = progressBar(n, S.settings.dailyNew, `默写 ${n}/${S.settings.dailyNew}`) + `<div class="card qcard enter" id="qc" data-dict="${listen ? 'listen' : 'gloss'}"><div class="qtype">${title}</div><div class="prompt">${prompt}</div><div id="ans"></div><div id="fb"></div></div>`;
+    const ans = $app.querySelector('#ans'), fb = $app.querySelector('#fb'), qc = $app.querySelector('#qc');
+    ans.innerHTML = `<div id="ime-dock"><div class="typerow"><input type="text" id="inp" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入英文单词"><button class="primary" id="sub">提交</button><button class="ghost" id="skip">不会</button></div></div>`;
+    const replay = $app.querySelector('#replay');
+    if (replay) replay.onclick = () => speak(entry.word);
+    // 听音卡在窄屏不自动聚焦，避免键盘弹起来把刚开始的英音打断。宽屏没有软键盘，仍聚焦输入框。
+    const deferFocus = listen && narrowScreen();
+    if (listen) setTimeout(() => speak(entry.word), 120);
+    const inp = ans.querySelector('#inp');
+    if (!deferFocus) { try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); } }
+    const go = (give) => {
+      if (inp.disabled) return;
+      inp.disabled = true;
+      releaseIme();
+      const ok = !give && C.dictationMatch(inp.value, entry.word);
+      flash(qc, ok ? 'good' : 'bad');
+      const reveal = ok ? '' : `<div class="answer">正确答案：<b>${esc(entry.word)}</b>${inp.value ? '，你的答案：<s>' + esc(inp.value) + '</s>' : ''}</div><div class="dmean"><span class="tag">${esc(entry.pos)}</span> ${esc(entry.meaning)}</div>`;
+      fb.innerHTML = `<div class="verdict ${ok ? 'ok' : 'err'}"><b>${ok ? '✔ 正确' : '✘ 再接再厉'}</b></div>${reveal}<button class="primary block" id="nx">下一个 →</button>`;
+      const nx = fb.querySelector('#nx');
+      nx.onclick = () => { learnDict = null; views.learn(); };
+      try { nx.focus({ preventScroll: true }); } catch (e) { nx.focus(); }
+    };
+    ans.querySelector('#sub').onclick = () => go(false);
+    ans.querySelector('#skip').onclick = () => go(true);
+    inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); go(false); } };
+    scheduleIme();
+  }
   views.learn = function () {
+    if (learnDict && learnDict.entry) { renderLearnDict(learnDict.entry, learnDict.kind); return; }
     const left = newLeftToday(); const list = unlearned();
     if (!W().length) { $app.innerHTML = '<div class="card summary"><h2>这本词书还没有词</h2><p class="muted">先添加几个单词再开始。</p><button class="primary" onclick="__go(\'books\')">去词书</button></div>'; return; }
     if (!list.length) { $app.innerHTML = '<div class="card summary"><h2>🎉 整本词书都学过了！</h2><button class="primary" onclick="__go(\'review\')">去复习</button></div>'; return; }
@@ -1067,7 +1191,14 @@
       $app.querySelector('#reveal').innerHTML = `<div class="dmean big"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>${exampleBlocks(w, true)}
       <div class="hint center">你对这个词的熟悉程度？</div>${gradeButtons(null)}
       <button class="ghost block" id="known">😎 太熟了，直接标为掌握</button>`;
-      const add = (rating, known) => { cards()[w.word] = known ? C.markKnown(null, now()) : C.learnCard(rating, now()); dayStat().new++; markStudied(); if (known) S.fox.food += 5; if (SESS) { SESS.done++; if (known || rating > 1) SESS.correct++; } save(); views.learn(); };
+      const add = (rating, known) => {
+        cards()[w.word] = known ? C.markKnown(null, now()) : C.learnCard(rating, now());
+        dayStat().new++; markStudied(); if (known) S.fox.food += 5;
+        if (SESS) { SESS.done++; if (known || rating > 1) SESS.correct++; }
+        save();
+        learnDict = { entry: w, kind: C.learnDictationKind(dayStat().new) };
+        views.learn();
+      };
       $app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => add(+b.dataset.g, false));
       $app.querySelector('#known').onclick = () => add(0, true);
     };
