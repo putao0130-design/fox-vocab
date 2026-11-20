@@ -125,6 +125,53 @@ function dictationMatch(input, headword) {
 }
 // 今日新词学完第 n 个（从 1 计）后的默写题型。奇数看意，偶数听音，一场里两种都会出现。
 function learnDictationKind(n) { return (n | 0) % 2 === 1 ? 'gloss' : 'listen'; }
+// 跟写：词头一直按原样显示，用户逐个打字母。大小写不敏感。空白忽略。
+// 词头里的撇号、连字符、句点和空格不单独挡路，打下一个字母时直接跨过去。
+function followSlots(headword) {
+  const raw = String(headword || '');
+  const slots = [];
+  for (let i = 0; i < raw.length; i++) slots.push({ ch: raw[i], letter: /[A-Za-z]/.test(raw[i]) });
+  return slots;
+}
+function followCursor(slots, index) {
+  let i = index > 0 ? index : 0;
+  while (i < slots.length && !slots[i].letter) i++;
+  return i;
+}
+function followPress(headword, index, text) {
+  const slots = followSlots(headword);
+  let i = followCursor(slots, index | 0);
+  let wrong = '';
+  const chars = String(text == null ? '' : text);
+  for (let c = 0; c < chars.length && i < slots.length; c++) {
+    const ch = chars[c];
+    if (/\s/.test(ch) || !/[A-Za-z]/.test(ch)) continue;
+    if (ch.toLowerCase() === slots[i].ch.toLowerCase()) {
+      i = followCursor(slots, i + 1);
+      wrong = '';
+    } else {
+      wrong = ch;
+      break;
+    }
+  }
+  return { index: i, done: i >= slots.length, wrong, expected: i < slots.length ? slots[i].ch : '' };
+}
+function followView(headword, index, wrongKey) {
+  const slots = followSlots(headword);
+  const cur = followCursor(slots, index | 0);
+  const wrong = String(wrongKey || '');
+  let typed = '';
+  const painted = slots.map((s, n) => {
+    let cls = 'fl';
+    if (!s.letter) cls += ' punct';
+    if (n < cur) {
+      cls += ' on';
+      if (s.letter) typed += s.ch;
+    } else if (n === cur) cls += wrong ? ' cur miss' : ' cur';
+    return { ch: s.ch, cls };
+  });
+  return { index: cur, done: cur >= slots.length, expected: cur < slots.length ? slots[cur].ch : '', wrong, typed, slots: painted };
+}
   function checkSentence(s, word) {
     const errors = []; s = String(s || '').trim();
     if (!findForm(s, word)) errors.push('句子中没有出现目标词「' + word + '」（或其变形）');
@@ -488,6 +535,6 @@ function learnDictationKind(n) { return (n | 0) % 2 === 1 ? 'gloss' : 'listen'; 
     return inset > 0 ? inset : 0;
   }
 
-  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, dictationMatch, learnDictationKind, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom };
+  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, dictationMatch, learnDictationKind, followPress, followView, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VocabCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

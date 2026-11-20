@@ -115,6 +115,15 @@ textarea{margin-top:12px;resize:vertical}
 .qtype{display:inline-block;font-size:13px;color:var(--acc);background:var(--accs);border-radius:99px;padding:3px 12px;margin-bottom:12px;font-weight:600}
 .qtype .new{background:var(--color-accent);color:var(--color-ink);border-radius:6px;padding:0 5px;font-size:11px;margin-left:4px}
 .word{font-size:42px;font-weight:800;letter-spacing:.5px;word-break:break-word;line-height:1.2;font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,var(--zh,sans-serif)}
+.follow{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:14px 0 2px;min-height:44px}
+.follow i{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:44px;padding:0 5px;border-radius:10px;border:2px solid #E8E0D6;background:#FFFCF7;color:#A27650;font-style:normal;font-size:24px;font-weight:800;line-height:1}
+.follow i.on{color:#4B423E;background:#F0BB51;border-color:#A27650}
+.follow i.cur{border-color:#A27650;box-shadow:0 0 0 3px rgba(240,187,81,.85)}
+.follow i.miss{color:#FFFCF7;background:#8C5C3C;border-color:#4B423E;box-shadow:0 0 0 3px rgba(140,92,60,.45)}
+.follow i.punct{min-width:18px;padding:0 2px;color:#A27650;background:transparent;border-color:transparent;box-shadow:none}
+.follow i.punct.on{color:#4B423E}
+.follow-err{min-height:22px;margin-top:6px;color:#8C5C3C;font-size:14px;font-weight:700}
+.qcard.follow-bad{animation:shake .4s}
 .meaning-big{font-size:26px;font-weight:700;margin:6px 0}
 .ipa{color:var(--mute);font-size:16px;display:inline-flex;align-items:center;gap:6px;margin-top:4px}
 .say{min-height:36px;width:36px;padding:0;border-radius:50%;background:var(--accs);font-size:16px}

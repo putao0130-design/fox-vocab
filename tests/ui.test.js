@@ -27,6 +27,19 @@ function passDict(w, value) {
   q(w, '#sub').click();
   q(w, '#nx').click();
 }
+function typeFollow(w, key) {
+  const inp = q(w, '[data-follow] #inp');
+  assert.ok(inp, '跟写 field for ' + key);
+  inp.dispatchEvent(new w.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+}
+function passFollow(w) {
+  const card = q(w, '[data-follow]');
+  if (!card) return;
+  for (const ch of card.dataset.follow) {
+    if (!/[A-Za-z]/.test(ch)) continue;
+    typeFollow(w, ch);
+  }
+}
 (async () => {
   // ---- v1 迁移：真实的 v1 localStorage 数据 ----
   const T = Date.now(), D = 86400000, M = 60000;
@@ -62,7 +75,7 @@ function passDict(w, value) {
   // ---- 全新用户 ----
   store = {}; loads = []; w = await boot(); assert.ok(txt(w).includes('今日新学'), 'home renders');
   w.__go('learn'); audios = [];
-  for (let i = 0; i < 20; i++) { q(w, '#show').click(); if (i === 0) q(w, '#known').click(); else q(w, `[data-g="${i % 2 ? 3 : 1}"]`).click(); passDict(w); }
+  for (let i = 0; i < 20; i++) { passFollow(w); q(w, '#show').click(); if (i === 0) q(w, '#known').click(); else q(w, `[data-g="${i % 2 ? 3 : 1}"]`).click(); passDict(w); }
   assert.ok(txt(w).includes('已完成'), 'daily target done');
   assert.strictEqual(Object.keys(w.__state().books['ielts-toefl-core'].cards).length, 20); assert.strictEqual(w.__state().fox.food, 5);
   await new Promise(r => setTimeout(r, 300));
@@ -139,7 +152,7 @@ function passDict(w, value) {
   q(w, '#aw').value = 'ticket'; q(w, '#am').value = '票'; q(w, '#aadd').click();
   assert.strictEqual(w.__state().customBooks[0].words.length, 4);
   const cid = w.__state().customBooks[0].id;
-  w.__go('learn'); q(w, '#show').click(); q(w, '[data-g="3"]').click();
+  w.__go('learn'); passFollow(w); q(w, '#show').click(); q(w, '[data-g="3"]').click();
   assert.ok(w.__state().books[cid].cards.apple || w.__state().books[cid].cards.banana || Object.keys(w.__state().books[cid].cards).length === 1);
   const learnedCustom = Object.keys(w.__state().books[cid].cards).length;
   assert.strictEqual(learnedCustom, 1);
@@ -157,7 +170,7 @@ function passDict(w, value) {
   assert.strictEqual(w.__state().customBooks[0].words.length, 4);
   // 例句填空：中文译文先遮住目标词；长按/右键把句中生词加入今日学习
   store = {}; loads = []; w = await boot();
-  w.__go('learn'); q(w, '#show').click(); q(w, '[data-g="3"]').click(); passDict(w, 'analyse');
+  w.__go('learn'); passFollow(w); q(w, '#show').click(); q(w, '[data-g="3"]').click(); passDict(w, 'analyse');
   w.__go('practice'); q(w, '[data-m="clozeChoice"]').click();
   const sent = q(w, '.prompt .sent');
   assert.ok(sent.textContent.includes('_____') && !sent.textContent.includes('analysed'), 'cloze hides the answer');
@@ -226,6 +239,8 @@ function passDict(w, value) {
   assert.ok([...w.document.querySelectorAll('.detail .exzh')].every(el => el.textContent.includes('分析') && !el.textContent.includes('{')));
   w.__go('learn');
   assert.strictEqual(q(w, '.word').textContent, 'household', 'pinned word is today\'s next new word');
+  assert.ok(q(w, '[data-follow]'), 'pinned word starts with 跟写');
+  passFollow(w);
   q(w, '#show').click();
   assert.ok(txt(w).includes('家庭') || txt(w).includes('一家人'), 'definition reused');
   w = await boot();
@@ -280,7 +295,30 @@ function passDict(w, value) {
     };
   });
   w.__go('learn');
+  const followField = q(w, '[data-follow] #inp');
+  assert.ok(followField && followField.closest('#ime-dock') && followField.closest('.qcard'), '跟写 keeps the spelling dock in the card');
+  const followHome = followField.parentNode;
+  assert.notStrictEqual(w.document.getElementById('ime-dock').parentNode, w.document.body);
   const studied = q(w, '.word') ? q(w, '.word').textContent : '';
+  await pump();
+  assert.ok(!w.document.body.classList.contains('kb-open'), '跟写 focus alone does not open the dock');
+  w.__ime.set(844 - 36, 0, 844);
+  await pump();
+  assert.ok(!w.document.body.classList.contains('kb-open'), '跟写 ignores a brief inset');
+  w.__ime.set(844 - 336, 0, 844);
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'), '跟写 opens once the keyboard inset is real');
+  assert.strictEqual(followField.parentNode, followHome, '跟写 input is not reparented');
+  assert.strictEqual(q(w, '#inp'), followField, '跟写 does not recreate the input');
+  followField.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true }));
+  assert.ok(q(w, '#follow i.miss'), 'wrong key stays on the follow card');
+  assert.strictEqual(q(w, '#inp'), followField, 'wrong key does not replace the input');
+  assert.strictEqual(followField.parentNode, followHome);
+  w.__ime.set(844, 0, 844);
+  await pump();
+  passFollow(w);
+  w.document.documentElement.style.removeProperty('--ime-bottom');
+  w.document.documentElement.style.removeProperty('--dock-h');
   q(w, '#show').click(); q(w, '[data-g="3"]').click();
   assert.ok(q(w, '#ans #inp') && q(w, '#ans #inp').closest('#ime-dock'), 'learn dictation keeps the spelling dock in the card');
   assert.notStrictEqual(w.document.getElementById('ime-dock').parentNode, w.document.body);
@@ -758,6 +796,8 @@ function passDict(w, value) {
   assert.deepStrictEqual(loads, ['data/book-ielts-toefl-core.js'], 'home does not preload the ielts set');
   w.__go('learn');
   assert.strictEqual(q(w, '.word').textContent, 'analyse');
+  assert.strictEqual(q(w, '[data-follow]').dataset.follow, 'analyse');
+  passFollow(w);
   assert.strictEqual(q(w, '#qc').dataset.word, 'analyse');
   assert.ok(loads.includes('data/book-ielts.js'), 'daily study reuses book-ielts.js');
   await new Promise(r => setTimeout(r, 20));
@@ -768,12 +808,14 @@ function passDict(w, value) {
   q(w, '[data-g="3"]').click();
   passDict(w, 'analyse');
   assert.strictEqual(q(w, '.word').textContent, 'approach');
+  passFollow(w);
   assert.ok(q(w, '#qc').classList.contains('ielts-freq'), 'approach is in the ielts set');
   assert.strictEqual(q(w, '.ielts-badge').textContent, '雅思常考');
   w.__go('settings'); q(w, '#bk').value = 'kaoyan'; q(w, '#sv').click();
   await new Promise(r => setTimeout(r, 20));
   w.__go('learn');
   assert.strictEqual(q(w, '.word').textContent, 'act');
+  passFollow(w);
   await new Promise(r => setTimeout(r, 20));
   assert.ok(!q(w, '#qc').classList.contains('ielts-freq'), '考研 act is not in the ielts set');
   assert.ok(!q(w, '.ielts-badge'));
@@ -781,12 +823,14 @@ function passDict(w, value) {
   q(w, '[data-g="3"]').click();
   passDict(w, 'act');
   assert.strictEqual(q(w, '.word').textContent, 'action');
+  passFollow(w);
   assert.ok(q(w, '#qc').classList.contains('ielts-freq'), '考研 action is in the ielts set');
   assert.strictEqual(q(w, '.ielts-badge').textContent, '雅思常考');
   w.__go('settings'); q(w, '#bk').value = 'ielts'; q(w, '#sv').click();
   await new Promise(r => setTimeout(r, 20));
   w.__go('learn');
   assert.strictEqual(q(w, '.word').textContent, 'approach');
+  passFollow(w);
   assert.ok(q(w, '#qc').classList.contains('ielts-freq'), '雅思专项 card keeps the frequent style');
   assert.strictEqual(q(w, '.ielts-badge').textContent, '雅思常考');
   assert.ok(!txt(w).includes('剑桥真题') && !txt(w).includes('官方真题'));
@@ -798,16 +842,39 @@ function passDict(w, value) {
   assert.ok(appSrc.includes('雅思常考') && !appSrc.includes('剑桥真题') && !appSrc.includes('官方真题'));
   assert.ok(appSrc.includes("loadBook('ielts')") && !appSrc.includes('ielts-word-list'));
 
-  // 新词：单词卡之后只插一道默写，看意和听音交替。听音不露出英文，英音可重听。
+  // 新词：先跟写（英文一直可见，逐字母），再单词卡，再一道默写。看意和听音仍交替。
   store = {}; loads = []; audios = [];
   w = await boot();
   w.fetch = () => Promise.reject(new Error('no network'));
   w.__go('learn');
+  const dayOf = () => w.VocabCore.dayKey(w.Date.now());
+  assert.strictEqual(q(w, '[data-follow]').dataset.follow, 'analyse');
+  assert.strictEqual(q(w, '.word').textContent, 'analyse', '跟写 shows the english word');
+  assert.ok(q(w, '.qtype').textContent.includes('跟写'));
+  assert.ok(q(w, '#follow').textContent.includes('analyse'));
+  assert.ok(!q(w, '#show'), '跟写 is not the study card yet');
+  assert.strictEqual((w.__state().days[dayOf()] || {}).new || 0, 0);
+  typeFollow(w, 'A');
+  assert.ok(q(w, '#follow i.on'), 'correct key advances');
+  assert.strictEqual(q(w, '#follow i.cur').textContent, 'n');
+  assert.strictEqual(q(w, '#inp').value, 'a');
+  assert.strictEqual(q(w, '.word').textContent, 'analyse', 'the headword stays visible');
+  typeFollow(w, ' ');
+  assert.strictEqual(q(w, '#follow i.cur').textContent, 'n', 'space does not move the cursor');
+  assert.ok(!q(w, '#follow i.miss'));
+  typeFollow(w, 'x');
+  assert.ok(q(w, '#follow i.miss'), 'wrong key is marked');
+  assert.strictEqual(q(w, '#follow i.cur').textContent, 'n', 'wrong key does not advance');
+  assert.ok(q(w, '#follow-err').textContent.includes('不对') && q(w, '#follow-err').dataset.wrong === 'x');
+  assert.strictEqual(q(w, '#inp').value, 'a');
+  assert.ok(q(w, '[data-follow]'), 'a wrong key stays on 跟写');
+  for (const ch of 'nalyse') typeFollow(w, ch);
+  assert.ok(!q(w, '[data-follow]'), 'finished 跟写 leaves the follow card');
   assert.strictEqual(q(w, '.word').textContent, 'analyse');
-  assert.ok(q(w, '.qtype').textContent.includes('学新词'));
+  assert.ok(q(w, '.qtype').textContent.includes('学新词'), 'the study card follows 跟写');
+  assert.strictEqual((w.__state().days[dayOf()] || {}).new || 0, 0, '跟写 does not count a new word');
   q(w, '#show').click();
   q(w, '[data-g="3"]').click();
-  const dayOf = () => w.VocabCore.dayKey(w.Date.now());
   assert.strictEqual(w.__state().days[dayOf()].new, 1, 'study card still counts as 今日新学');
   assert.strictEqual(q(w, '[data-dict]').dataset.dict, 'gloss');
   assert.ok(q(w, '.qtype').textContent.includes('看意单词默写'));
@@ -821,7 +888,10 @@ function passDict(w, value) {
   assert.ok(!q(w, '.answer'), 'a correct spelling is not marked wrong');
   assert.strictEqual(w.__state().days[dayOf()].new, 1, 'dictation does not count another new word');
   q(w, '#nx').click();
-  assert.strictEqual(q(w, '.word').textContent, 'approach', 'next item is the study card again');
+  assert.strictEqual(q(w, '.word').textContent, 'approach', 'next item is 跟写 again');
+  assert.ok(q(w, '.qtype').textContent.includes('跟写'));
+  passFollow(w);
+  assert.ok(q(w, '.qtype').textContent.includes('学新词'));
   q(w, '#show').click();
   q(w, '[data-g="1"]').click();
   assert.strictEqual(q(w, '[data-dict]').dataset.dict, 'listen');
@@ -893,7 +963,10 @@ function passDict(w, value) {
   assert.ok(actress && actress.meaning === '女演员' && actress.ipa === '/ˈæktrɪs/', JSON.stringify(actress));
   w = await boot();
   w.__go('learn');
+  assert.strictEqual(q(w, '[data-follow]').dataset.follow, 'household', 'added word starts with 跟写');
   assert.strictEqual(q(w, '.word').textContent, 'household', 'added word is first in today\'s study');
+  assert.ok(q(w, '.qtype').textContent.includes('跟写'));
+  passFollow(w);
   assert.ok(q(w, '.qtype').textContent.includes('学新词'));
   q(w, '#show').click();
   assert.ok(txt(w).includes('家庭'));

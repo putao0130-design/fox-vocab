@@ -1,11 +1,11 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=27: new-word dictation and the home 生词 button, on top of the v=26 quote counts, IELTS-frequent study cards, keyboard dock, and built-in books. */
-const CACHE = 'dog-verb-shell-v27';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=28: new-word follow-along typing, then the study card, then the same one dictation as v=27. */
+const CACHE = 'dog-verb-shell-v28';
 const SHELL = [
   './index.html',
-  './style.css?v=27',
-  './app.js?v=27',
-  './core.js?v=27',
-  './data/books-index.js?v=27',
+  './style.css?v=28',
+  './app.js?v=28',
+  './core.js?v=28',
+  './data/books-index.js?v=28',
   './data/book-ielts.js',
   './data/book-kaoyan.js',
   './data/example-zh.js?v=22',
