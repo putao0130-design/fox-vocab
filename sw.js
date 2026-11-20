@@ -1,11 +1,11 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=28: new-word follow-along typing, then the study card, then the same one dictation as v=27. */
-const CACHE = 'dog-verb-shell-v28';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=29: listen-card audio starts in the rating click, and a failed play shows a Chinese replay line. Fetch handling is unchanged. New-word flow stays follow-along, study card, one dictation. */
+const CACHE = 'dog-verb-shell-v29';
 const SHELL = [
   './index.html',
-  './style.css?v=28',
-  './app.js?v=28',
-  './core.js?v=28',
-  './data/books-index.js?v=28',
+  './style.css?v=29',
+  './app.js?v=29',
+  './core.js?v=29',
+  './data/books-index.js?v=29',
   './data/book-ielts.js',
   './data/book-kaoyan.js',
   './data/example-zh.js?v=22',

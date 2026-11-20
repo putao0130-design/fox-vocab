@@ -893,18 +893,31 @@ function passFollow(w) {
   passFollow(w);
   assert.ok(q(w, '.qtype').textContent.includes('学新词'));
   q(w, '#show').click();
+  w.__state().settings.autoPlay = false;
+  const entryPlays = [];
+  w.Audio = function (src) {
+    entryPlays.push(src);
+    this.src = src;
+    this.play = () => Promise.resolve();
+    this.pause = () => {};
+  };
   q(w, '[data-g="1"]').click();
   assert.strictEqual(q(w, '[data-dict]').dataset.dict, 'listen');
   assert.ok(q(w, '.qtype').textContent.includes('听音默写单词'));
-  audios = [];
   assert.ok(!q(w, '#qc').innerHTML.toLowerCase().includes('approach'), 'listen card html does not contain the word');
+  assert.ok(!q(w, '#qc').innerHTML.includes('youdao') && !q(w, '#qc').innerHTML.includes('dictvoice'), 'listen card html does not contain the audio url');
   assert.ok(!q(w, '.word'));
   assert.ok(q(w, '#replay') && q(w, '#replay').getAttribute('aria-label') === '再听一遍');
-  await new Promise(r => setTimeout(r, 250));
-  assert.ok(audios.some(u => u === 'https://dict.youdao.com/dictvoice?audio=approach&type=1'), audios.join(','));
-  const heard = audios.length;
+  assert.ok(q(w, '#inp').closest('#ime-dock'), 'dictation input stays in the dock');
+  assert.deepStrictEqual(entryPlays, ['https://dict.youdao.com/dictvoice?audio=approach&type=1'], 'entry play starts in the rating click, type=1');
+  const heard = entryPlays.length;
+  await new Promise(r => setTimeout(r, 400));
+  assert.strictEqual(entryPlays.length, heard, 'no second speak is waiting to pause the entry audio');
   q(w, '#replay').click();
-  assert.ok(audios.length > heard && audios[audios.length - 1] === 'https://dict.youdao.com/dictvoice?audio=approach&type=1');
+  assert.strictEqual(entryPlays.length, heard + 1);
+  assert.strictEqual(entryPlays[entryPlays.length - 1], 'https://dict.youdao.com/dictvoice?audio=approach&type=1');
+  await new Promise(r => setTimeout(r, 400));
+  assert.strictEqual(entryPlays.length, heard + 1, 'a tap is not followed by another autoplay');
   q(w, '#inp').value = 'nope';
   q(w, '#sub').click();
   assert.ok(q(w, '.verdict').textContent.includes('再接再厉'));
@@ -913,6 +926,86 @@ function passFollow(w) {
   assert.strictEqual(w.__state().days[dayOf()].new, 2);
   q(w, '#nx').click();
   assert.strictEqual(q(w, '.word').textContent, 'area');
+
+  // 听音卡：播放被拒绝、网络失败、过期的失败回调。这些是本机可复现的失败，不是 iPhone 实测。
+  store = {}; loads = []; audios = [];
+  w = await boot();
+  const uk = 'https://dict.youdao.com/dictvoice?audio=approach&type=1';
+  const spoken = [];
+  w.__voices = [];
+  w.SpeechSynthesisUtterance = function (text) { this.text = text; };
+  w.speechSynthesis = {
+    cancel() {},
+    getVoices() { return w.__voices; },
+    speak(u) { spoken.push({ lang: u.lang, voice: u.voice && u.voice.lang, text: u.text }); }
+  };
+  const pending = [];
+  w.Audio = function (src) {
+    audios.push(src);
+    this.src = src;
+    this.error = null;
+    this.play = () => new Promise((resolve, reject) => pending.push({ resolve, reject, el: this }));
+    this.pause = () => { this.paused = true; };
+  };
+  w.__go('learn');
+  passFollow(w);
+  q(w, '#show').click();
+  q(w, '[data-g="3"]').click();
+  passDict(w, 'analyse');
+  passFollow(w);
+  q(w, '#show').click();
+  w.matchMedia = query => ({ matches: String(query).includes('max-width: 759px'), media: String(query), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} });
+  audios = []; pending.length = 0;
+  q(w, '[data-g="1"]').click();
+  assert.strictEqual(q(w, '[data-dict]').dataset.dict, 'listen');
+  assert.strictEqual(audios.join(','), uk, 'narrow entry still requests British audio');
+  assert.notStrictEqual(w.document.activeElement, q(w, '#inp'), 'narrow listen card does not focus the input');
+  assert.ok(q(w, '#inp').closest('#ime-dock'));
+  assert.strictEqual(pending.length, 1);
+  q(w, '#replay').click();
+  assert.strictEqual(pending.length, 2, 'tap starts its own play and does not leave the entry timer running');
+  assert.strictEqual(pending[0].el.paused, true, 'tap pauses the entry element on purpose');
+  pending[1].resolve();
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(q(w, '#listen-status').dataset.state, 'playing');
+  assert.strictEqual(q(w, '#listen-status').textContent, '正在播放英音');
+  pending[0].reject(Object.assign(new Error('NotAllowedError'), { name: 'NotAllowedError' }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(q(w, '#listen-status').dataset.state, 'playing', 'a stale entry rejection must not cover the tap');
+  const saved = store['foxVocab.v2'];
+  w.__voices = [{ lang: 'en-US', name: 'Samantha' }];
+  spoken.length = 0;
+  q(w, '#replay').click();
+  pending[pending.length - 1].reject(Object.assign(new Error('NotAllowedError'), { name: 'NotAllowedError' }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(q(w, '#listen-status').textContent, '请点喇叭再听一次');
+  assert.strictEqual(q(w, '#listen-status').dataset.state, 'error');
+  assert.strictEqual(spoken.length, 0, 'an en-US voice is not used as fallback');
+  assert.ok(!q(w, '#qc').innerHTML.toLowerCase().includes('approach'));
+  assert.ok(!q(w, '#qc').innerHTML.includes('youdao') && !q(w, '#qc').innerHTML.includes('dictvoice'));
+  assert.ok(!/[A-Za-z]/.test(q(w, '#listen-status').textContent), q(w, '#listen-status').textContent);
+  assert.strictEqual(store['foxVocab.v2'], saved, 'a blocked play does not rewrite local records');
+  q(w, '#replay').click();
+  const net = pending[pending.length - 1];
+  net.el.error = { code: 2 };
+  net.resolve();
+  net.el.onerror();
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(q(w, '#listen-status').textContent, '读音没有播放出来，点喇叭再试一次');
+  assert.ok(!q(w, '#qc').innerHTML.toLowerCase().includes('approach'));
+  assert.ok(!q(w, '#qc').innerHTML.includes('http'));
+  assert.strictEqual(store['foxVocab.v2'], saved, 'a media error does not reset storage');
+  w.__voices = [{ lang: 'en-GB', name: 'Daniel' }];
+  spoken.length = 0;
+  q(w, '#replay').click();
+  pending[pending.length - 1].reject(Object.assign(new Error('NotSupportedError'), { name: 'NotSupportedError' }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(spoken.length, 1);
+  assert.strictEqual(spoken[0].lang, 'en-GB');
+  assert.strictEqual(spoken[0].voice, 'en-GB');
+  assert.strictEqual(q(w, '#listen-status').textContent, '正在用本机英音播放');
+  assert.ok(!q(w, '#listen-status').textContent.toLowerCase().includes('approach'));
+  assert.ok(!q(w, '#qc').innerHTML.toLowerCase().includes('approach'));
 
   // 首页生词：本机词书自动填释义，加入今日队列，不重复，刷新还在，学完计入今日新学。
   store = {}; loads = []; audios = [];
