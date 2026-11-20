@@ -1086,7 +1086,7 @@
       else { toast('本机词书没有这个词，请补上中文释义'); return; }
       if (commitAdd(entry) === 'added') {
         nw.value = ''; nm.value = ''; capHit = null; capAuto = '';
-        meta.textContent = '已加入今日新词。学习时会先看单词卡，再默写一次。';
+        meta.textContent = '已加入今日新词。学习时会先跟写，再看单词卡，然后默写一次。';
       }
     };
   };
@@ -1131,6 +1131,111 @@
     }).catch(() => {});
   }
 
+  function renderLearnCard(w) {
+    const n = dayStat().new;
+    const frequent = ieltsFrequent(w.word);
+    const freqCls = frequent ? ' ielts-freq' : '';
+    const badge = frequent ? IELTS_BADGE : '';
+    $app.innerHTML = progressBar(n, S.settings.dailyNew, `${n + 1}/${S.settings.dailyNew}`) + `<div class="card qcard enter${freqCls}" id="qc" data-word="${esc(w.word)}"><div class="qtype">学新词 <span class="new">NEW</span>${badge}</div>${wordHead(w)}
+      <div id="reveal"><div class="blur">${esc(w.pos)} ••••••</div><button class="primary block" id="show">想一想，然后查看释义<kbd>空格</kbd></button></div></div>`;
+    if (frequent === null) watchIeltsCard($app.querySelector('#qc'), w.word);
+    auto(w.word);
+    $app.querySelector('#show').onclick = () => {
+      flash($app.querySelector('#qc'), 'flip');
+      $app.querySelector('#reveal').innerHTML = `<div class="dmean big"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>${exampleBlocks(w, true)}
+      <div class="hint center">你对这个词的熟悉程度？</div>${gradeButtons(null)}
+      <button class="ghost block" id="known">😎 太熟了，直接标为掌握</button>`;
+      const add = (rating, known) => {
+        cards()[w.word] = known ? C.markKnown(null, now()) : C.learnCard(rating, now());
+        dayStat().new++; markStudied(); if (known) S.fox.food += 5;
+        if (SESS) { SESS.done++; if (known || rating > 1) SESS.correct++; }
+        save();
+        learnDict = { entry: w, kind: C.learnDictationKind(dayStat().new) };
+        views.learn();
+      };
+      $app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => add(+b.dataset.g, false));
+      $app.querySelector('#known').onclick = () => add(0, true);
+    };
+  }
+  function renderLearnFollow(w) {
+    const view0 = C.followView(w.word, 0, '');
+    if (view0.done) { renderLearnCard(w); return; }
+    const n = dayStat().new;
+    let index = 0, composing = false, keyHandled = false;
+    $app.innerHTML = progressBar(n, S.settings.dailyNew, `跟写 ${n + 1}/${S.settings.dailyNew}`) + `<div class="card qcard enter" id="qc" data-follow="${esc(w.word)}"><div class="qtype">跟写</div>${wordHead(w)}
+      <div class="follow" id="follow" aria-label="${esc(w.word)}"></div>
+      <div class="hint">看着单词，逐个字母打出来</div>
+      <div class="follow-err" id="follow-err" role="status"></div>
+      <div id="ans"><div id="ime-dock"><div class="typerow"><input type="text" id="inp" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="逐个字母跟着打"></div></div></div></div>`;
+    const qc = $app.querySelector('#qc'), row = $app.querySelector('#follow'), err = $app.querySelector('#follow-err'), inp = $app.querySelector('#inp');
+    function paint(wrongKey) {
+      const view = C.followView(w.word, index, wrongKey);
+      row.innerHTML = view.slots.map(s => `<i class="${s.cls}">${esc(s.ch)}</i>`).join('');
+      if (wrongKey) {
+        err.textContent = '这个字母不对：' + wrongKey;
+        err.dataset.wrong = wrongKey;
+        qc.classList.add('follow-bad');
+      } else {
+        err.textContent = '';
+        delete err.dataset.wrong;
+        qc.classList.remove('follow-bad');
+      }
+      if (!composing) {
+        if (inp.value !== view.typed) inp.value = view.typed;
+        try { if (document.activeElement === inp) inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) { }
+      }
+      return view;
+    }
+    function apply(text) {
+      if (!inp.isConnected) return;
+      const step = C.followPress(w.word, index, text);
+      index = step.index;
+      const view = paint(step.wrong);
+      if (!view.done) return;
+      releaseIme();
+      renderLearnCard(w);
+    }
+    function markKey() {
+      keyHandled = true;
+      const clear = window.queueMicrotask || (fn => Promise.resolve().then(fn));
+      clear(() => { keyHandled = false; });
+    }
+    inp.addEventListener('compositionstart', () => { composing = true; });
+    inp.addEventListener('compositionend', e => {
+      composing = false;
+      const data = e.data || '';
+      inp.value = C.followView(w.word, index, '').typed;
+      if (data) apply(data);
+    });
+    inp.addEventListener('keydown', e => {
+      if (e.isComposing || composing || e.key === 'Process') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Enter' || e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); return; }
+      if (!e.key || e.key.length !== 1) return;
+      e.preventDefault();
+      markKey();
+      apply(e.key);
+    });
+    inp.addEventListener('beforeinput', e => {
+      if (composing || e.isComposing) return;
+      if (keyHandled) { if (e.cancelable) e.preventDefault(); return; }
+      if (e.inputType === 'insertText' || e.inputType === 'insertCompositionText' || e.inputType === 'insertFromPaste') {
+        if (e.data) { if (e.cancelable) e.preventDefault(); apply(e.data); }
+      } else if (e.inputType && e.inputType.indexOf('delete') === 0) {
+        if (e.cancelable) e.preventDefault();
+      }
+    });
+    inp.addEventListener('paste', e => {
+      const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
+      if (!text) return;
+      e.preventDefault();
+      markKey();
+      apply(text);
+    });
+    paint('');
+    try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); }
+    scheduleIme();
+  }
   function renderLearnDict(entry, kind) {
     const listen = kind === 'listen';
     const title = listen ? '听音默写单词' : '看意单词默写';
@@ -1178,30 +1283,7 @@
       return;
     }
     if (!SESS || SESS.kind !== 'learn') startSess('learn', left);
-    const w = list[0], n = dayStat().new;
-    const frequent = ieltsFrequent(w.word);
-    const freqCls = frequent ? ' ielts-freq' : '';
-    const badge = frequent ? IELTS_BADGE : '';
-    $app.innerHTML = progressBar(n, S.settings.dailyNew, `${n + 1}/${S.settings.dailyNew}`) + `<div class="card qcard enter${freqCls}" id="qc" data-word="${esc(w.word)}"><div class="qtype">学新词 <span class="new">NEW</span>${badge}</div>${wordHead(w)}
-      <div id="reveal"><div class="blur">${esc(w.pos)} ••••••</div><button class="primary block" id="show">想一想，然后查看释义<kbd>空格</kbd></button></div></div>`;
-    if (frequent === null) watchIeltsCard($app.querySelector('#qc'), w.word);
-    auto(w.word);
-    $app.querySelector('#show').onclick = () => {
-      flash($app.querySelector('#qc'), 'flip');
-      $app.querySelector('#reveal').innerHTML = `<div class="dmean big"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>${exampleBlocks(w, true)}
-      <div class="hint center">你对这个词的熟悉程度？</div>${gradeButtons(null)}
-      <button class="ghost block" id="known">😎 太熟了，直接标为掌握</button>`;
-      const add = (rating, known) => {
-        cards()[w.word] = known ? C.markKnown(null, now()) : C.learnCard(rating, now());
-        dayStat().new++; markStudied(); if (known) S.fox.food += 5;
-        if (SESS) { SESS.done++; if (known || rating > 1) SESS.correct++; }
-        save();
-        learnDict = { entry: w, kind: C.learnDictationKind(dayStat().new) };
-        views.learn();
-      };
-      $app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => add(+b.dataset.g, false));
-      $app.querySelector('#known').onclick = () => add(0, true);
-    };
+    renderLearnFollow(list[0]);
   };
 
   function quizLoop(getWord, typeFor, emptyHtml, header, total) {
