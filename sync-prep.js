@@ -38,6 +38,7 @@
     return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
   }
   function bucketKey(zone, day) { return zone + '|' + day; }
+  function emptyAccount() { return freshAccount(); }
   function freshAccount() {
     return {
       migrations: {}, events: {}, seq: 0,
@@ -563,7 +564,7 @@
     LEGACY_OVERLAP_LIMIT: LEGACY_OVERLAP_LIMIT, LATE_LEGACY_LIMIT: LATE_LEGACY_LIMIT,
     shanghaiDayKey: shanghaiDayKey, canonical: canonical, migrationIdFor: migrationIdFor,
     normalizeSnapshot: normalizeSnapshot, isEmptySnapshot: isEmptySnapshot,
-    createStore: createStore, importLegacy: importLegacy, acceptEvents: acceptEvents, materialize: materialize,
+    createStore: createStore, emptyAccount: emptyAccount, importLegacy: importLegacy, acceptEvents: acceptEvents, materialize: materialize,
     memoryStorage: memoryStorage, commitPrecloudBackup: commitPrecloudBackup, restorePrecloudBackup: restorePrecloudBackup
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
