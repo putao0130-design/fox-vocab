@@ -191,7 +191,8 @@ assert.ok(indexHtml.includes('install-v18/apple-180.png?v=18') && sw.includes('i
 assert.ok(!indexHtml.includes('?v=23') && !sw.includes('?v=23') && !sw.includes('shell-v23'));
 const appJs = fs.readFileSync(nodePath.join(__dirname, '../app.js'), 'utf8');
 assert.ok(appJs.includes("'本日学习 ' + counts.studied + ' 个，复习 ' + counts.reviewed + ' 个'"));
-assert.ok(appJs.includes('dog-mascot-transparent.png?v=22') && appJs.includes('wallabi-beach.jpg?v=22') && appJs.includes('logo-doubao-2048.png?v=22'));
+assert.ok(appJs.includes('wallabi-beach.jpg?v=22') && appJs.includes('logo-doubao-2048.png?v=22'));
 assert.ok(appJs.includes('kubota-garden-seattle.jpg?v=22') && appJs.includes('lyon-riverside-terrace.jpg?v=22'));
+assert.ok(appJs.includes('assets/dog-mascot.png?v=15') && !appJs.includes('dog-mascot-transparent'));
 assert.ok(!appJs.includes('?v=26') && !appJs.includes('?v=25'));
 console.log('core tests passed;', Object.entries(books).map(([k, b]) => k + '=' + b.words.length).join(', '), '; mastered after', path.length, 'Good reviews');

@@ -654,9 +654,9 @@ function answer(w) {
   const drawnSrc = drawn.map(o => o.args[0] && o.args[0]._src || '');
   assert.ok(drawnSrc.some(s => s.indexOf(photos[quote.index]) !== -1), 'today landscape ' + photos[quote.index]);
   assert.ok(drawnSrc.some(s => s.indexOf('logo-doubao') !== -1), 'doubao logo');
-  assert.ok(drawnSrc.some(s => s.indexOf('dog-mascot-transparent') !== -1), 'transparent pet');
+  assert.ok(drawnSrc.every(s => s.indexOf('dog-mascot-transparent') === -1), 'share card has no second dog');
   assert.ok(drawnSrc.every(s => s.indexOf('paw-check') === -1), 'calendar paw is not on the card');
-  assert.ok(drawnSrc.every(s => s.indexOf('dog-mascot.png') === -1), 'no watermarked mascot');
+  assert.ok(drawnSrc.every(s => s.indexOf('dog-mascot.png') === -1), 'in-app mascot stays off the card');
   offset = 36 * 60 * 60 * 1000;
   const day2 = w.VocabCore.dayKey(w.Date.now());
   const quote2 = w.VocabCore.dailyQuote(day2);
@@ -669,6 +669,7 @@ function answer(w) {
   assert.strictEqual(texts2.filter(t => /^[A-Za-z0-9 ,.'’]+$/.test(t)).join(' '), quote2.en);
   assert.ok(texts2.indexOf('本日学习 0 个，复习 0 个') !== -1, 'next day with no finished counts still shows zeros');
   assert.ok(ops.some(o => o.op === 'drawImage' && String(o.args[0] && o.args[0]._src || '').indexOf(photos[quote2.index]) !== -1));
+  assert.ok(ops.filter(o => o.op === 'drawImage').every(o => String(o.args[0] && o.args[0]._src || '').indexOf('dog-mascot') === -1), 'next card also has only the logo');
   offset = 0;
   shared = null;
   Object.defineProperty(w.navigator, 'share', { configurable: true, value: () => { const e = new Error('abort'); e.name = 'AbortError'; return Promise.reject(e); } });

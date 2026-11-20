@@ -713,9 +713,8 @@
   }
 
   // A 字幕方卡 1080×1080。页内 28 天打卡日历不动，分享图只画风景金句。
-  // 间距跟核准稿：底部暗渐变、左上书本探头、右下小狗在字的上方、金线、原句、中文、出处。
+  // 间距跟核准稿：底部暗渐变、左上书本探头、金线、原句、中文、出处。卡片上只有这一枚标志。
   const SHARE_LOGO = 'assets/icons/logo-doubao-2048.png?v=22';
-  const SHARE_PET = 'assets/dog-mascot-transparent.png?v=22';
   const SHARE_CREAM = '#FFFCF7';
   const SHARE_GOLD = '#F0BB51';
   const SHARE_BRAND = 'Dog Verb  ·  每日金句';
@@ -829,7 +828,7 @@
     }
     if (!n || diff / n > 24) throw new Error(label);
   }
-  function assertCardPainted(g, W, H, logo, dog) {
+  function assertCardPainted(g, W, H, logo) {
     let band;
     try { band = g.getImageData(0, Math.round(H * 0.4), W, 1).data; } catch (e) { return; }
     if (!band || band.length < 16) return;
@@ -841,7 +840,6 @@
     }
     if (max - min < 12 || opaque < 8) throw new Error('blank');
     assertOpaqueCopied(g, logo.bitmap, logo.box, logo.x, logo.y, logo.w, logo.h, 'logo');
-    assertOpaqueCopied(g, dog.bitmap, dog.box, dog.x, dog.y, dog.w, dog.h, 'dog');
   }
   function canvasBlob(canvas) {
     return new Promise((resolve, reject) => {
@@ -881,7 +879,6 @@
     if (!layout || layout.en.join(' ') !== quote.en || layout.zh.join('') !== quote.zh) throw new Error('quote');
     const photo = await loadShareBitmap(layout.photo);
     const logo = await loadShareBitmap(SHARE_LOGO);
-    const dog = await loadShareBitmap(SHARE_PET);
     await ensureQuoteFonts();
     const W = 1080, H = 1080;
     const canvas = document.createElement('canvas');
@@ -911,10 +908,6 @@
     const enLead = 52, zhLead = 42;
     const blockH = 18 + 16 + enLead * layout.en.length + 12 + zhLead * layout.zh.length + 20 + 28 + 32;
     let y = H - 48 - blockH;
-    const dogBox = alphaBounds(dog.bitmap);
-    const dogW = 110, dogH = Math.max(1, Math.round(dogBox.h * (dogW / dogBox.w)));
-    const dogX = W - 28 - dogW, dogY = y - 12 - dogH;
-    g.drawImage(dog.bitmap, dogBox.x, dogBox.y, dogBox.w, dogBox.h, dogX, dogY, dogW, dogH);
     g.strokeStyle = SHARE_GOLD; g.lineWidth = 2;
     g.beginPath(); g.moveTo((W - 80) / 2, y); g.lineTo((W + 80) / 2, y); g.stroke();
     y += 16;
@@ -928,8 +921,7 @@
     const counts = finishedToday(dayKey);
     drawCentered(g, y + 36, '本日学习 ' + counts.studied + ' 个，复习 ' + counts.reviewed + ' 个', SHARE_STATS, SHARE_CREAM, W);
     assertCardPainted(g, W, H,
-      { bitmap: logo.bitmap, box: logoBox, x: 36 + pad, y: 36 + pad, w: logoW, h: logoH },
-      { bitmap: dog.bitmap, box: dogBox, x: dogX, y: dogY, w: dogW, h: dogH });
+      { bitmap: logo.bitmap, box: logoBox, x: 36 + pad, y: 36 + pad, w: logoW, h: logoH });
     await paintSettled();
     return { blob: await canvasBlob(canvas), quote, dayKey, studied: counts.studied, reviewed: counts.reviewed };
   }
@@ -972,7 +964,7 @@
     const b = $app.querySelector('.sharecal');
     if (b) b.onclick = () => { shareQuote(); };
     QUOTE_LAYOUT.forEach(layout => { loadShareBitmap(layout.photo); });
-    loadShareBitmap(SHARE_LOGO); loadShareBitmap(SHARE_PET); ensureQuoteFonts();
+    loadShareBitmap(SHARE_LOGO); ensureQuoteFonts();
   }
   window.__renderQuoteCard = dayKey => renderQuoteCard(dayKey || today());
 
