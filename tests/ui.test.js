@@ -20,6 +20,13 @@ function answer(w) {
   else { const btns = [...w.document.querySelectorAll('#ans button')]; if (btns.length) btns[0].click(); else { q(w, '#inp').value = 'zzz'; q(w, '#sub').click(); } }
   q(w, '#nx').click();
 }
+function passDict(w, value) {
+  const inp = q(w, '#inp');
+  assert.ok(inp, 'dictation follows the study card');
+  inp.value = value == null ? 'zzz' : value;
+  q(w, '#sub').click();
+  q(w, '#nx').click();
+}
 (async () => {
   // ---- v1 迁移：真实的 v1 localStorage 数据 ----
   const T = Date.now(), D = 86400000, M = 60000;
@@ -55,7 +62,7 @@ function answer(w) {
   // ---- 全新用户 ----
   store = {}; loads = []; w = await boot(); assert.ok(txt(w).includes('今日新学'), 'home renders');
   w.__go('learn'); audios = [];
-  for (let i = 0; i < 20; i++) { q(w, '#show').click(); if (i === 0) q(w, '#known').click(); else q(w, `[data-g="${i % 2 ? 3 : 1}"]`).click(); }
+  for (let i = 0; i < 20; i++) { q(w, '#show').click(); if (i === 0) q(w, '#known').click(); else q(w, `[data-g="${i % 2 ? 3 : 1}"]`).click(); passDict(w); }
   assert.ok(txt(w).includes('已完成'), 'daily target done');
   assert.strictEqual(Object.keys(w.__state().books['ielts-toefl-core'].cards).length, 20); assert.strictEqual(w.__state().fox.food, 5);
   await new Promise(r => setTimeout(r, 300));
@@ -150,7 +157,7 @@ function answer(w) {
   assert.strictEqual(w.__state().customBooks[0].words.length, 4);
   // 例句填空：中文译文先遮住目标词；长按/右键把句中生词加入今日学习
   store = {}; loads = []; w = await boot();
-  w.__go('learn'); q(w, '#show').click(); q(w, '[data-g="3"]').click();
+  w.__go('learn'); q(w, '#show').click(); q(w, '[data-g="3"]').click(); passDict(w, 'analyse');
   w.__go('practice'); q(w, '[data-m="clozeChoice"]').click();
   const sent = q(w, '.prompt .sent');
   assert.ok(sent.textContent.includes('_____') && !sent.textContent.includes('analysed'), 'cloze hides the answer');
@@ -272,7 +279,21 @@ function answer(w) {
       fire,
     };
   });
-  w.__go('learn'); q(w, '#show').click(); q(w, '[data-g="3"]').click();
+  w.__go('learn');
+  const studied = q(w, '.word') ? q(w, '.word').textContent : '';
+  q(w, '#show').click(); q(w, '[data-g="3"]').click();
+  assert.ok(q(w, '#ans #inp') && q(w, '#ans #inp').closest('#ime-dock'), 'learn dictation keeps the spelling dock in the card');
+  assert.notStrictEqual(w.document.getElementById('ime-dock').parentNode, w.document.body);
+  if (q(w, '[data-dict="listen"]')) {
+    assert.ok(studied && !q(w, '#qc').textContent.toLowerCase().includes(studied), 'listen card hides the english word');
+    assert.ok(q(w, '#replay'), 'listen card has replay');
+  }
+  const dictField = q(w, '#ans #inp');
+  const dictHome = dictField.parentNode;
+  assert.ok(dictHome.closest('#ans'), 'learn dictation input stays in the card');
+  dictField.value = 'spell';
+  assert.strictEqual(dictField.value, 'spell');
+  assert.strictEqual(dictField.parentNode, dictHome);
   w.__go('practice'); q(w, '[data-m="clozeType"]').click();
   const inp = q(w, '#ans #inp');
   const parent = inp.parentNode;
@@ -413,6 +434,23 @@ function answer(w) {
     assert.strictEqual(field.value, 'test', m + ' stays typable');
   }
   w.__ime.set(844, 0, 844);
+  w.__go('learn');
+  const again = q(w, '#ans #inp');
+  assert.ok(again && again.closest('#ime-dock') && again.closest('.qcard'), 'new-word dictation keeps the dock in the card');
+  const againHome = again.parentNode;
+  if (w.document.activeElement !== again) again.focus();
+  await pump();
+  assert.ok(!w.document.body.classList.contains('kb-open'), 'learn dictation focus alone does not open the dock');
+  w.__ime.set(508, 0, 844);
+  await pump();
+  assert.ok(w.document.body.classList.contains('kb-open'), 'learn dictation opens once the keyboard inset is real');
+  assert.strictEqual(again.parentNode, againHome, 'learn dictation input is not reparented');
+  assert.strictEqual(q(w, '#inp'), again);
+  w.__ime.set(844, 0, 844);
+  await pump();
+  if (w.document.activeElement && w.document.activeElement.blur) w.document.activeElement.blur();
+  await new Promise(r => setTimeout(r, GRACE));
+  await pump();
   w.__go('sentence', 'analyse');
   const area = q(w, '#s');
   const areaParent = area.parentNode;
@@ -512,6 +550,8 @@ function answer(w) {
     await pump();
     assert.ok(!w.document.body.classList.contains('kb-open'));
   }
+  await staysPlain('capture', '#nw', 'from');
+  await staysPlain('capture', '#nm', '票');
   await staysPlain('words', '#q', 'house');
   assert.ok(q(w, '#tb').textContent.includes('household'), 'search still filters');
   await staysPlain('books', '#bname', '旅游口语');
@@ -726,6 +766,7 @@ function answer(w) {
   assert.ok(!txt(w).includes('雅思常考') && !txt(w).includes('剑桥真题') && !txt(w).includes('官方真题'));
   q(w, '#show').click();
   q(w, '[data-g="3"]').click();
+  passDict(w, 'analyse');
   assert.strictEqual(q(w, '.word').textContent, 'approach');
   assert.ok(q(w, '#qc').classList.contains('ielts-freq'), 'approach is in the ielts set');
   assert.strictEqual(q(w, '.ielts-badge').textContent, '雅思常考');
@@ -738,6 +779,7 @@ function answer(w) {
   assert.ok(!q(w, '.ielts-badge'));
   q(w, '#show').click();
   q(w, '[data-g="3"]').click();
+  passDict(w, 'act');
   assert.strictEqual(q(w, '.word').textContent, 'action');
   assert.ok(q(w, '#qc').classList.contains('ielts-freq'), '考研 action is in the ielts set');
   assert.strictEqual(q(w, '.ielts-badge').textContent, '雅思常考');
@@ -755,6 +797,120 @@ function answer(w) {
   assert.ok(css.includes('.qcard.ielts-freq') && css.includes('#F0BB51') && css.includes('#4B423E'));
   assert.ok(appSrc.includes('雅思常考') && !appSrc.includes('剑桥真题') && !appSrc.includes('官方真题'));
   assert.ok(appSrc.includes("loadBook('ielts')") && !appSrc.includes('ielts-word-list'));
+
+  // 新词：单词卡之后只插一道默写，看意和听音交替。听音不露出英文，英音可重听。
+  store = {}; loads = []; audios = [];
+  w = await boot();
+  w.fetch = () => Promise.reject(new Error('no network'));
+  w.__go('learn');
+  assert.strictEqual(q(w, '.word').textContent, 'analyse');
+  assert.ok(q(w, '.qtype').textContent.includes('学新词'));
+  q(w, '#show').click();
+  q(w, '[data-g="3"]').click();
+  const dayOf = () => w.VocabCore.dayKey(w.Date.now());
+  assert.strictEqual(w.__state().days[dayOf()].new, 1, 'study card still counts as 今日新学');
+  assert.strictEqual(q(w, '[data-dict]').dataset.dict, 'gloss');
+  assert.ok(q(w, '.qtype').textContent.includes('看意单词默写'));
+  assert.ok(q(w, '.meaning-big').textContent.includes('分析'));
+  assert.ok(!q(w, '.word'), 'gloss card hides the english word');
+  assert.ok(!q(w, '#qc').textContent.toLowerCase().includes('analyse'));
+  assert.ok(q(w, '#inp') && q(w, '#inp').closest('#ime-dock'));
+  q(w, '#inp').value = '  Analyze. ';
+  q(w, '#sub').click();
+  assert.ok(q(w, '.verdict').textContent.includes('正确'));
+  assert.ok(!q(w, '.answer'), 'a correct spelling is not marked wrong');
+  assert.strictEqual(w.__state().days[dayOf()].new, 1, 'dictation does not count another new word');
+  q(w, '#nx').click();
+  assert.strictEqual(q(w, '.word').textContent, 'approach', 'next item is the study card again');
+  q(w, '#show').click();
+  q(w, '[data-g="1"]').click();
+  assert.strictEqual(q(w, '[data-dict]').dataset.dict, 'listen');
+  assert.ok(q(w, '.qtype').textContent.includes('听音默写单词'));
+  audios = [];
+  assert.ok(!q(w, '#qc').innerHTML.toLowerCase().includes('approach'), 'listen card html does not contain the word');
+  assert.ok(!q(w, '.word'));
+  assert.ok(q(w, '#replay') && q(w, '#replay').getAttribute('aria-label') === '再听一遍');
+  await new Promise(r => setTimeout(r, 250));
+  assert.ok(audios.some(u => u === 'https://dict.youdao.com/dictvoice?audio=approach&type=1'), audios.join(','));
+  const heard = audios.length;
+  q(w, '#replay').click();
+  assert.ok(audios.length > heard && audios[audios.length - 1] === 'https://dict.youdao.com/dictvoice?audio=approach&type=1');
+  q(w, '#inp').value = 'nope';
+  q(w, '#sub').click();
+  assert.ok(q(w, '.verdict').textContent.includes('再接再厉'));
+  assert.ok(q(w, '.answer').textContent.includes('approach'));
+  assert.ok(q(w, '.dmean').textContent.includes('接近'));
+  assert.strictEqual(w.__state().days[dayOf()].new, 2);
+  q(w, '#nx').click();
+  assert.strictEqual(q(w, '.word').textContent, 'area');
+
+  // 首页生词：本机词书自动填释义，加入今日队列，不重复，刷新还在，学完计入今日新学。
+  store = {}; loads = []; audios = [];
+  w = await boot();
+  w.fetch = () => { throw new Error('no network'); };
+  w.__go('home');
+  assert.ok(q(w, '#newword').textContent.includes('生词'));
+  assert.ok(q(w, '.hero').contains(q(w, '#newword')), '生词 sits on the home hero');
+  assert.ok(q(w, '.petpose img').getAttribute('src').includes('assets/dog-mascot.png'));
+  q(w, '#newword').click();
+  assert.ok(q(w, '#nw') && q(w, '#nm') && q(w, '#nwadd'));
+  q(w, '#nw').value = 'household';
+  q(w, '#nw').dispatchEvent(new w.Event('input', { bubbles: true }));
+  q(w, '#nw').dispatchEvent(new w.Event('blur'));
+  await new Promise(r => setTimeout(r, 40));
+  assert.ok(q(w, '#nm').value.includes('家庭'), q(w, '#nm').value);
+  assert.ok(q(w, '#nwmeta').textContent.includes('/ˈhaʊshəʊld/'));
+  assert.ok(!loads.includes('data/book-ielts-toefl-full.js'), 'current book fills without another word list');
+  q(w, '#nwadd').click();
+  await new Promise(r => setTimeout(r, 40));
+  assert.ok([...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('已将「household」加入今日学习')));
+  assert.strictEqual(w.__state().books['ielts-toefl-core'].today.join(','), 'household');
+  assert.ok(!(w.__state().books['ielts-toefl-core'].extra || []).some(e => e.word === 'household'));
+  q(w, '#nw').value = 'household';
+  q(w, '#nm').value = '家庭';
+  q(w, '#nwadd').click();
+  await new Promise(r => setTimeout(r, 40));
+  assert.ok([...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('「household」已在今日学习列表')));
+  assert.strictEqual(w.__state().books['ielts-toefl-core'].today.join(','), 'household');
+  q(w, '#nw').value = 'zzword';
+  q(w, '#nm').value = '';
+  q(w, '#nwadd').click();
+  for (let i = 0; i < 80 && ![...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('请补上中文释义')); i++) await new Promise(r => setTimeout(r, 50));
+  assert.ok([...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('请补上中文释义')));
+  assert.strictEqual(w.__state().books['ielts-toefl-core'].today.join(','), 'household');
+  q(w, '#nw').value = 'actress';
+  q(w, '#nm').value = '';
+  q(w, '#nw').dispatchEvent(new w.Event('blur'));
+  for (let i = 0; i < 80 && q(w, '#nm').value !== '女演员'; i++) await new Promise(r => setTimeout(r, 50));
+  assert.strictEqual(q(w, '#nm').value, '女演员');
+  assert.ok(!w.__loadedBooks().includes('kaoyan'), 'lookup does not leave the other book open');
+  assert.ok(!w.__loadedBooks().includes('ielts-toefl-full'));
+  q(w, '#nwadd').click();
+  await new Promise(r => setTimeout(r, 40));
+  const bookState = w.__state().books['ielts-toefl-core'];
+  assert.strictEqual(bookState.today.join(','), 'household,actress');
+  const actress = bookState.extra.find(e => e.word === 'actress');
+  assert.ok(actress && actress.meaning === '女演员' && actress.ipa === '/ˈæktrɪs/', JSON.stringify(actress));
+  w = await boot();
+  w.__go('learn');
+  assert.strictEqual(q(w, '.word').textContent, 'household', 'added word is first in today\'s study');
+  assert.ok(q(w, '.qtype').textContent.includes('学新词'));
+  q(w, '#show').click();
+  assert.ok(txt(w).includes('家庭'));
+  q(w, '[data-g="3"]').click();
+  assert.strictEqual(w.__state().days[w.VocabCore.dayKey(w.Date.now())].new, 1);
+  assert.strictEqual(q(w, '[data-dict]').dataset.dict, 'gloss');
+  assert.ok(!q(w, '#qc').textContent.toLowerCase().includes('household'));
+  passDict(w, 'household');
+  w.__go('home');
+  assert.ok(txt(w).includes('今日新学1/20'), txt(w));
+  w.__go('capture');
+  q(w, '#nw').value = 'household';
+  q(w, '#nm').value = '家庭';
+  q(w, '#nwadd').click();
+  await new Promise(r => setTimeout(r, 40));
+  assert.ok([...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('已经学过了')));
+  assert.ok(!appSrc.includes('剑桥真题') && !appSrc.includes('官方真题'));
 
   console.log('UI tests passed');
 })().catch(e => { console.error(e); process.exit(1); });
