@@ -175,7 +175,7 @@ global.window = {}; const books = {}; window.__registerBook = b => books[b.id] =
 require('../data/books-index.js'); for (const b of window.VOCAB_BOOK_INDEX) require('../' + b.file);
 const orig = require('../data/original-words.json');
 for (const id in books) { const b = books[id]; assert.strictEqual(b.words.length, window.VOCAB_BOOK_INDEX.find(x => x.id === id).count); const seen = new Set();
-  for (const w of b.words) { assert.ok(w.word && w.pos && w.meaning, id + ' ' + w.word); assert.ok(!seen.has(w.word), 'dup ' + w.word); seen.add(w.word); assert.ok(Array.isArray(w.examples)); if (w.examples.length) assert.ok(C.hasExample(w), 'cloze ' + w.word); } }
+  for (const w of b.words) { assert.ok(w.word && w.pos && w.meaning, id + ' ' + w.word); assert.ok(!seen.has(w.word), 'dup ' + w.word); seen.add(w.word); assert.ok(Array.isArray(w.examples)); if (w.examples.length && id !== 'anatomy') assert.ok(C.hasExample(w), 'cloze ' + w.word); } }
 const core = books['ielts-toefl-core'];
 for (let i = 0; i < orig.length; i++) { assert.strictEqual(core.words[i].word, orig[i].word); assert.deepStrictEqual(core.words[i].examples, orig[i].examples); }
 require('../data/example-zh.js');
@@ -192,8 +192,8 @@ for (const w of orig) {
 }
 assert.strictEqual(core.words.length, 2209, 'core count unchanged');
 assert.strictEqual(books['ielts-toefl-full'].words.length, 12883, 'full count unchanged');
-assert.deepStrictEqual(window.VOCAB_BOOK_INDEX.map(b => b.id), ['ielts-toefl-core', 'ielts-toefl-full', 'ielts', 'kaoyan']);
-assert.deepStrictEqual(window.VOCAB_BOOK_INDEX.map(b => b.name), ['雅思托福核心词', '雅思托福全部词', '雅思专项', '考研英语']);
+assert.deepStrictEqual(window.VOCAB_BOOK_INDEX.map(b => b.id), ['ielts-toefl-core', 'ielts-toefl-full', 'ielts', 'kaoyan', 'anatomy']);
+assert.deepStrictEqual(window.VOCAB_BOOK_INDEX.map(b => b.name), ['雅思托福核心词', '雅思托福全部词', '雅思专项', '考研英语', '解剖学基础词汇']);
 const ielts = books.ielts, kaoyan = books.kaoyan;
 assert.strictEqual(ielts.words.length, 4958);
 assert.strictEqual(kaoyan.words.length, 5005);
@@ -210,27 +210,52 @@ assert.ok(!ielts.words.some(w => w.word === 'core'));
 assert.strictEqual(ielts.words.find(w => w.word === 'approach').examples[0], origBy.approach.examples[0]);
 assert.deepStrictEqual(kaoyan.words.slice(0, 3).map(w => w.word), ['act', 'action', 'activate']);
 assert.ok(!kaoyan.words.some(w => w.word === 'monday' || w.word === 'internet'));
+const anatomy = books.anatomy;
+assert.strictEqual(anatomy.words.length, 888);
+assert.strictEqual(anatomy.description, '人体基础、恐龙专项、家畜、比较解剖、家禽、扬子鳄，共 888 词。英式拼写与音标。');
+const muller = anatomy.words.find(w => w.word === 'Müllerian duct');
+assert.ok(muller && muller.word.includes('ü'));
+assert.strictEqual(muller.ipa, '/mjuːˈlɪəriən dʌkt/');
+assert.strictEqual(muller.pos, 'n.');
+assert.strictEqual(muller.meaning, '副中肾管');
+assert.strictEqual(anatomy.words.find(w => w.word === 'Cretaceous').pos, 'adj./n.');
+assert.strictEqual(anatomy.words.find(w => w.word === 'Jurassic').pos, 'adj./n.');
+assert.strictEqual(anatomy.words.find(w => w.word === 'Cretaceous').ipa, '/krɪˈteɪʃəs/');
+assert.strictEqual(anatomy.words.find(w => w.word === 'Jurassic').ipa, '/dʒʊˈræsɪk/');
+let anatomyCloze = 0;
+for (const w of anatomy.words) {
+  assert.strictEqual(w.examples.length, 1, w.word);
+  const raw = zhMap[w.examples[0]];
+  assert.ok(raw, 'missing anatomy zh ' + w.word);
+  assert.ok(/\{[^{}]+\}/.test(raw), 'anatomy zh blank ' + w.word);
+  if (C.hasExample(w)) anatomyCloze++;
+}
+assert.strictEqual(anatomyCloze, 627, 'cloze matcher unchanged; multi-word and irregular forms stay on the card');
 const fs = require('fs'), nodePath = require('path');
 const ieltsHead = fs.readFileSync(nodePath.join(__dirname, '../data/book-ielts.js'), 'utf8').split('\n')[0];
 const kyHead = fs.readFileSync(nodePath.join(__dirname, '../data/book-kaoyan.js'), 'utf8').split('\n')[0];
 assert.strictEqual(ieltsHead, '// 自动生成：tools/build-books.py。来源 ECDICT(MIT)');
 assert.ok(kyHead.includes('KyleBing/english-vocabulary(BSD-3)') && kyHead.includes('ECDICT(MIT)'));
-for (const line of [ieltsHead, ielts.description, kyHead, kaoyan.description]) {
-  assert.ok(!line.includes('不背') && !line.includes('新东方') && !line.includes('红宝书'), line);
+const anatomyHead = fs.readFileSync(nodePath.join(__dirname, '../data/book-anatomy.js'), 'utf8').split('\n')[0];
+assert.ok(anatomyHead.includes('Ariel') && anatomyHead.includes('英式拼写与音标按源表原样保留'));
+for (const line of [ieltsHead, ielts.description, kyHead, kaoyan.description, anatomyHead, anatomy.description]) {
+  assert.ok(!line.includes('不背') && !line.includes('新东方') && !line.includes('红宝书') && !line.includes('剑桥') && !line.includes('真题'), line);
 }
 assert.ok(!ieltsHead.includes('KyleBing') && !ielts.description.includes('KyleBing'));
 const indexHtml = fs.readFileSync(nodePath.join(__dirname, '../index.html'), 'utf8');
 const sw = fs.readFileSync(nodePath.join(__dirname, '../sw.js'), 'utf8');
-assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v28'"));
-assert.ok(indexHtml.includes('style.css?v=28') && indexHtml.includes('core.js?v=28') && indexHtml.includes('app.js?v=28') && indexHtml.includes('sw.js?v=28'));
-assert.ok(indexHtml.includes('data/books-index.js?v=28') && sw.includes('./data/books-index.js?v=28'));
+assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v30'"));
+assert.ok(indexHtml.includes('style.css?v=30') && indexHtml.includes('core.js?v=30') && indexHtml.includes('app.js?v=30') && indexHtml.includes('sw.js?v=30'));
+assert.ok(indexHtml.includes('data/books-index.js?v=30') && sw.includes('./data/books-index.js?v=30'));
+assert.ok(!indexHtml.includes('?v=29') && !sw.includes('?v=29') && !sw.includes('shell-v29'));
+assert.ok(!indexHtml.includes('?v=28') && !sw.includes('?v=28') && !sw.includes('shell-v28'));
 assert.ok(!indexHtml.includes('?v=27') && !sw.includes('?v=27') && !sw.includes('shell-v27'));
 assert.ok(!indexHtml.includes('?v=26') && !sw.includes('?v=26') && !sw.includes('shell-v26'));
 assert.ok(!indexHtml.includes('?v=25') && !sw.includes('?v=25') && !sw.includes('shell-v25'));
 assert.ok(!indexHtml.includes('?v=24') && !sw.includes('?v=24') && !sw.includes('shell-v24'));
-assert.ok(sw.includes('./data/book-ielts.js') && sw.includes('./data/book-kaoyan.js'));
-assert.ok(indexHtml.includes('data/example-zh.js?v=22') && indexHtml.includes('data/t2s.js?v=22'));
-assert.ok(sw.includes('example-zh.js?v=22') && sw.includes('t2s.js?v=22') && sw.includes('logo-doubao-2048.png?v=22'));
+assert.ok(sw.includes('./data/book-ielts.js') && sw.includes('./data/book-kaoyan.js') && sw.includes('./data/book-anatomy.js'));
+assert.ok(indexHtml.includes('data/example-zh.js?v=30') && indexHtml.includes('data/t2s.js?v=22'));
+assert.ok(sw.includes('example-zh.js?v=30') && sw.includes('t2s.js?v=22') && sw.includes('logo-doubao-2048.png?v=22'));
 assert.ok(indexHtml.includes('install-v18/apple-180.png?v=18') && sw.includes('install-v18/icon-512.png?v=18') && sw.includes('manifest.webmanifest?v=18'));
 assert.ok(!indexHtml.includes('?v=23') && !sw.includes('?v=23') && !sw.includes('shell-v23'));
 const appJs = fs.readFileSync(nodePath.join(__dirname, '../app.js'), 'utf8');

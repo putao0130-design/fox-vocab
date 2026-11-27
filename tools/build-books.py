@@ -13,6 +13,7 @@
 原 v1 的 359 个词（data/original-words.json，原创例句）放在两本雅思托福词书最前面，释义/音标用 ECDICT 校正。
 雅思专项只收 ECDICT 标签含 ielts 的词；其中也出现在这 359 词里的，原例句放在该词条最前。
 考研英语按 KyleBing 考研顺序词表去重保序，释义与英式音标取 ECDICT，没有释义或词性的词跳过。
+解剖学基础词汇（data/book-anatomy.js）是 Ariel 自编词表，不从 ECDICT 清洗。重新生成其它词书时原样读回并写回，音标和拼写保持源表，不改成美式。
 例句的中文译文在 data/example-zh.js，按英文原句索引，不写进词书文件。
 """
 import csv, json, re, sys, os
@@ -21,6 +22,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 POS_RE = re.compile(r'^(n|v|vt|vi|adj|a|adv|ad|prep|conj|pron|num|art|int|interj|aux|abbr|pl|s)\.\s*', re.I)
 POS_MAP = {'a': 'adj', 'ad': 'adv', 'vt': 'v', 'vi': 'v', 'interj': 'int', 's': 'n', 'pl': 'n'}
 LEGACY_SOURCE = 'ECDICT(MIT) + KyleBing/english-vocabulary(BSD-3)'
+ANATOMY_SOURCE = 'Ariel 自编《解剖学基础词汇》，英式拼写与音标按源表原样保留'
 ecd = {}
 kb = []
 kb_set = set()
@@ -148,6 +150,23 @@ def load(ecd_path, toefl_path):
     kb_set = {w for w in kb if w in ecd}
     orig = json.load(open(os.path.join(ROOT, 'data/original-words.json'), encoding='utf-8'))
 
+def load_shipped_book(fn):
+    """读回已发行的 window.__registerBook 词书。解剖学基础词汇不经 clean()/ipa()。"""
+    path = os.path.join(ROOT, fn)
+    if not os.path.isfile(path):
+        return None
+    text = open(path, encoding='utf-8').read()
+    marker = 'window.__registerBook('
+    start = text.find(marker)
+    if start < 0:
+        raise SystemExit('词书文件缺少 __registerBook: ' + fn)
+    payload = text[start + len(marker):].strip()
+    if payload.endswith(';'):
+        payload = payload[:-1].rstrip()
+    if not payload.endswith(')'):
+        raise SystemExit('词书文件结尾异常: ' + fn)
+    return json.loads(payload[:-1])
+
 def write_books(books):
     index = []
     for bid, name, desc, words, source in books:
@@ -182,6 +201,16 @@ def generate(ecd_path, toefl_path, kaoyan_path):
         ('ielts', '雅思专项', 'ECDICT 中标签含 ielts 的词。若该词也在原创例句词表里，原例句放在该词条最前。', ielts_book, 'ECDICT(MIT)'),
         ('kaoyan', '考研英语', 'KyleBing 考研顺序词表，释义与英式音标取自 ECDICT。没有释义或词性的词不收录。', kaoyan_book, 'KyleBing/english-vocabulary(BSD-3) 词表 + ECDICT(MIT) 释义与音标'),
     ]
+    anatomy = load_shipped_book('data/book-anatomy.js')
+    if not anatomy or anatomy.get('id') != 'anatomy' or len(anatomy.get('words') or []) != 888:
+        raise SystemExit('缺少原样保留的解剖学基础词汇（data/book-anatomy.js，888 条）')
+    by_word = {w['word']: w for w in anatomy['words']}
+    muller = by_word.get('Müllerian duct')
+    if not muller or 'ü' not in muller['word'] or muller.get('ipa') != '/mjuːˈlɪəriən dʌkt/' or muller.get('pos') != 'n.':
+        raise SystemExit('Müllerian duct 的拼写或音标被改动')
+    if by_word.get('Cretaceous', {}).get('pos') != 'adj./n.' or by_word.get('Jurassic', {}).get('pos') != 'adj./n.':
+        raise SystemExit('Cretaceous / Jurassic 的词性必须保持 adj./n.')
+    books.append((anatomy['id'], anatomy['name'], anatomy['description'], anatomy['words'], ANATOMY_SOURCE))
     index = write_books(books)
     overlap = sum(1 for e in ielts_book if e['word'] in orig_by)
     print({b['id']: b['count'] for b in index}, 'original words with ECDICT-corrected meaning:', len(corrected), 'missing from ECDICT:', [o['word'] for o in orig if o['word'] not in ecd], 'ielts with original example:', overlap, 'kaoyan source entries:', len(ky))

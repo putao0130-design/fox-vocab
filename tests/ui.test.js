@@ -141,6 +141,7 @@ function passFollow(w) {
   assert.ok(txt(w).includes('雅思托福全部词') && txt(w).includes('12883 词'), 'full book on the picker');
   assert.ok(txt(w).includes('雅思专项') && txt(w).includes('4958 词'), 'ielts book on the picker');
   assert.ok(txt(w).includes('考研英语') && txt(w).includes('5005 词'), 'kaoyan book on the picker');
+  assert.ok(txt(w).includes('解剖学基础词汇') && txt(w).includes('888 词'), 'anatomy book on the picker');
   q(w, '#bname').value = '旅游';
   q(w, '#bpaste').value = 'apple\t苹果\nbanana 香蕉\norange';
   q(w, '#bcreate').click();
@@ -984,6 +985,28 @@ function passFollow(w) {
   await new Promise(r => setTimeout(r, 40));
   assert.ok([...w.document.querySelectorAll('.toast')].some(t => t.textContent.includes('已经学过了')));
   assert.ok(!appSrc.includes('剑桥真题') && !appSrc.includes('官方真题'));
+
+  store = {}; loads = []; w = await boot();
+  w.__go('settings'); q(w, '#bk').value = 'anatomy'; q(w, '#sv').click();
+  await new Promise(r => setTimeout(r, 30));
+  assert.strictEqual(w.__state().bookId, 'anatomy');
+  assert.ok(loads.includes('data/book-anatomy.js'), 'anatomy book loads on its own');
+  w.__go('words');
+  assert.ok(txt(w).includes('共 888 词'), txt(w));
+  const findWord = (qtext) => { const input = q(w, '#q'); input.value = qtext; input.dispatchEvent(new w.Event('input', { bubbles: true })); return txt(w); };
+  let hit = findWord('müller');
+  assert.ok(hit.includes('Müllerian duct') && hit.includes('/mjuːˈlɪəriən dʌkt/') && hit.includes('副中肾管'), hit);
+  hit = findWord('cretaceous');
+  assert.ok(hit.includes('Cretaceous') && hit.includes('adj./n.') && hit.includes('/krɪˈteɪʃəs/'), hit);
+  hit = findWord('jurassic');
+  assert.ok(hit.includes('Jurassic') && hit.includes('adj./n.') && hit.includes('/dʒʊˈræsɪk/'), hit);
+  w.__go('learn');
+  assert.strictEqual(q(w, '[data-follow]').dataset.follow, 'anterior');
+  passFollow(w);
+  assert.strictEqual(q(w, '.word').textContent, 'anterior');
+  assert.ok(txt(w).includes('/ænˈtɪəriər/'));
+  q(w, '#show').click();
+  assert.ok(txt(w).includes('前面的') && txt(w).includes('The heart lies anterior to the spine.') && txt(w).includes('心脏位于脊柱的前方'));
 
   console.log('UI tests passed');
 })().catch(e => { console.error(e); process.exit(1); });
