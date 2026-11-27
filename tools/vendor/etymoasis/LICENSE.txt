@@ -1,0 +1,27 @@
+Etymoasis word data
+===================
+
+Files: /data/etymoasis-data.json (download), and the same data in the site's pages and scripts:
+Latin and Greek roots, prefixes, suffixes, assimilation examples, eponyms, doublets and word
+origin myths.
+
+Licence: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Attribution: Etymoasis (https://etymoasis.me/). The meanings, origins and examples were written for
+Etymoasis and checked against, and in part derived from, Wiktionary (https://en.wiktionary.org/),
+whose text is by Wiktionary contributors under CC BY-SA 4.0. Every entry links the Wiktionary page it
+was checked against; the edit history of each page lists its authors.
+
+You may share and adapt the data, including commercially, if you give appropriate credit (for
+example "Etymoasis, data from Wiktionary contributors, CC BY-SA 4.0"), link to the licence, say if you
+made changes, and release what you build from it under the same licence.
+
+The data is provided as is, without warranty. Word origins are often uncertain; check the linked
+sources before relying on an entry.
+
+Not covered by this licence:
+- /data/english-words.txt, a list of everyday English words from SCOWL (Spell Checker Oriented Word
+  Lists), Copyright 2000-2016 by Kevin Atkinson, used by the root breaker to recognise whole English
+  words. Its own notice is in /data/LICENSE-SCOWL.txt.
+- The site's code, design and fonts.

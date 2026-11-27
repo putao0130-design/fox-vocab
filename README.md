@@ -10,4 +10,6 @@
 
 测试：`node tests/core.test.js`；`NODE_PATH=<含 jsdom 的 node_modules> node tests/ui.test.js`；`python3 tests/build-books.test.py`
 
+新词卡和复习卡在「查看释义」/翻开之后，若能用开放数据对上，会显示词根词缀（对不上则不显示）。数据来自 Etymoasis（源自维基词典贡献者，CC BY-SA 4.0），构建脚本是 `tools/build-etymology.py`。
+
 第三方许可见 `LICENSES/THIRD_PARTY_NOTICES.md`。

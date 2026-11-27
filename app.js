@@ -628,8 +628,26 @@
     addSentenceWord(tok.dataset.w, tok);
   });
 
+
+  function etymologyBlock(word) {
+    const ev = C.etymologyOf(word);
+    if (!ev || !ev.parts || !ev.parts.length) return '';
+    const chain = ev.parts.map(p => {
+      const form = esc(p.display || p.form);
+      return p.kind === 'root' ? `<b>${form}</b>` : form;
+    }).join('<span class="etymon-plus">+</span>');
+    const items = ev.parts.map(p => {
+      const gloss = p.meaningZh || p.meaning || '';
+      const lang = p.langZh || '';
+      return `<li><i>${esc(p.label)}</i> ${esc(gloss)}${lang ? `<span class="etymon-lang">${esc(lang)}</span>` : ''}</li>`;
+    }).join('');
+    const src = ev.attribution || 'Etymoasis，数据来自维基词典贡献者，CC BY-SA 4.0';
+    const href = ev.source || 'https://etymoasis.me/';
+    return `<div class="etymon"><div class="etymon-title">词根词缀</div><div class="etymon-chain">${chain}</div><ul class="etymon-list">${items}</ul><p class="etymon-src">来源：<a href="${esc(href)}" target="_blank" rel="noopener">${esc(src)}</a></p></div>`;
+  }
+
   function detail(w) {
-    return `<div class="detail"><div class="dhead"><b>${esc(w.word)}</b> <span class="ipa">${esc(w.ipa)}</span> ${sayBtn(w.word)}</div><div class="dmean"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>` + exampleBlocks(w, true) + '</div>';
+    return `<div class="detail"><div class="dhead"><b>${esc(w.word)}</b> <span class="ipa">${esc(w.ipa)}</span> ${sayBtn(w.word)}</div><div class="dmean"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>` + etymologyBlock(w.word) + exampleBlocks(w, true) + '</div>';
   }
   function gradeButtons(card) {
     const p = C.preview(card, now());
@@ -1142,7 +1160,7 @@
     auto(w.word);
     $app.querySelector('#show').onclick = () => {
       flash($app.querySelector('#qc'), 'flip');
-      $app.querySelector('#reveal').innerHTML = `<div class="dmean big"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>${exampleBlocks(w, true)}
+      $app.querySelector('#reveal').innerHTML = `<div class="dmean big"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>${etymologyBlock(w.word)}${exampleBlocks(w, true)}
       <div class="hint center">你对这个词的熟悉程度？</div>${gradeButtons(null)}
       <button class="ghost block" id="known">😎 太熟了，直接标为掌握</button>`;
       const add = (rating, known) => {

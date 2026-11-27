@@ -6,6 +6,7 @@
 | [KyleBing/english-vocabulary](https://github.com/KyleBing/english-vocabulary) © 2022-2026 KyleBing | 托福顺序词表 `json/6-托福-顺序.json`；考研顺序词表 `json/5-考研-顺序.json`（README 记 9602 条，词书按该顺序去重） | BSD-3-Clause | english-vocabulary-LICENSE.txt |
 | [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) v6.0.0 © Open Spaced Repetition | FSRS 记忆算法（vendor/ts-fsrs.umd.js） | MIT | ts-fsrs-LICENSE.txt |
 | [OpenCC](https://github.com/BYVoid/OpenCC) © OpenCC contributors | 在线释义的繁体转简体字符表（data/t2s.js，源自 TSCharacters） | Apache-2.0 | — |
+| [Etymoasis](https://etymoasis.me/) word data，源自 [Wiktionary](https://en.wiktionary.org/) 贡献者 | 学习卡翻开后的词根词缀（`data/etymology.js`，由 `tools/build-etymology.py` 从 `tools/vendor/etymoasis` 生成；中文释义为改编） | CC BY-SA 4.0 | ETYMOASIS-LICENSE.txt |
 | [Wiktionary](https://en.wiktionary.org/) © 维基词典贡献者 | 词书未收录的词，页面运行时查询英文维基词典的中文释义 | CC BY-SA 4.0 / GFDL | — |
 | Inria Serif © 2017 The Inria Serif Project Authors；Noto Sans SC © 2014-2021 Adobe；Noto Serif SC © 2012 Google | 每日金句卡的西文与中文（按金句子集） | SIL OFL 1.1 | assets/fonts/OFL.txt |
 | Wikimedia Commons 风景：JaredMcKenzie、Z3lvs、Romainbehar | 每日金句卡背景（CC0 原图，长边 2160） | CC0 1.0 | assets/landscapes/SOURCES.md |
@@ -13,6 +14,8 @@
 雅思专项的词表和释义都来自 ECDICT。考研英语只用 KyleBing 的 `json/5-考研-顺序.json` 决定词和顺序，释义与音标用 ECDICT；ECDICT 里没有释义或没有词性的词不写入这本词书。
 
 《解剖学基础词汇》（`data/book-anatomy.js`，888 词）是 Ariel 自编词表，内容为人体基础、恐龙专项、家畜、比较解剖、家禽、扬子鳄。英式拼写与音标按源表原样收录。它不是 ECDICT 或 KyleBing 词表，不是剑桥考试词表，也不是新东方或不背单词的商用词书。
+
+学习卡在「查看释义」之后展示的词根词缀来自 Etymoasis 的开放词数据（源自维基词典贡献者，CC BY-SA 4.0）。本项目收录的裁剪版数据与中文释义改编同样以 CC BY-SA 4.0 授权，见 `LICENSES/ETYMOASIS-LICENSE.txt`。署名示例：Etymoasis，数据来自维基词典贡献者，CC BY-SA 4.0。未使用 Etymoasis 网站自己的代码、设计和字体。对不上的词不显示切分，也不编造词根。
 
 发音音频在播放时从有道词典 (dict.youdao.com, type=1 英音) 在线获取，不随本项目分发。有道 jsonapi 对网页 Origin 返回 403，释义不从该接口读取。
 词书未收录的词，中文释义在查询时来自英文维基词典，不随本项目分发。

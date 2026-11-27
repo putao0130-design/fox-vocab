@@ -535,6 +535,449 @@ function followView(headword, index, wrongKey) {
     return inset > 0 ? inset : 0;
   }
 
-  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, dictationMatch, learnDictationKind, followPress, followView, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom };
+  // 词根词缀：用 Etymoasis（CC BY-SA 4.0）开放数据做保守切分。匹配器为原创，不复制其网站代码。
+  // 对不上的词不展示、不编造。no-split 词一律不切。长度不足 7 的词只采数据里已核对的例词。
+  var ETYM_VOWELS = 'aeiou';
+
+  function etymologyData(data) {
+    if (data) return data;
+    var root = typeof globalThis !== 'undefined' ? globalThis : null;
+    return root && root.DOGVERB_ETYMOLOGY ? root.DOGVERB_ETYMOLOGY : null;
+  }
+
+  function foldEtymon(s) {
+    s = String(s || '').toLowerCase().trim();
+    try { s = s.normalize('NFKD').replace(/[\u0300-\u036f]/g, ''); } catch (e) {}
+    return s.replace(/[^a-z ]/g, '');
+  }
+
+  function etymonVariants(word) {
+    var w = foldEtymon(word);
+    var cands = [w, w.replace(/ /g, '')];
+    if (w.indexOf(' ') !== -1) {
+      w.split(/\s+/).forEach(function (tok) { if (tok.length >= 4) cands.push(tok); });
+    }
+    var more = [];
+    cands.forEach(function (c) {
+      if (c.slice(-3) === 'ise') more.push(c.slice(0, -3) + 'ize');
+      if (c.slice(-3) === 'ize') more.push(c.slice(0, -3) + 'ise');
+      if (c.slice(-3) === 'yse') more.push(c.slice(0, -3) + 'yze');
+      if (c.slice(-3) === 'yze') more.push(c.slice(0, -3) + 'yse');
+      if (c.slice(-7) === 'isation') more.push(c.slice(0, -7) + 'ization');
+      if (c.slice(-7) === 'ization') more.push(c.slice(0, -7) + 'isation');
+      if (c.indexOf('our') !== -1) more.push(c.replace(/our/g, 'or'));
+      if (c.length > 4 && c.slice(-2) === 're' && 'aeiou'.indexOf(c.charAt(c.length - 3)) === -1) more.push(c.slice(0, -2) + 'er');
+      if (c.indexOf('ae') !== -1) more.push(c.replace(/ae/g, 'e'));
+      if (c.indexOf('oe') !== -1) more.push(c.replace(/oe/g, 'e'));
+    });
+    var seen = Object.create(null), out = [];
+    cands.concat(more).forEach(function (x) {
+      if (x && !seen[x]) { seen[x] = 1; out.push(x); }
+    });
+    return out;
+  }
+
+  function langZhOf(lang) {
+    if (lang === 'Latin') return '拉丁';
+    if (lang === 'Greek') return '希腊';
+    return lang || '';
+  }
+
+  function displayForm(kind, form) {
+    if (kind === 'prefix') return form.slice(-1) === '-' ? form : form + '-';
+    if (kind === 'suffix') return form.charAt(0) === '-' ? form : '-' + form;
+    return form;
+  }
+
+  function peersForForm(idx, kind, form) {
+    var list = kind === 'prefix' ? idx.prefixes : kind === 'suffix' ? idx.suffixes : idx.roots;
+    var peers = [];
+    for (var i = 0; i < list.length; i++) {
+      var forms = list[i].forms || [];
+      for (var j = 0; j < forms.length; j++) {
+        if (forms[j][0] === form) { peers.push(list[i]); break; }
+      }
+    }
+    return peers;
+  }
+
+  function stripSenseTag(label) {
+    return String(label || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+  }
+
+  function toPart(e, form, idx, merge) {
+    var meaning = e.meaning, meaningZh = e.meaningZh || e.meaning, label = e.label;
+    if (merge && idx) {
+      var peers = peersForForm(idx, e.kind, form);
+      if (peers.length > 1) {
+        var meanings = [], meaningsZh = [], labels = [], seen = Object.create(null);
+        for (var i = 0; i < peers.length; i++) {
+          var p = peers[i];
+          if (p.meaning && meanings.indexOf(p.meaning) === -1) meanings.push(p.meaning);
+          var zh = p.meaningZh || p.meaning;
+          if (zh && meaningsZh.indexOf(zh) === -1) meaningsZh.push(zh);
+          var lab = stripSenseTag(p.label) || p.label;
+          if (lab && !seen[lab]) { seen[lab] = 1; labels.push(lab); }
+        }
+        meaning = meanings.join('; ');
+        meaningZh = meaningsZh.join('；');
+        if (labels.length) label = labels[0];
+      }
+    }
+    return {
+      id: e.id,
+      kind: e.kind,
+      form: form,
+      display: displayForm(e.kind, form),
+      label: label,
+      meaning: meaning,
+      meaningZh: meaningZh,
+      lang: e.lang || '',
+      langZh: langZhOf(e.lang)
+    };
+  }
+
+  function withKind(list, kind) {
+    return (list || []).map(function (e) {
+      return {
+        id: e.id,
+        kind: kind,
+        label: e.label,
+        meaning: e.meaning,
+        meaningZh: e.meaningZh,
+        lang: e.lang,
+        forms: e.forms || []
+      };
+    });
+  }
+
+  function etymologyIndex(data) {
+    if (data._dogverbIndex) return data._dogverbIndex;
+    var prefixes = withKind(data.prefixes, 'prefix');
+    var roots = withKind(data.roots, 'root');
+    var suffixes = withKind(data.suffixes, 'suffix');
+    var byId = Object.create(null);
+    prefixes.concat(roots, suffixes).forEach(function (e) { byId[e.id] = e; });
+    var noSplit = Object.create(null);
+    (data.noSplit || []).forEach(function (w) { noSplit[w] = 1; });
+    var rootIndex = Object.create(null);
+    roots.forEach(function (e) {
+      (e.forms || []).forEach(function (f) {
+        var spell = f[0];
+        if (!spell || spell.length < 3) return;
+        var key = spell.slice(0, 3);
+        (rootIndex[key] || (rootIndex[key] = [])).push({ e: e, spell: spell, nxt: f[1] || '' });
+      });
+    });
+    data._dogverbIndex = {
+      prefixes: prefixes,
+      roots: roots,
+      suffixes: suffixes,
+      byId: byId,
+      noSplit: noSplit,
+      rootIndex: rootIndex,
+      examples: data.examples || {}
+    };
+    return data._dogverbIndex;
+  }
+
+  function prefixHits(prefixes, word, at) {
+    var hits = [];
+    for (var i = 0; i < prefixes.length; i++) {
+      var e = prefixes[i], forms = e.forms || [];
+      for (var j = 0; j < forms.length; j++) {
+        var spell = forms[j][0], nxt = forms[j][1] || '';
+        if (!spell || word.slice(at, at + spell.length) !== spell) continue;
+        var end = at + spell.length;
+        if (nxt && (end >= word.length || nxt.indexOf(word.charAt(end)) === -1)) continue;
+        hits.push({ e: e, spell: spell, end: end });
+      }
+    }
+    hits.sort(function (a, b) { return b.spell.length - a.spell.length; });
+    return hits;
+  }
+
+  function suffixHits(suffixes, s) {
+    var hits = [];
+    for (var i = 0; i < suffixes.length; i++) {
+      var e = suffixes[i], forms = e.forms || [];
+      for (var j = 0; j < forms.length; j++) {
+        var spell = forms[j][0];
+        if (!spell || spell.length >= s.length) continue;
+        if (s.slice(-spell.length) !== spell) continue;
+        hits.push({ e: e, spell: spell });
+      }
+    }
+    hits.sort(function (a, b) { return b.spell.length - a.spell.length; });
+    return hits;
+  }
+
+  function rootsAt(idx, s, at) {
+    var list = idx.rootIndex[s.slice(at, at + 3)] || [];
+    var hits = [];
+    for (var i = 0; i < list.length; i++) {
+      var item = list[i];
+      if (s.slice(at, at + item.spell.length) !== item.spell) continue;
+      var end = at + item.spell.length;
+      if (item.nxt && end < s.length && item.nxt.indexOf(s.charAt(end)) === -1) continue;
+      hits.push({ e: item.e, spell: item.spell, end: end });
+    }
+    hits.sort(function (a, b) { return b.spell.length - a.spell.length; });
+    return hits;
+  }
+
+  function suffixesFrom(idx, s) {
+    var out = [{ rest: s, sufs: [] }];
+    var hits = suffixHits(idx.suffixes, s);
+    for (var i = 0; i < hits.length; i++) {
+      var h = hits[i];
+      if (h.spell.length === 1 && s.length < 8) continue;
+      var rest = s.slice(0, s.length - h.spell.length);
+      if (!rest) continue;
+      out.push({ rest: rest, sufs: [h] });
+      var hits2 = suffixHits(idx.suffixes, rest);
+      for (var k = 0; k < hits2.length; k++) {
+        var h2 = hits2[k];
+        if (h2.spell.length === 1) continue;
+        var rest2 = rest.slice(0, rest.length - h2.spell.length);
+        if (rest2) out.push({ rest: rest2, sufs: [h2, h] });
+      }
+    }
+    return out;
+  }
+
+  function isVowel(ch) { return ETYM_VOWELS.indexOf(ch) !== -1; }
+
+  function rootsCover(idx, s) {
+    var found = [];
+    function push(parts, end) {
+      if (end === s.length) found.push(parts);
+    }
+    function extendFrom(parts, at) {
+      var hits = rootsAt(idx, s, at);
+      for (var i = 0; i < hits.length; i++) {
+        var h = hits[i];
+        var next = parts.concat([{ e: h.e, spell: h.spell }]);
+        push(next, h.end);
+        if (h.end === s.length - 1 && isVowel(s.charAt(h.end))) {
+          push(next.concat([{ e: 'vowel', spell: s.charAt(h.end) }]), s.length);
+        }
+        if (h.end < s.length && isVowel(s.charAt(h.end))) {
+          var afterV = rootsAt(idx, s, h.end + 1);
+          for (var j = 0; j < afterV.length; j++) {
+            var h2 = afterV[j];
+            var two = next.concat([{ e: 'vowel', spell: s.charAt(h.end) }, { e: h2.e, spell: h2.spell }]);
+            push(two, h2.end);
+            if (h2.end === s.length - 1 && isVowel(s.charAt(h2.end))) {
+              push(two.concat([{ e: 'vowel', spell: s.charAt(h2.end) }]), s.length);
+            }
+          }
+        }
+        var direct = rootsAt(idx, s, h.end);
+        for (var d = 0; d < direct.length; d++) {
+          var hd = direct[d];
+          push(next.concat([{ e: hd.e, spell: hd.spell }]), hd.end);
+        }
+      }
+    }
+    extendFrom([], 0);
+    if (s && isVowel(s.charAt(0))) extendFrom([{ e: 'vowel', spell: s.charAt(0) }], 1);
+    return found;
+  }
+
+  function patternOk(parts) {
+    var roots = [], affixes = [], i;
+    for (i = 0; i < parts.length; i++) {
+      if (parts[i].kind === 'root') roots.push(parts[i]);
+      else affixes.push(parts[i]);
+    }
+    if (!roots.length) return false;
+    for (i = 0; i < roots.length; i++) if (roots[i].form.length < 3) return false;
+    if (roots.length >= 2) {
+      for (i = 0; i < roots.length; i++) if (roots[i].form.length < 4) return false;
+    }
+    var weak = 0, strong = 0, hasPrefix2 = false, hasSuffix4 = false;
+    for (i = 0; i < affixes.length; i++) {
+      var n = affixes[i].form.length;
+      if (n <= 2) weak++;
+      if (n >= 3) strong++;
+      if (affixes[i].kind === 'prefix' && n >= 2) hasPrefix2 = true;
+      if (n >= 4) hasSuffix4 = true;
+    }
+    var minRoot = roots[0].form.length;
+    for (i = 1; i < roots.length; i++) if (roots[i].form.length < minRoot) minRoot = roots[i].form.length;
+    if (minRoot === 3 && !hasPrefix2 && !hasSuffix4) return false;
+    if (weak >= 2 && !strong) return false;
+    return true;
+  }
+
+  function greedyPattern(idx, word) {
+    if (word.length < 7) return null;
+    var best = null, bestScore = null;
+    var prefixOpts = [{ pos: 0, pfx: [] }];
+    var hits = prefixHits(idx.prefixes, word, 0);
+    for (var i = 0; i < hits.length; i++) {
+      var h = hits[i];
+      if (h.spell.length === 1 && word.length < 8) continue;
+      prefixOpts.push({ pos: h.end, pfx: [h] });
+      var hits2 = prefixHits(idx.prefixes, word, h.end);
+      for (var k = 0; k < hits2.length; k++) {
+        var h2 = hits2[k];
+        if (h2.spell.length < 2) continue;
+        prefixOpts.push({ pos: h2.end, pfx: [h, h2] });
+      }
+    }
+    for (var p = 0; p < prefixOpts.length; p++) {
+      var opt = prefixOpts[p];
+      var mid = word.slice(opt.pos);
+      if (!mid) continue;
+      var sufOpts = suffixesFrom(idx, mid);
+      for (var s = 0; s < sufOpts.length; s++) {
+        var so = sufOpts[s];
+        if (so.rest.length < 3) continue;
+        var covers = rootsCover(idx, so.rest);
+        for (var r = 0; r < covers.length; r++) {
+          var roots = covers[r];
+          var built = '';
+          var raw = opt.pfx.concat(roots, so.sufs);
+          for (var b = 0; b < raw.length; b++) built += raw[b].spell;
+          if (built !== word) continue;
+          var parts = [];
+          for (var t = 0; t < raw.length; t++) {
+            if (raw[t].e === 'vowel') continue;
+            parts.push(toPart(raw[t].e, raw[t].spell, idx, true));
+          }
+          if (!patternOk(parts)) continue;
+          var letters = 0;
+          for (var L = 0; L < parts.length; L++) letters += parts[L].form.length;
+          var score = letters * 10 - parts.length;
+          if (bestScore === null || score > bestScore) {
+            bestScore = score;
+            best = { word: word, checked: false, parts: parts };
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  function placeExample(idx, word) {
+    var ids = idx.examples[word];
+    if (!ids || !ids.length) return null;
+    var placed = [];
+    var seen = Object.create(null);
+    for (var i = 0; i < ids.length; i++) {
+      var e = idx.byId[ids[i]];
+      if (!e || seen[e.id]) continue;
+      seen[e.id] = 1;
+      var best = null, forms = e.forms || [], f, spell, nxt, pos;
+      if (e.kind === 'prefix') {
+        for (f = 0; f < forms.length; f++) {
+          spell = forms[f][0]; nxt = forms[f][1] || '';
+          if (word.slice(0, spell.length) === spell && (!nxt || (spell.length < word.length && nxt.indexOf(word.charAt(spell.length)) !== -1))) {
+            best = { start: 0, spell: spell };
+            break;
+          }
+        }
+      }
+      if (!best && e.kind === 'suffix') {
+        for (f = 0; f < forms.length; f++) {
+          spell = forms[f][0];
+          if (spell.length < word.length && word.slice(-spell.length) === spell) {
+            best = { start: word.length - spell.length, spell: spell };
+            break;
+          }
+        }
+      }
+      if (!best) {
+        var ordered = forms.slice().sort(function (a, b) { return b[0].length - a[0].length; });
+        for (f = 0; f < ordered.length; f++) {
+          spell = ordered[f][0];
+          pos = word.indexOf(spell);
+          if (pos !== -1) { best = { start: pos, spell: spell }; break; }
+        }
+      }
+      if (best) placed.push({ start: best.start, end: best.start + best.spell.length, e: e, spell: best.spell });
+    }
+    if (!placed.length) return null;
+    var onlySuffix = true;
+    for (i = 0; i < placed.length; i++) if (placed[i].e.kind !== 'suffix') onlySuffix = false;
+    if (onlySuffix && word.length < 8) return null;
+    placed.sort(function (a, b) { return a.start - b.start; });
+    return completeExample(idx, word, placed);
+  }
+
+  function completeExample(idx, word, placed) {
+    var first = placed[0], last = placed[placed.length - 1], i;
+    if (first.start > 0) {
+      var pHits = prefixHits(idx.prefixes, word, 0);
+      for (i = 0; i < pHits.length; i++) {
+        if (pHits[i].end === first.start) {
+          placed.unshift({ start: 0, end: pHits[i].end, e: pHits[i].e, spell: pHits[i].spell, filled: true });
+          break;
+        }
+      }
+    }
+    last = placed[placed.length - 1];
+    if (last.end < word.length) {
+      var gap = word.slice(last.end);
+      var suffixes = idx.suffixes;
+      var found = false;
+      for (var s = 0; s < suffixes.length && !found; s++) {
+        var forms = suffixes[s].forms || [];
+        for (var f = 0; f < forms.length; f++) {
+          if (forms[f][0] === gap) {
+            placed.push({ start: last.end, end: word.length, e: suffixes[s], spell: gap, filled: true });
+            found = true;
+            break;
+          }
+        }
+      }
+    }
+    placed.sort(function (a, b) { return a.start - b.start; });
+    var parts = [];
+    var checked = true;
+    for (i = 0; i < placed.length; i++) {
+      if (placed[i].filled) checked = false;
+      parts.push(toPart(placed[i].e, placed[i].spell, idx, !!placed[i].filled));
+    }
+    return { word: word, checked: checked, parts: parts };
+  }
+
+  function wrapEtymon(data, hit) {
+    if (!hit || !hit.parts || !hit.parts.length) return null;
+    return {
+      word: hit.word,
+      checked: !!hit.checked,
+      attribution: data.attribution || 'Etymoasis，数据来自维基词典贡献者，CC BY-SA 4.0',
+      license: data.license || 'CC BY-SA 4.0',
+      licenseUrl: data.licenseUrl || 'https://creativecommons.org/licenses/by-sa/4.0/',
+      source: data.source || 'https://etymoasis.me/',
+      parts: hit.parts
+    };
+  }
+
+  function etymologyOf(word, data) {
+    data = etymologyData(data);
+    if (!data || !word) return null;
+    var idx = etymologyIndex(data);
+    var vars = etymonVariants(word);
+    var i, w, hit;
+    for (i = 0; i < vars.length; i++) {
+      w = vars[i];
+      if (idx.noSplit[w]) return null;
+      hit = placeExample(idx, w);
+      if (hit) return wrapEtymon(data, hit);
+    }
+    for (i = 0; i < vars.length; i++) {
+      w = vars[i];
+      if (idx.noSplit[w] || w.length < 2) continue;
+      hit = greedyPattern(idx, w);
+      if (hit) return wrapEtymon(data, hit);
+    }
+    return null;
+  }
+
+  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, dictationMatch, learnDictationKind, followPress, followView, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom, etymologyOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VocabCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
