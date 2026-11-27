@@ -978,6 +978,68 @@ function followView(headword, index, wrongKey) {
     return null;
   }
 
-  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, dictationMatch, learnDictationKind, followPress, followView, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom, etymologyOf };
+  // 高频义项结果表。没有行的词不拆、不标。排序只看 is_high_freq，然后按原来的 idx。
+  // freq_score 随表保存，不参与排序。source 只接受 manual 或 corpus。
+  function sensesTable(data) {
+    if (data) return data;
+    var g = typeof globalThis !== 'undefined' ? globalThis : root;
+    if (g && g.DOGVERB_SENSES) return g.DOGVERB_SENSES;
+    return root && root.DOGVERB_SENSES ? root.DOGVERB_SENSES : null;
+  }
+
+  function senseWord(word) {
+    return String(word || '').toLowerCase().trim();
+  }
+
+  function senseRows(data) {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.rows)) return data.rows;
+    return [];
+  }
+
+  function normalizeSense(row) {
+    if (!row || typeof row !== 'object') return null;
+    var word = senseWord(row.word);
+    var gloss = String(row.gloss == null ? '' : row.gloss).trim();
+    var idx = Number(row.idx);
+    var source = row.source === 'manual' || row.source === 'corpus' ? row.source : '';
+    if (!word || !gloss || !Number.isFinite(idx) || !source) return null;
+    var score = Number(row.freq_score);
+    return {
+      word: word,
+      pos: String(row.pos == null ? '' : row.pos),
+      idx: idx,
+      gloss: gloss,
+      is_high_freq: row.is_high_freq === true,
+      freq_score: Number.isFinite(score) ? score : 0,
+      source: source
+    };
+  }
+
+  function sortSenses(rows) {
+    return (rows || []).map(function (r, i) { return { r: r, i: i }; }).sort(function (a, b) {
+      var ah = a.r && a.r.is_high_freq === true ? 1 : 0;
+      var bh = b.r && b.r.is_high_freq === true ? 1 : 0;
+      if (ah !== bh) return bh - ah;
+      var ai = Number(a.r && a.r.idx);
+      var bi = Number(b.r && b.r.idx);
+      if (ai !== bi) return ai - bi;
+      return a.i - b.i;
+    }).map(function (x) { return x.r; });
+  }
+
+  function sensesOf(word, data) {
+    var key = senseWord(word);
+    if (!key) return [];
+    var out = [];
+    senseRows(sensesTable(data)).forEach(function (row) {
+      var n = normalizeSense(row);
+      if (n && n.word === key) out.push(n);
+    });
+    return sortSenses(out);
+  }
+
+  const api = { MIN, DAY, MASTER_DAYS, Rating, RATING_LABELS, State: F.State, V1_INTERVALS, dayKey, daysBetween, shiftDay, emptyCard, learnCard, isDue, grade, markKnown, preview, fmtInterval, intervalDays, migrateCard, migrate, audioUrl, pickVoice, streak, monthGrid, dailyQuote, findForm, makeCloze, hasExample, norm, answerMatch, dictationMatch, learnDictationKind, followPress, followView, checkSentence, foxLevel, foxAge, foxStage, foxMood, applyHunger, feed, shuffle, HUNGER_PER_DAY, wordCandidates, findInLists, maskExampleZh, revealExampleZh, lemmaHint, parseYoudaoEntry, parseWiktionaryEntry, classifyLookupError, lookupFailureMessage, imeBottom, etymologyOf, sensesOf, sortSenses };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VocabCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

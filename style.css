@@ -139,6 +139,13 @@ textarea{margin-top:12px;resize:vertical}
 .slots{display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin:8px 0}.slots i{width:16px;height:3px;background:var(--line);border-radius:2px}
 .blur{margin:18px 0 0;color:var(--mute);filter:blur(1px);letter-spacing:2px}
 .dmean{font-size:17px;margin:6px 0}.dmean.big{font-size:22px;font-weight:700;margin-top:18px}
+.senses{list-style:none;margin:8px 0 0;padding:0;text-align:left}
+.senses.big{margin-top:18px}
+.sense{font-size:17px;line-height:1.45;margin:6px 0;padding:2px 0 2px 10px;border-left:3px solid transparent;color:var(--ink);font-weight:400}
+.senses.big .sense{font-size:22px}
+.sense-high{color:#FF0000;font-weight:700;border-left:3px solid #FF0000}
+.sense-high .tag,.sense-high .sense-gloss,.sense-high .sense-mark{color:#FF0000;font-weight:700}
+.sense-mark{display:inline-block;margin-left:8px;font-size:12px;letter-spacing:.04em;vertical-align:2px}
 .ex{font-size:15px;color:var(--mute);text-align:left;border-left:3px solid var(--acc2);padding:2px 10px;margin:8px 0}
 .detail{text-align:left;background:var(--bg);border-radius:16px;padding:12px 14px;margin-top:12px}
 .dhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.dhead b{font-size:20px}

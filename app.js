@@ -646,8 +646,22 @@
     return `<div class="etymon"><div class="etymon-title">词根词缀</div><div class="etymon-chain">${chain}</div><ul class="etymon-list">${items}</ul><p class="etymon-src">来源：<a href="${esc(href)}" target="_blank" rel="noopener">${esc(src)}</a></p></div>`;
   }
 
-  function detail(w) {
-    return `<div class="detail"><div class="dhead"><b>${esc(w.word)}</b> <span class="ipa">${esc(w.ipa)}</span> ${sayBtn(w.word)}</div><div class="dmean"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>` + etymologyBlock(w.word) + exampleBlocks(w, true) + '</div>';
+  function meaningLine(w, big) {
+    return `<div class="dmean${big ? ' big' : ''}"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>`;
+  }
+  function meaningBlock(w, big) {
+    const rows = C.sensesOf(w.word);
+    if (!rows.length) return meaningLine(w, big);
+    const items = rows.map(r => {
+      const high = r.is_high_freq === true;
+      const mark = high ? '<span class="sense-mark">高频义项</span>' : '';
+      return `<li class="sense${high ? ' sense-high' : ''}"><span class="tag">${esc(r.pos)}</span> <span class="sense-gloss">${esc(r.gloss)}</span>${mark}</li>`;
+    }).join('');
+    return `<ul class="senses${big ? ' big' : ''}">${items}</ul>`;
+  }
+  function detail(w, mode) {
+    const gloss = mode === 'line' ? meaningLine(w, false) : meaningBlock(w, false);
+    return `<div class="detail"><div class="dhead"><b>${esc(w.word)}</b> <span class="ipa">${esc(w.ipa)}</span> ${sayBtn(w.word)}</div>` + gloss + etymologyBlock(w.word) + exampleBlocks(w, true) + '</div>';
   }
   function gradeButtons(card) {
     const p = C.preview(card, now());
@@ -680,7 +694,8 @@
       if (SESS) { SESS.done++; if (ok) SESS.correct++; }
       flash(qc, ok ? 'good' : 'bad');
       if (q.zhRaw) { const z = container.querySelector('.prompt .exzh'); if (z) z.textContent = C.revealExampleZh(q.zhRaw); }
-      fb.innerHTML = (pre || '') + `<div class="verdict ${ok ? 'ok' : 'err'}"><b>${q.flash ? C.RATING_LABELS[rating] : ok ? '✔ 正确' : '✘ 再接再厉'}</b> <span>${esc(m)}</span></div>${detail(w)}<button class="primary block" id="nx">下一个 →<kbd>Enter</kbd></button>`;
+      const glossMode = (type === 'dictation' || type === 'meaningType') ? 'line' : 'senses';
+      fb.innerHTML = (pre || '') + `<div class="verdict ${ok ? 'ok' : 'err'}"><b>${q.flash ? C.RATING_LABELS[rating] : ok ? '✔ 正确' : '✘ 再接再厉'}</b> <span>${esc(m)}</span></div>${detail(w, glossMode)}<button class="primary block" id="nx">下一个 →<kbd>Enter</kbd></button>`;
       const b = fb.querySelector('#nx'); b.onclick = next; try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); }
     }
     if (q.flash) {
@@ -1160,7 +1175,7 @@
     auto(w.word);
     $app.querySelector('#show').onclick = () => {
       flash($app.querySelector('#qc'), 'flip');
-      $app.querySelector('#reveal').innerHTML = `<div class="dmean big"><span class="tag">${esc(w.pos)}</span> ${esc(w.meaning)}</div>${etymologyBlock(w.word)}${exampleBlocks(w, true)}
+      $app.querySelector('#reveal').innerHTML = `${meaningBlock(w, true)}${etymologyBlock(w.word)}${exampleBlocks(w, true)}
       <div class="hint center">你对这个词的熟悉程度？</div>${gradeButtons(null)}
       <button class="ghost block" id="known">😎 太熟了，直接标为掌握</button>`;
       const add = (rating, known) => {

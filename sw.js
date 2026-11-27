@@ -1,16 +1,17 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=31 on this preview branch only: study-card roots and affixes after reveal, from Etymoasis (CC BY-SA 4.0). Live main stays at v=30 until this change ships. Fetch handling is unchanged. */
-const CACHE = 'dog-verb-shell-v31';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Shell query is v=32 on this preview branch only: high-frequency sense list on the study card. Live main stays at v=31 until this change ships. Fetch handling is unchanged. */
+const CACHE = 'dog-verb-shell-v32';
 const SHELL = [
   './index.html',
-  './style.css?v=31',
-  './app.js?v=31',
-  './core.js?v=31',
+  './style.css?v=32',
+  './app.js?v=32',
+  './core.js?v=32',
   './data/books-index.js?v=31',
   './data/book-ielts.js',
   './data/book-kaoyan.js',
   './data/book-anatomy.js',
   './data/example-zh.js?v=31',
   './data/etymology.js?v=31',
+  './data/senses.js?v=32',
   './data/t2s.js?v=22',
   './vendor/ts-fsrs.umd.js',
   './assets/dog-mascot.png?v=15',
