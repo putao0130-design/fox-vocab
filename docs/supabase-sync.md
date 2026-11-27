@@ -39,6 +39,9 @@
 
 脚本会建立 `public.dogverb_kv`、开启并强制 RLS、收回 `anon` / `authenticated` / `PUBLIC` 的表权限、并把 `dogverb_commit_tx` 的 `EXECUTE` 只授给 `service_role`。
 
+如果后来 `challenge` 返回 `{"error":"server-error","code":"42702"}`，请再在同一项目的 SQL Editor 里跑 `supabase/migrations/002_dogverb_commit_tx_ambiguous.sql` 全文。不要重跑 `001_dogverb_sync.sql`。002 会把函数里与列名冲突的变量改掉，并保持 `anon` / `authenticated` 没有 EXECUTE 权限。
+
+
 ## 2. 确认 Data API 自动授权是关的
 
 打开 **Project Settings → Data API**（有的界面在 **Project Settings → API**）。

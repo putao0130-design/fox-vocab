@@ -185,6 +185,14 @@ async function runProtocol(db) {
   assert.ok(sql.includes('automatic grants') || sql.includes('automatic grants OFF') || sql.toLowerCase().includes('auto-grant') || sql.includes('自动授予') || sql.includes('automatic grants'));
   assert.ok(!/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/.test(sql));
 
+  const sql2 = fs.readFileSync(path.join(ROOT, 'supabase/migrations/002_dogverb_commit_tx_ambiguous.sql'), 'utf8');
+  assert.ok(sql2.includes('v_coll'));
+  assert.ok(sql2.includes('SET row_security = off'));
+  assert.ok(sql2.includes('GRANT EXECUTE ON FUNCTION public.dogverb_commit_tx(jsonb, jsonb) TO service_role'));
+  assert.ok(sql2.includes('REVOKE ALL ON FUNCTION public.dogverb_commit_tx(jsonb, jsonb) FROM anon'));
+  assert.ok(!sql2.toLowerCase().includes('grant') || !/GRANT\s+\w+\s+ON\s+TABLE\s+public\.dogverb_kv\s+TO\s+anon/i.test(sql2));
+  assert.ok(!/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/.test(sql2));
+
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const config = fs.readFileSync(path.join(ROOT, 'sync-config.js'), 'utf8');
   assert.ok(/anonKey:\s*['"]eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}['"]/.test(config));
