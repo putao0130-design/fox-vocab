@@ -33,7 +33,7 @@
   <button data-view="practice"><span class="ni">🎯</span><span>练习</span></button>
   <button data-view="pet"><span class="ni">🐶</span><span>小狗</span></button>
   <button data-view="me"><span class="ni">👤</span><span>我的</span></button>
-  <div class="navfoot">进度自动保存在本浏览器。换设备前请在「我的 › 设置」导出备份。</div>
+  <div class="navfoot">进度自动保存在本浏览器。可在「我的 › 设置」开启跨设备同步，也可先导出备份。</div>
 </nav>
 <main id="app"></main>
 <script src="vendor/ts-fsrs.umd.js"></script>
@@ -43,9 +43,15 @@
 <script src="data/etymology.js?v=31"></script>
 <script src="data/senses.js?v=32"></script>
 <script src="core.js?v=32"></script>
-<script src="app.js?v=32"></script>
+<script src="sync-wire.js?v=33"></script>
+<script src="sync-client.js?v=33"></script>
+<script src="sync-prep.js?v=33"></script>
+<script src="supabase/client-adapter.js?v=33"></script>
+<script src="sync-config.js?v=33"></script>
+<script src="sync-app.js?v=33"></script>
+<script src="app.js?v=33"></script>
 <script>
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js?v=32');
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js?v=33');
 </script>
 </body>
 </html>

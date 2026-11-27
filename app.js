@@ -95,7 +95,12 @@
     return defaultState();
   }
   let S = load();
-  function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(S));
+    try {
+      if (typeof window.__dogverbAfterSave === 'function') window.__dogverbAfterSave(S);
+    } catch (e) { /* sync must not block learning */ }
+  }
   let BOOK = null;
   const book = () => BOOK;
   function bs() { const id = BOOK.id; if (!S.books[id]) S.books[id] = { cards: {}, sentences: {} }; return S.books[id]; }
@@ -201,6 +206,11 @@
   let imeQueued = false, imeTimer = 0, insetTimer = 0, kbWanted = false, heldIme = 0, imePressHold = 0;
   let paintedOpen = false, paintedInset = 0, paintedDock = '0px';
   function narrowScreen() { return !!(window.matchMedia && window.matchMedia('(max-width: 759px)').matches); }
+  function fieldBusy() {
+    const el = document.activeElement;
+    if (!el || el.nodeType !== 1) return false;
+    return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
+  }
   function typingEl(el) {
     if (!el || el.nodeType !== 1) return false;
     // 只认题目卡片里的填空框和造句框。粘贴词表、搜索、指定单词、设置数字框都不算。
@@ -1536,6 +1546,7 @@
       <div class="card"><div class="ctitle">备份</div><div class="hint">进度保存在本浏览器中。可导出 JSON 文件备份，或在另一台设备导入（也可导入 v1 版导出的文件）。</div>
       <div class="row"><button class="ghost" id="ex">导出进度</button><label><button class="ghost" id="imb">导入进度</button><input type="file" id="im" accept=".json,application/json" style="display:none"></label></div></div>
       <div class="card"><div class="ctitle">危险操作</div><div class="row"><button class="danger" id="rs">清空所有进度</button></div></div><div id="msg"></div>
+      <div id="sync-slot"></div>
       <div class="card muted credit">词库：<a href="https://github.com/skywind3000/ECDICT" target="_blank">ECDICT</a>（MIT）、<a href="https://github.com/KyleBing/english-vocabulary" target="_blank">KyleBing/english-vocabulary</a>（BSD-3-Clause）。《解剖学基础词汇》为 Ariel 自编词表。记忆算法：<a href="https://github.com/open-spaced-repetition/ts-fsrs" target="_blank">ts-fsrs</a>（MIT）；英音发音：有道词典在线音频，失败时用浏览器 en-GB 语音。词书未收录的词，中文释义来自英文维基词典。详见 <a href="LICENSES/THIRD_PARTY_NOTICES.md" target="_blank">第三方许可</a>。小狗形象与界面为原创。</div>`;
     $app.querySelector('#sv').onclick = () => { const n = parseInt($app.querySelector('#dn').value, 10); if (n > 0) S.settings.dailyNew = n; S.settings.autoPlay = $app.querySelector('#ap').checked; S.bookId = $app.querySelector('#bk').value; save();
       const p = go('settings'); const ok = () => { const m = $app.querySelector('#msg'); if (m) m.innerHTML = '<div class="verdict ok">已保存</div>'; }; p && p.then ? p.then(ok) : ok(); };
@@ -1543,6 +1554,7 @@
     $app.querySelector('#imb').onclick = () => $app.querySelector('#im').click();
     $app.querySelector('#im').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => importText(t)); };
     $app.querySelector('#rs').onclick = () => { if (confirm('确定清空所有学习进度和宠物数据吗？此操作不可撤销（建议先导出）。')) { S = defaultState(); save(); BOOK = null; go('home'); } };
+    if (window.DogverbAppSync) window.DogverbAppSync.mount();
   };
   function importText(t) {
     let s; try { s = C.migrate(JSON.parse(t)); } catch (err) { alert('文件格式不正确'); return false; }
@@ -1551,6 +1563,20 @@
   }
   window.__import = importText;
   window.__state = () => S;
+  window.__dogverbFieldBusy = fieldBusy;
+  window.__dogverbReadState = () => S;
+  window.__dogverbApplyRemote = function (next) {
+    if (fieldBusy()) return { deferred: true };
+    const view = document.body.dataset.view || '';
+    const studying = (view === 'learn' || view === 'review' || view === 'practice' || view === 'sentence' || view === 'capture') && document.querySelector('#inp, textarea#s, #nw');
+    if (studying) return { deferred: true };
+    const hunger = S.fox ? { hunger: S.fox.hunger, lastCheck: S.fox.lastCheck } : null;
+    S = normalize(next);
+    if (hunger && S.fox) { S.fox.hunger = hunger.hunger; S.fox.lastCheck = hunger.lastCheck; }
+    localStorage.setItem(KEY, JSON.stringify(S));
+    if (view && views[view] && view !== 'learn' && view !== 'review' && view !== 'practice' && view !== 'sentence' && view !== 'capture' && view !== 'settings') views[view]();
+    return { applied: true };
+  };
   bindIme();
   window.__ready = go((location.hash || '#home').slice(1).split('?')[0] in views ? location.hash.slice(1) : 'home');
 })();

@@ -1,10 +1,16 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Shell query is v=32 on this preview branch only: high-frequency sense list, plus Nunito and subsetted LXGW WenKai on the study card. Live main stays at v=31 until this change ships. Fetch handling is unchanged. */
-const CACHE = 'dog-verb-shell-v32';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=33 on this preview branch only: pairing-code sync client files, plus the settings hooks in app.js. Live main stays at v=32 until this change ships. Do not open production ?v=33; GitHub Pages only deploys main. Fetch handling is unchanged. */
+const CACHE = 'dog-verb-shell-v33';
 const SHELL = [
   './index.html',
   './style.css?v=32',
-  './app.js?v=32',
+  './app.js?v=33',
   './core.js?v=32',
+  './sync-wire.js?v=33',
+  './sync-client.js?v=33',
+  './sync-prep.js?v=33',
+  './supabase/client-adapter.js?v=33',
+  './sync-config.js?v=33',
+  './sync-app.js?v=33',
   './data/books-index.js?v=31',
   './data/book-ielts.js',
   './data/book-kaoyan.js',

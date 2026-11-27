@@ -1,0 +1,6 @@
+# Local metadata for the existing Free project. This file does not deploy
+# anything and does not connect GitHub. The project ref is public.
+project_id = "zkvscutsjspzuteogfet"
+
+[functions.dogverb-sync]
+verify_jwt = true
