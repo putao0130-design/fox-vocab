@@ -27,7 +27,7 @@ files.forEach(function (file) {
   if (!TEXT_EXT.has(ext) && path.basename(file) !== '.gitignore') return;
   const text = fs.readFileSync(file, 'utf8');
   const rel = path.relative(ROOT, file);
-  if (JWT.test(text)) hits.push(rel + ': jwt-like secret');
+  if (rel !== 'sync-config.js' && JWT.test(text)) hits.push(rel + ': jwt-like secret');
   if (SERVICE_ASSIGN.test(text)) hits.push(rel + ': service_role assignment');
   if (DB_URL.test(text)) hits.push(rel + ': database url with password');
   if (ENV_SECRET.test(text)) hits.push(rel + ': service role env assignment');
@@ -35,7 +35,8 @@ files.forEach(function (file) {
 assert.deepStrictEqual(hits, [], hits.join('\n'));
 
 const config = fs.readFileSync(path.join(ROOT, 'sync-config.js'), 'utf8');
-assert.ok(/anonKey:\s*''/.test(config));
+const anon = config.match(/anonKey:\s*['"](eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})['"]/);
+assert.ok(anon, 'sync-config.js must ship a public anon key');
 assert.ok(!/service_role\s*[:=]\s*['\"]/i.test(config));
 assert.ok(!/postgres(?:ql)?:\/\//i.test(config));
 

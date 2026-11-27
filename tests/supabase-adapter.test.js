@@ -187,8 +187,8 @@ async function runProtocol(db) {
 
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const config = fs.readFileSync(path.join(ROOT, 'sync-config.js'), 'utf8');
-  assert.ok(config.includes("anonKey: ''"));
-  assert.ok(config.includes('PASTE_SUPABASE_ANON_PUBLIC_KEY'));
+  assert.ok(/anonKey:\s*['"]eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}['"]/.test(config));
+  assert.ok(!config.includes('PASTE_SUPABASE_ANON_PUBLIC_KEY'));
   assert.ok(config.includes(PROJECT_URL));
   assert.ok(!/service_role\s*[:=]\s*['\"]/i.test(config));
   assert.ok(html.includes('sync-config.js?v=33'));
