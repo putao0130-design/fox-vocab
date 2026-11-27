@@ -8,7 +8,9 @@
 - 发音：英音，有道 `dictvoice?type=1`，失败时用浏览器 en-GB 语音。
 - 进度：localStorage `foxVocab.v2`（键名沿用，避免清掉旧进度）；v1 数据（`foxVocab.v1`）首次打开时自动迁移，原始数据备份在 `foxVocab.v1.backup`。宠物默认名「小狗」；若旧数据里名字仍是「小狐」，会自动改成「小狗」，自定义名字保持不变。
 
-测试：`node tests/core.test.js`；`NODE_PATH=<含 jsdom 的 node_modules> node tests/ui.test.js`；`python3 tests/build-books.test.py`
+测试：`node tests/core.test.js`；`NODE_PATH=<含 jsdom 的 node_modules> node tests/ui.test.js`；`python3 tests/build-books.test.py`；`node tests/sync-prep.test.js`；`node tests/supabase-adapter.test.js`；`node tests/sync-secrets.test.js`
+
+跨设备同步（配对码、Supabase Postgres + Edge Functions）的操作说明见 `docs/supabase-sync.md`。在 Ariel 亲口同意之前，不要合并或部署。现网 GitHub Pages 仍是 `?v=32`。
 
 新词卡和复习卡在「查看释义」/翻开之后，若能用开放数据对上，会显示词根词缀（对不上则不显示）。数据来自 Etymoasis（源自维基词典贡献者，CC BY-SA 4.0），构建脚本是 `tools/build-etymology.py`。
 
