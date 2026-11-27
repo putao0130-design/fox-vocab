@@ -6,3 +6,4 @@ supabase/functions/dogverb-sync/sync-wire.js
 supabase/functions/dogverb-sync/sync-prep.js
 supabase/functions/dogverb-sync/core.js
 supabase/functions/dogverb-sync/vendor/
+supabase/functions/dogverb-sync/bundle.js

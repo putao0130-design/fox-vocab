@@ -4,12 +4,16 @@
 // The learning space is the pairing space id, not a Supabase Auth user id.
 'use strict';
 const crypto = require('crypto');
-function load(file) {
-  try { return require('./' + file); }
-  catch (e) { return require('../../../' + file); }
+function loadWire() {
+  try { return require('./sync-wire.js'); }
+  catch (e) { return require('../../../sync-wire.js'); }
 }
-const wire = load('sync-wire.js');
-const prep = load('sync-prep.js');
+function loadPrep() {
+  try { return require('./sync-prep.js'); }
+  catch (e) { return require('../../../sync-prep.js'); }
+}
+const wire = loadWire();
+const prep = loadPrep();
 
 const ORIGIN = 'https://putao0130-design.github.io';
 const LIMITS = { submitFailPerIp: 8, submitWindowMs: 10 * 60 * 1000, confirmFailPerPair: 5, recoveryPerIp: 5, recoveryWindowMs: 60 * 60 * 1000, accessTtlMs: 5 * 60 * 1000, refreshTtlMs: 30 * 24 * 60 * 60 * 1000, pairTtlMs: 5 * 60 * 1000, nonceTtlMs: 2 * 60 * 1000 };
