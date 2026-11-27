@@ -1,14 +1,15 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=28: new-word follow-along typing, then the study card, then the same one dictation as v=27. */
-const CACHE = 'dog-verb-shell-v28';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Shell query is v=30: 解剖学基础词汇 is its own built-in book. Its example translations ship in example-zh.js?v=30. Fetch handling is unchanged. New-word flow stays follow-along, study card, one dictation. */
+const CACHE = 'dog-verb-shell-v30';
 const SHELL = [
   './index.html',
-  './style.css?v=28',
-  './app.js?v=28',
-  './core.js?v=28',
-  './data/books-index.js?v=28',
+  './style.css?v=30',
+  './app.js?v=30',
+  './core.js?v=30',
+  './data/books-index.js?v=30',
   './data/book-ielts.js',
   './data/book-kaoyan.js',
-  './data/example-zh.js?v=22',
+  './data/book-anatomy.js',
+  './data/example-zh.js?v=30',
   './data/t2s.js?v=22',
   './vendor/ts-fsrs.umd.js',
   './assets/dog-mascot.png?v=15',

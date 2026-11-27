@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """词书筛选的小样本检查。不读取完整 ECDICT。"""
-import csv, importlib.util, os, tempfile
+import csv, importlib.util, json, os, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 spec = importlib.util.spec_from_file_location('build_books', os.path.join(ROOT, 'tools/build-books.py'))
@@ -80,4 +80,17 @@ with open(path, encoding='utf-8') as f:
         if r['word'] == 'alpha': loaded = r
 os.remove(path)
 assert loaded['tag'] == 'ielts toefl' and loaded['translation'] == 'n. 阿尔法'
-print('build-books tests passed', {'core': len(core), 'full': len(full), 'ielts': names, 'kaoyan': [w['word'] for w in ordered]})
+
+anatomy = bb.load_shipped_book('data/book-anatomy.js')
+assert anatomy['id'] == 'anatomy' and anatomy['name'] == '解剖学基础词汇'
+assert len(anatomy['words']) == 888
+by_word = {w['word']: w for w in anatomy['words']}
+assert by_word['Müllerian duct']['word'] == 'Müllerian duct' and 'ü' in by_word['Müllerian duct']['word']
+assert by_word['Müllerian duct']['ipa'] == '/mjuːˈlɪəriən dʌkt/' and by_word['Müllerian duct']['pos'] == 'n.'
+assert by_word['Cretaceous']['pos'] == 'adj./n.' and by_word['Jurassic']['pos'] == 'adj./n.'
+assert '剑桥' not in anatomy['description'] and '新东方' not in anatomy['description'] and '不背' not in anatomy['description'] and '真题' not in anatomy['description']
+line = json.dumps({'id': anatomy['id'], 'name': anatomy['name'], 'description': anatomy['description'], 'words': anatomy['words']}, ensure_ascii=False, separators=(',', ':'))
+shipped = open(os.path.join(ROOT, 'data/book-anatomy.js'), encoding='utf-8').read()
+assert shipped.startswith('// 自动生成：tools/build-books.py。来源 ' + bb.ANATOMY_SOURCE + '\n')
+assert shipped.endswith('window.__registerBook(' + line + ');\n')
+print('build-books tests passed', {'core': len(core), 'full': len(full), 'ielts': names, 'kaoyan': [w['word'] for w in ordered], 'anatomy': len(anatomy['words'])})

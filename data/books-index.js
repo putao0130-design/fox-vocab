@@ -27,5 +27,12 @@ window.VOCAB_BOOK_INDEX = [
   "description": "KyleBing 考研顺序词表，释义与英式音标取自 ECDICT。没有释义或词性的词不收录。",
   "count": 5005,
   "file": "data/book-kaoyan.js"
+ },
+ {
+  "id": "anatomy",
+  "name": "解剖学基础词汇",
+  "description": "人体基础、恐龙专项、家畜、比较解剖、家禽、扬子鳄，共 888 词。英式拼写与音标。",
+  "count": 888,
+  "file": "data/book-anatomy.js"
  }
 ];
