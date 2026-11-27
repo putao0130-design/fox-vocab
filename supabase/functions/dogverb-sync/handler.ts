@@ -50,8 +50,24 @@ export async function handleRequest(req: Request) {
   if (headerOrigin) body.origin = headerOrigin;
   if (!body.ip) body.ip = clientIp(req);
 
+  // The browser call has verify_jwt, so it arrives with Authorization Bearer
+  // <anon>. Data API requests are same-origin. If that caller JWT is forwarded,
+  // PostgREST runs as anon, the 001 grants reject the write, and challenge
+  // becomes server-error. Always send the service role key, not the caller JWT.
   const client = createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: {
+      headers: {
+        Authorization: "Bearer " + serviceKey,
+        apikey: serviceKey,
+      },
+      fetch(input, init) {
+        const headers = new Headers(init && init.headers ? init.headers : undefined);
+        headers.set("Authorization", "Bearer " + serviceKey);
+        headers.set("apikey", serviceKey);
+        return fetch(input, { ...init, headers });
+      },
+    },
   });
   try {
     const result = await handleAction(createPgAdapter(client), body, {});
@@ -61,6 +77,10 @@ export async function handleRequest(req: Request) {
     const code = err && (err as { code?: string }).code;
     if (code === "pair-replay") return json({ error: "pair-replay" }, 401);
     if (code === "unauthorized") return json({ error: "unauthorized" }, 401);
-    return json({ error: "server-error" }, 500);
+    const details = err && (err as { details?: { code?: string } }).details;
+    const hint = (details && details.code) || (code && code !== "unauthorized" ? code : "") || "server-error";
+    const message = err instanceof Error ? err.message : "error";
+    console.error("dogverb-sync failed", hint, message);
+    return json({ error: "server-error", code: String(hint) }, 500);
   }
 }

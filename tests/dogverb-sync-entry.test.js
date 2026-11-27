@@ -26,6 +26,10 @@ assert.ok(handler.includes('import "./preload-fsrs.ts"'));
 assert.ok(handler.includes('from "./actions.js"'));
 assert.ok(handler.includes('from "./pg-adapter.js"'));
 assert.ok(handler.includes('npm:@supabase/supabase-js@2'));
+assert.ok(handler.includes('headers.set("Authorization", "Bearer " + serviceKey)'));
+assert.ok(handler.includes('headers.set("apikey", serviceKey)'));
+assert.ok(!/req\.headers\.get\(["']Authorization["']\)/.test(handler), 'db client must not forward the caller Authorization header');
+
 
 assert.ok(actions.includes("require('./sync-wire.js')"));
 assert.ok(actions.includes("require('./sync-prep.js')"));
