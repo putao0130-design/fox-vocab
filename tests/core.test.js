@@ -260,6 +260,8 @@ assert.ok(sw.includes('./data/book-ielts.js') && sw.includes('./data/book-kaoyan
 assert.ok(indexHtml.includes('data/example-zh.js?v=31') && indexHtml.includes('data/t2s.js?v=22'));
 assert.ok(sw.includes('example-zh.js?v=31') && sw.includes('t2s.js?v=22') && sw.includes('logo-doubao-2048.png?v=22'));
 assert.ok(indexHtml.includes('data/etymology.js?v=31') && sw.includes('etymology.js?v=31'));
+assert.ok(sw.includes('./assets/fonts/nunito-wght.woff2?v=32') && sw.includes('./assets/fonts/lxgw-wenkai-regular.woff2?v=32') && sw.includes('./assets/fonts/lxgw-wenkai-medium.woff2?v=32'));
+assert.ok(sw.includes('inria-serif-italic.woff2?v=22') && sw.includes('noto-serif-sc-regular.woff2?v=22'));
 assert.ok(indexHtml.includes('install-v18/apple-180.png?v=18') && sw.includes('install-v18/icon-512.png?v=18') && sw.includes('manifest.webmanifest?v=18'));
 assert.ok(!indexHtml.includes('?v=23') && !sw.includes('?v=23') && !sw.includes('shell-v23'));
 const appJs = fs.readFileSync(nodePath.join(__dirname, '../app.js'), 'utf8');

@@ -1,4 +1,4 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Shell query is v=32 on this preview branch only: high-frequency sense list on the study card. Live main stays at v=31 until this change ships. Fetch handling is unchanged. */
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Shell query is v=32 on this preview branch only: high-frequency sense list, plus Nunito and subsetted LXGW WenKai on the study card. Live main stays at v=31 until this change ships. Fetch handling is unchanged. */
 const CACHE = 'dog-verb-shell-v32';
 const SHELL = [
   './index.html',
@@ -22,6 +22,9 @@ const SHELL = [
   './assets/fonts/inria-serif-italic.woff2?v=22',
   './assets/fonts/noto-serif-sc-regular.woff2?v=22',
   './assets/fonts/noto-sans-sc-regular.woff2?v=22',
+  './assets/fonts/nunito-wght.woff2?v=32',
+  './assets/fonts/lxgw-wenkai-regular.woff2?v=32',
+  './assets/fonts/lxgw-wenkai-medium.woff2?v=32',
   './assets/landscapes/wallabi-beach.jpg?v=22',
   './assets/landscapes/kubota-garden-seattle.jpg?v=22',
   './assets/landscapes/lyon-riverside-terrace.jpg?v=22',

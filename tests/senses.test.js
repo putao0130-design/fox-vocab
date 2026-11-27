@@ -19,7 +19,10 @@ assert.ok(appSrc.includes('高频义项'));
 assert.ok(!/cambridge|剑桥真题|官方真题/i.test(senseSrc));
 assert.ok(!senseSrc.includes('question'));
 assert.ok(css.includes('#FF0000') && css.includes('border-left:3px solid #FF0000'));
-assert.ok(css.includes('font-weight:700') && css.includes('.sense-high'));
+assert.ok(css.includes('.sense-high{color:#FF0000;font-weight:500;'));
+assert.ok(css.includes('font-family:"LXGW WenKai","霞鶩文楷",serif'));
+assert.ok(css.includes('font-family:"Nunito",sans-serif'));
+assert.ok(!css.includes('.sense-high .sense-gloss,.sense-high .sense-mark{color:#FF0000;font-weight:700'));
 
 const ctx = { window: {}, globalThis: {} };
 vm.runInNewContext(senseSrc, ctx);
