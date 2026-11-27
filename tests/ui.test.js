@@ -11,7 +11,7 @@ async function boot(setup) {
   w.Audio = function (src) { audios.push(src); this.src = src; this.play = () => Promise.resolve(); this.pause = () => {}; };
   w.__bookLoader = file => { loads.push(file); w.eval(read(file.split('?')[0])); return Promise.resolve(); };
   if (setup) setup(w);
-  for (const f of ['vendor/ts-fsrs.umd.js', 'data/books-index.js', 'data/example-zh.js', 'data/t2s.js', 'core.js', 'app.js']) w.eval(read(f));
+  for (const f of ['vendor/ts-fsrs.umd.js', 'data/books-index.js', 'data/example-zh.js', 'data/t2s.js', 'data/senses.js', 'core.js', 'app.js']) w.eval(read(f));
   await w.__ready; return w;
 }
 const q = (w, s) => w.document.querySelector(s), txt = w => w.document.getElementById('app').textContent;
@@ -1007,6 +1007,88 @@ function passFollow(w) {
   assert.ok(txt(w).includes('/ænˈtɪəriər/'));
   q(w, '#show').click();
   assert.ok(txt(w).includes('前面的') && txt(w).includes('The heart lies anterior to the spine.') && txt(w).includes('心脏位于脊柱的前方'));
+  assert.ok(q(w, '.dmean') && !q(w, '.senses'), 'anatomy words with no table row stay one line');
+  assert.ok(!txt(w).includes('高频义项'));
+
+  // 没有结果表的词仍是整行释义。analyse 不在手动表里。
+  store = {}; loads = []; audios = [];
+  w = await boot();
+  w.__go('learn');
+  passFollow(w);
+  assert.strictEqual(q(w, '.word').textContent, 'analyse');
+  assert.ok(!q(w, '.senses'), '跟写后、翻开前不拆释义');
+  q(w, '#show').click();
+  assert.ok(q(w, '.dmean.big'));
+  assert.ok(q(w, '.dmean').textContent.includes('分析'));
+  assert.ok(!q(w, '.senses') && !txt(w).includes('高频义项'));
+  for (const bad of ['考义', '考点', '考过']) assert.ok(!txt(w).includes(bad) && !appSrc.includes(bad), bad);
+
+  // 手动表：issue 的阅读高频义不是原书第一义。新词卡、复习翻面显示；跟写、默写反馈、造句不显示。
+  store = {}; loads = []; audios = [];
+  store['foxVocab.v2'] = JSON.stringify({
+    v: 2, bookId: 'ielts-toefl-core', settings: { dailyNew: 20, autoPlay: false },
+    books: { 'ielts-toefl-core': { cards: {}, sentences: {}, today: ['issue'] } },
+    customBooks: [], days: {}, studyDays: [],
+    fox: { food: 0, xp: 0, hunger: 80, lastCheck: '2026-11-27', fed: 0, name: '小狗' }
+  });
+  w = await boot();
+  w.__go('learn');
+  assert.strictEqual(q(w, '[data-follow]').dataset.follow, 'issue');
+  assert.ok(q(w, '.qtype').textContent.includes('跟写'));
+  assert.ok(!q(w, '.senses') && !txt(w).includes('高频义项'), '跟写不显示义项');
+  passFollow(w);
+  assert.ok(q(w, '#show') && !q(w, '.senses'));
+  q(w, '#show').click();
+  await new Promise(r => setTimeout(r, 30));
+  const glosses = [...q(w, '.senses').querySelectorAll('.sense-gloss')].map(el => el.textContent);
+  assert.deepStrictEqual(glosses, ['问题', '发行', '后果']);
+  assert.strictEqual(q(w, '.sense-high .sense-gloss').textContent, '问题');
+  assert.strictEqual(q(w, '.senses').querySelectorAll('.sense-high').length, 1);
+  assert.strictEqual(q(w, '.sense-mark').textContent, '高频义项');
+  assert.ok(!q(w, '#reveal').textContent.includes('发行；问题'));
+  assert.ok(!q(w, '.dmean'));
+  assert.strictEqual(q(w, '.ielts-badge').textContent, '雅思常考');
+  for (const bad of ['考义', '考点', '考过', '剑桥真题', '官方真题']) assert.ok(!txt(w).includes(bad), bad);
+  q(w, '[data-g="1"]').click();
+  assert.ok(q(w, '.meaning-big').textContent.includes('发行') && q(w, '.meaning-big').textContent.includes('问题'));
+  assert.ok(!q(w, '.senses') && !txt(w).includes('高频义项'), '看意默写题干不拆义项');
+  q(w, '#inp').value = 'nope';
+  q(w, '#sub').click();
+  assert.ok(q(w, '.dmean') && q(w, '.dmean').textContent.includes('问题'));
+  assert.ok(!q(w, '.senses') && !q(w, '#fb').textContent.includes('高频义项'), '默写反馈保持整行');
+  w.__go('sentence');
+  assert.strictEqual(q(w, '.word').textContent, 'issue');
+  assert.ok(q(w, '.dmean') && !q(w, '.senses'), '造句保持整行释义');
+  w.__state().books['ielts-toefl-core'].cards.issue.due = 0;
+  w.__go('practice');
+  q(w, '[data-m="meaningType"]').click();
+  q(w, '#inp').value = 'zzz';
+  q(w, '#sub').click();
+  assert.ok(q(w, '#fb .dmean') && !q(w, '.senses'), '练习看意默写的反馈不拆义项');
+  w.__state().books['ielts-toefl-core'].cards.issue.due = 0;
+  w.__go('practice');
+  q(w, '[data-m="flash"]').click();
+  assert.strictEqual(q(w, '.word').textContent, 'issue');
+  q(w, '#show').click();
+  assert.deepStrictEqual([...q(w, '.detail .senses').querySelectorAll('.sense-gloss')].map(el => el.textContent), ['问题', '发行', '后果']);
+  assert.strictEqual(q(w, '.detail .sense-mark').textContent, '高频义项');
+
+  // 没有表行的 action 仍走整行，词根词缀照旧出现。
+  store = {}; loads = []; audios = [];
+  store['foxVocab.v2'] = JSON.stringify({
+    v: 2, bookId: 'ielts-toefl-core', settings: { dailyNew: 20, autoPlay: false },
+    books: { 'ielts-toefl-core': { cards: {}, sentences: {}, today: ['action'] } },
+    customBooks: [], days: {}, studyDays: [],
+    fox: { food: 0, xp: 0, hunger: 80, lastCheck: '2026-11-27', fed: 0, name: '小狗' }
+  });
+  w = await boot();
+  w.eval(read('data/etymology.js'));
+  w.__go('learn');
+  passFollow(w);
+  q(w, '#show').click();
+  assert.ok(q(w, '.dmean.big') && q(w, '.dmean').textContent.includes('行动'));
+  assert.ok(!q(w, '.senses'));
+  assert.ok(q(w, '.etymon') && txt(w).includes('词根词缀'), 'roots still render after reveal');
 
   console.log('UI tests passed');
 })().catch(e => { console.error(e); process.exit(1); });

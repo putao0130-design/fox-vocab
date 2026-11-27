@@ -9,6 +9,8 @@
 | [Etymoasis](https://etymoasis.me/) word data，源自 [Wiktionary](https://en.wiktionary.org/) 贡献者 | 学习卡翻开后的词根词缀（`data/etymology.js`，由 `tools/build-etymology.py` 从 `tools/vendor/etymoasis` 生成；中文释义为改编） | CC BY-SA 4.0 | ETYMOASIS-LICENSE.txt |
 | [Wiktionary](https://en.wiktionary.org/) © 维基词典贡献者 | 词书未收录的词，页面运行时查询英文维基词典的中文释义 | CC BY-SA 4.0 / GFDL | — |
 | Inria Serif © 2017 The Inria Serif Project Authors；Noto Sans SC © 2014-2021 Adobe；Noto Serif SC © 2012 Google | 每日金句卡的西文与中文（按金句子集） | SIL OFL 1.1 | assets/fonts/OFL.txt |
+| Nunito © 2014 The Nunito Project Authors | 学习卡词头（ExtraBold 800）和英文例句（Medium 500）。可变字体子集，保留名称 Nunito | SIL OFL 1.1 | assets/fonts/OFL-Nunito.txt |
+| 霞鹜文楷 / LXGW WenKai © 2021-2026 LXGW，含 Klee Project | 学习卡释义与例句中文。v1.530 的 Regular 与 Medium，按词书释义、例句译文和「高频义项」子集为 woff2。保留名称「霞鹜」「霞鶩」「LXGW」。不是可安装的桌面字体 | SIL OFL 1.1 | assets/fonts/OFL-LxgwWenKai.txt |
 | Wikimedia Commons 风景：JaredMcKenzie、Z3lvs、Romainbehar | 每日金句卡背景（CC0 原图，长边 2160） | CC0 1.0 | assets/landscapes/SOURCES.md |
 
 雅思专项的词表和释义都来自 ECDICT。考研英语只用 KyleBing 的 `json/5-考研-顺序.json` 决定词和顺序，释义与音标用 ECDICT；ECDICT 里没有释义或没有词性的词不写入这本词书。

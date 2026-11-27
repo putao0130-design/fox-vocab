@@ -244,8 +244,11 @@ for (const line of [ieltsHead, ielts.description, kyHead, kaoyan.description, an
 assert.ok(!ieltsHead.includes('KyleBing') && !ielts.description.includes('KyleBing'));
 const indexHtml = fs.readFileSync(nodePath.join(__dirname, '../index.html'), 'utf8');
 const sw = fs.readFileSync(nodePath.join(__dirname, '../sw.js'), 'utf8');
-assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v31'"));
-assert.ok(indexHtml.includes('style.css?v=31') && indexHtml.includes('core.js?v=31') && indexHtml.includes('app.js?v=31') && indexHtml.includes('sw.js?v=31'));
+assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v32'"));
+assert.ok(sw.includes('Live main stays at v=31 until this change ships'));
+assert.ok(indexHtml.includes('style.css?v=32') && indexHtml.includes('core.js?v=32') && indexHtml.includes('app.js?v=32') && indexHtml.includes('sw.js?v=32'));
+assert.ok(!indexHtml.includes('style.css?v=31') && !indexHtml.includes('core.js?v=31') && !indexHtml.includes('app.js?v=31') && !indexHtml.includes('sw.js?v=31'));
+assert.ok(indexHtml.includes('data/senses.js?v=32') && sw.includes('./data/senses.js?v=32'));
 assert.ok(indexHtml.includes('data/books-index.js?v=31') && sw.includes('./data/books-index.js?v=31'));
 assert.ok(!indexHtml.includes('?v=29') && !sw.includes('?v=29') && !sw.includes('shell-v29'));
 assert.ok(!indexHtml.includes('?v=28') && !sw.includes('?v=28') && !sw.includes('shell-v28'));
@@ -257,6 +260,8 @@ assert.ok(sw.includes('./data/book-ielts.js') && sw.includes('./data/book-kaoyan
 assert.ok(indexHtml.includes('data/example-zh.js?v=31') && indexHtml.includes('data/t2s.js?v=22'));
 assert.ok(sw.includes('example-zh.js?v=31') && sw.includes('t2s.js?v=22') && sw.includes('logo-doubao-2048.png?v=22'));
 assert.ok(indexHtml.includes('data/etymology.js?v=31') && sw.includes('etymology.js?v=31'));
+assert.ok(sw.includes('./assets/fonts/nunito-wght.woff2?v=32') && sw.includes('./assets/fonts/lxgw-wenkai-regular.woff2?v=32') && sw.includes('./assets/fonts/lxgw-wenkai-medium.woff2?v=32'));
+assert.ok(sw.includes('inria-serif-italic.woff2?v=22') && sw.includes('noto-serif-sc-regular.woff2?v=22'));
 assert.ok(indexHtml.includes('install-v18/apple-180.png?v=18') && sw.includes('install-v18/icon-512.png?v=18') && sw.includes('manifest.webmanifest?v=18'));
 assert.ok(!indexHtml.includes('?v=23') && !sw.includes('?v=23') && !sw.includes('shell-v23'));
 const appJs = fs.readFileSync(nodePath.join(__dirname, '../app.js'), 'utf8');
