@@ -254,3 +254,16 @@ textarea{margin-top:12px;resize:vertical}
 .exzh{font-size:13.5px;line-height:1.55;color:#7A6E66;margin-top:8px;padding-top:8px;border-top:1px solid rgba(162,118,80,.2);font-weight:500}
 .ex .sent{background:transparent;padding:0;border-radius:0;font-size:15px;line-height:1.6}
 .ex .exzh{border-top:0;padding-top:1px;margin-top:2px;font-size:13px;font-weight:400}
+
+/* 学习卡翻开后的词根词缀（Etymoasis / CC BY-SA 4.0） */
+.etymon{margin:14px 0 8px;padding:12px 14px;background:var(--bg);border:1px solid var(--line);border-radius:16px;text-align:left}
+.etymon-title{font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--mute);margin-bottom:6px}
+.etymon-chain{font-size:18px;color:var(--color-primary);margin:0 0 8px;line-height:1.4}
+.etymon-chain b{color:var(--color-ink);font-weight:800}
+.etymon-plus{margin:0 6px;color:var(--color-accent);font-weight:700}
+.etymon-list{list-style:none;margin:0;padding:0}
+.etymon-list li{font-size:14px;margin:4px 0;color:var(--ink)}
+.etymon-list i{font-style:normal;font-weight:700;color:var(--color-secondary);margin-right:6px}
+.etymon-lang{margin-left:6px;color:var(--mute);font-size:12px}
+.etymon-src{margin:8px 0 0;font-size:11px;color:var(--mute);line-height:1.4}
+.etymon-src a{color:var(--mute);text-decoration:underline}
