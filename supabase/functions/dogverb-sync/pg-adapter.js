@@ -21,6 +21,7 @@ function createPgAdapter(client, opts) {
       const err = new Error(res.error.message || 'rpc-failed');
       err.rpc = name;
       err.details = res.error;
+      if (res.error.code) err.code = res.error.code;
       throw err;
     }
     return res.data;
@@ -29,13 +30,23 @@ function createPgAdapter(client, opts) {
   async function get(coll, id) {
     assertColl(coll);
     const res = await client.from('dogverb_kv').select('doc').eq('coll', coll).eq('id', id).maybeSingle();
-    if (res.error) throw new Error(res.error.message || 'get-failed');
+    if (res.error) {
+      const err = new Error(res.error.message || 'get-failed');
+      err.details = res.error;
+      if (res.error.code) err.code = res.error.code;
+      throw err;
+    }
     return res.data && res.data.doc ? res.data.doc : null;
   }
 
   async function findSafe(coll, query) {
     const res = await client.from('dogverb_kv').select('doc').eq('coll', coll);
-    if (res.error) throw new Error(res.error.message || 'find-failed');
+    if (res.error) {
+      const err = new Error(res.error.message || 'find-failed');
+      err.details = res.error;
+      if (res.error.code) err.code = res.error.code;
+      throw err;
+    }
     const rows = (res.data || []).map(function (row) { return row.doc; });
     if (!query || !Object.keys(query).length) return rows;
     return rows.filter(function (doc) {

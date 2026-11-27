@@ -40,7 +40,10 @@ assert.ok(anon, 'sync-config.js must ship a public anon key');
 assert.ok(!/service_role\s*[:=]\s*['\"]/i.test(config));
 assert.ok(!/postgres(?:ql)?:\/\//i.test(config));
 
-const fn = fs.readFileSync(path.join(ROOT, 'supabase/functions/dogverb-sync/index.ts'), 'utf8');
+const fnDir = path.join(ROOT, 'supabase/functions/dogverb-sync');
+const fn = ['index.ts', 'handler.ts', 'cors.ts', 'preload-fsrs.ts'].map(function (name) {
+  return fs.readFileSync(path.join(fnDir, name), 'utf8');
+}).join('\n');
 assert.ok(fn.includes("Deno.env.get(\"SUPABASE_SERVICE_ROLE_KEY\")"));
 assert.ok(!JWT.test(fn));
 assert.ok(fn.includes('never returned or logged') || fn.includes('never returned'));

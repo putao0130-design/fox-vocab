@@ -39,6 +39,9 @@
 
 脚本会建立 `public.dogverb_kv`、开启并强制 RLS、收回 `anon` / `authenticated` / `PUBLIC` 的表权限、并把 `dogverb_commit_tx` 的 `EXECUTE` 只授给 `service_role`。
 
+如果后来 `challenge` 返回 `{"error":"server-error","code":"42702"}`，请再在同一项目的 SQL Editor 里跑 `supabase/migrations/002_dogverb_commit_tx_ambiguous.sql` 全文。不要重跑 `001_dogverb_sync.sql`。002 会把函数里与列名冲突的变量改掉，并保持 `anon` / `authenticated` 没有 EXECUTE 权限。
+
+
 ## 2. 确认 Data API 自动授权是关的
 
 打开 **Project Settings → Data API**（有的界面在 **Project Settings → API**）。
@@ -67,13 +70,13 @@
 bash supabase/prepare-function.sh
 ```
 
-它会把 `sync-wire.js`、`sync-prep.js`、`core.js` 和 `vendor/ts-fsrs.umd.js` 复制到 `supabase/functions/dogverb-sync/`（这些副本已列入 `.gitignore`）。然后在本机登录 Supabase CLI，对这个已有项目部署同一个函数（不要换项目、不要连接 GitHub）：
+它会把 `sync-wire.js`、`sync-prep.js`、`core.js` 和 `vendor/ts-fsrs.umd.js` 复制到 `supabase/functions/dogverb-sync/`，并打出 `bundle.js`（这些生成文件已列入 `.gitignore`）。准备时需要能运行 `npx esbuild`。然后在本机登录 Supabase CLI，对这个已有项目部署同一个函数（不要换项目、不要连接 GitHub）：
 
 ```bash
-supabase functions deploy dogverb-sync --project-ref zkvscutsjspzuteogfet
+supabase functions deploy dogverb-sync --remote=zkvscutsjspzuteogfet --use-api --yes
 ```
 
-只部署这一个函数。`supabase/config.toml` 里 `verify_jwt = true`，所以浏览器请求要带 anon/public 密钥；函数仍然只用设备签名和配对令牌来授权学习数据，anon 密钥不会用来打开数据库。
+只部署这一个函数。不要用 `--prune`。CLI 3.4 用 `--remote` 指定项目，`--use-api` 在没有 Docker 时做服务端打包。准备脚本会把共享模块打进 `bundle.js`，因为 `--use-api` 只会上传静态 import 能扫到的文件；不要在入口用 `readFileSync` 或 `require` 去读这些副本。`supabase/config.toml` 里 `verify_jwt = true`，所以浏览器请求要带 anon/public 密钥；函数仍然只用设备签名和配对令牌来授权学习数据，anon 密钥不会用来打开数据库。
 
 函数允许的浏览器来源是 `https://putao0130-design.github.io`。本地 `http://127.0.0.1` 预览会被函数拒绝，这是故意的。
 
