@@ -383,6 +383,128 @@ function emptyRemote() {
   assert.deepStrictEqual(JSON.parse(stuck.localStorage.getItem(OUT) || '[]'), []);
   assert.ok(stuck.logs.pull >= 1, 'after a successful retry, pull can proceed');
 
+  // Follow-up: empty results with a non-empty outbox are treated as success, not dead-lettered.
+  const emptyResults = boot({
+    syncOn: true, focus: 'body',
+    outbox: [
+      { id: 'gone-1', type: 'commit', ops: [{ kind: 'fox', food: 1 }] },
+      { id: 'gone-2', type: 'commit', ops: [{ kind: 'fox', food: 1 }] }
+    ],
+    pushEvents: async function () { return { results: [] }; }
+  });
+  await emptyResults.ctx.DogverbAppSync.flush();
+  assert.deepStrictEqual(JSON.parse(emptyResults.localStorage.getItem(OUT) || '[]'), []);
+  assert.deepStrictEqual(JSON.parse(emptyResults.localStorage.getItem(DEAD) || '[]'), []);
+  assert.strictEqual(emptyResults.status().statusText, '已同步');
+  assert.ok(emptyResults.ids.syncstatus.textContent.indexOf('有 ') === -1 || emptyResults.ids.syncstatus.textContent.indexOf('条没传上去') === -1);
+  assert.ok(emptyResults.ids.syncstatus.textContent.indexOf('有 2 条没传上去') === -1);
+  assert.ok(emptyResults.ids.syncstatus.textContent.indexOf('有 1 条没传上去') === -1);
+
+  // Follow-up: a returned duplicate is cleared.
+  const dupOnly = boot({
+    syncOn: true, focus: 'body',
+    outbox: [{ id: 'x', type: 'commit', ops: [{ kind: 'fox', food: 1 }] }],
+    pushEvents: async function () { return { results: [{ id: 'x', reason: 'duplicate' }] }; }
+  });
+  await dupOnly.ctx.DogverbAppSync.flush();
+  assert.deepStrictEqual(JSON.parse(dupOnly.localStorage.getItem(OUT) || '[]'), []);
+  assert.deepStrictEqual(JSON.parse(dupOnly.localStorage.getItem(DEAD) || '[]'), []);
+  assert.strictEqual(dupOnly.status().statusText, '已同步');
+
+  // Follow-up: overlapping flushes and mid-study saves must not drop outbox events.
+  let releaseFlush;
+  const gate = new Promise(function (resolve) { releaseFlush = resolve; });
+  let enteredFirstPush = false;
+  const pushedBatches = [];
+  const overlap = boot({
+    syncOn: true, focus: 'body',
+    pushEvents: async function (session, events) {
+      pushedBatches.push((events || []).map(function (e) { return e.id; }));
+      if (!enteredFirstPush) {
+        enteredFirstPush = true;
+        await gate;
+      }
+      return { results: (events || []).map(function (ev) { return { id: ev.id, consumed: true, reason: null }; }) };
+    }
+  });
+  overlap.localStorage.setItem(BASE, JSON.stringify(localState()));
+  const save1 = localState(); save1.fox = Object.assign({}, save1.fox, { food: 10 });
+  overlap.ctx.__dogverbAfterSave(save1);
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  assert.ok(enteredFirstPush, 'first flush reached pushEvents and is held open');
+  const save2 = localState(); save2.fox = Object.assign({}, save2.fox, { food: 11 });
+  overlap.ctx.__dogverbAfterSave(save2);
+  const save3 = localState(); save3.fox = Object.assign({}, save3.fox, { food: 12 });
+  overlap.ctx.__dogverbAfterSave(save3);
+  const overlapping = overlap.ctx.DogverbAppSync.flush();
+  const midIds = JSON.parse(overlap.localStorage.getItem(OUT) || '[]').map(function (e) { return e.id; });
+  assert.ok(midIds.length >= 2, 'later saves appended while the first flush was in flight: ' + midIds.join(','));
+  releaseFlush();
+  await overlapping;
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  const leftoverOverlap = JSON.parse(overlap.localStorage.getItem(OUT) || '[]');
+  const allPushed = {};
+  pushedBatches.forEach(function (batch) {
+    batch.forEach(function (id) { allPushed[id] = 1; });
+  });
+  leftoverOverlap.forEach(function (item) { if (item && item.id) allPushed[item.id] = 1; });
+  midIds.concat(['commit-1']).forEach(function (id) {
+    assert.ok(allPushed[id], 'outbox event ' + id + ' must not be dropped by overlapping flushes');
+  });
+  assert.deepStrictEqual(leftoverOverlap, [], 'after serialized follow-up flushes, successfully pushed events are cleared');
+  const uniquePushed = Object.keys(allPushed);
+  assert.ok(uniquePushed.length >= 3, 'all mid-study commits were pushed: ' + uniquePushed.join(','));
+
+  // Follow-up: claim success + pull throw is not 「配对没有成功」, and arm() still starts.
+  const claimedPullFail = boot({ focus: 'join', pullFails: true });
+  const joinField = claimedPullFail.ids['sync-join'].value;
+  await claimedPullFail.ctx.DogverbAppSync.join();
+  await claimedPullFail.flushTimeouts();
+  assert.strictEqual(claimedPullFail.logs.claim, 1);
+  assert.strictEqual(claimedPullFail.localStorage.getItem(ON), '1');
+  assert.strictEqual(claimedPullFail.status().statusText, '已连上，但这次拉取失败：暂时连不上同步');
+  assert.notStrictEqual(claimedPullFail.status().errorText, '配对没有成功');
+  assert.strictEqual(claimedPullFail.timerInfo().armed, true);
+  assert.strictEqual(claimedPullFail.ids['sync-join'].value, joinField, 'must not rerender the settings form');
+
+  // Follow-up: successful apply refreshes 已学 / 自建词书 / 打卡 only.
+  const preview = boot({ syncOn: true, focus: 'body' });
+  preview.ids['sync-preview'].textContent = '将上传本机进度：已学 2，自建词书 0，打卡 2。请确认后再上传。';
+  preview.ids['sync-join'].value = 'TEST-PAYLOAD-NOT-A-REAL-CODE';
+  preview.ctx.DogverbAppSync.finishRemoteApply({ state: emptyRemote() }, '已连接');
+  assert.ok(preview.ids['sync-preview'].textContent.indexOf('将上传本机进度') === 0, 'paint must not wipe the enable confirmation copy');
+  preview.ctx.DogverbAppSync.finishRemoteApply({ state: remoteState() }, '已连接');
+  assert.strictEqual(preview.ids['sync-preview'].textContent, '已学 14，自建词书 0，打卡 9');
+  assert.strictEqual(preview.ids['sync-join'].value, 'TEST-PAYLOAD-NOT-A-REAL-CODE', 'successful apply must not rebuild the settings page');
+
+  // Follow-up: project() records zone skips and does not invent a timezone.
+  const zoned = boot({ syncOn: true, focus: 'body' });
+  const zonedRemote = remoteState();
+  zonedRemote.days['Asia/Shanghai|2026-11-20'] = { day: '2026-11-20', zone: 'Asia/Shanghai', new: 3, review: 0, correct: 1, wrong: 0 };
+  zonedRemote.studyDays.push({ day: '2026-11-20', zone: 'Asia/Shanghai', source: 'test' });
+  zonedRemote.studyDays.push({ day: '2026-11-21', zone: 'Europe/Paris', source: 'test' });
+  const zonedApply = zoned.ctx.DogverbAppSync.finishRemoteApply({ state: zonedRemote }, '已连接');
+  assert.strictEqual(zonedApply.applied, true);
+  assert.strictEqual(zoned.projectDiag().daysSkippedByZone, 1);
+  assert.strictEqual(zoned.projectDiag().studyDaysSkippedByZone, 2);
+  assert.strictEqual((zoned.state.days || {})['2026-11-20'], undefined, 'non-device-local days stay unmerged; no timezone guessed');
+  assert.ok((zoned.state.studyDays || []).indexOf('2026-11-20') === -1);
+  assert.ok((zoned.state.studyDays || []).indexOf('2026-11-21') === -1);
+
+  // Follow-up: project-null must not count toward failStreak backoff.
+  const noBackoff = boot({ syncOn: true, focus: 'body', pullFails: true });
+  for (let i = 0; i < 4; i++) await noBackoff.ctx.DogverbAppSync.pull();
+  assert.strictEqual(noBackoff.timerInfo().failStreak, 4);
+  for (let i = 0; i < 5; i++) {
+    noBackoff.ctx.DogverbAppSync.finishRemoteApply({ state: emptyRemote() }, '已连接');
+  }
+  assert.strictEqual(noBackoff.status().statusText, NULL_STATUS);
+  assert.strictEqual(noBackoff.timerInfo().failStreak, 4, 'project-null is not a transport failure');
+  noBackoff.ctx.DogverbAppSync.arm();
+  assert.strictEqual(noBackoff.timerInfo().intervalMs, 5000);
+
   // P0-4 client wait() loop: a deadline in the past shows the expiry copy and stops polling.
   const expired = boot({ focus: 'join', pairExpiresAt: Date.now() - 1000, claimError: 'pair-not-confirmed' });
   await expired.ctx.DogverbAppSync.join();

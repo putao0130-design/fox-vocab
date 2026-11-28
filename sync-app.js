@@ -29,6 +29,7 @@
   let pendingBound = 0;
   const projectDiag = {
     remoteCards: 0, remoteDaysRows: 0, remoteStudyDays: 0,
+    daysSkippedByZone: 0, studyDaysSkippedByZone: 0,
     localEmpty: false, remoteEmpty: false, result: ''
   };
   const syncDiag = {
@@ -185,7 +186,15 @@
   function storageAdapter() {
     return { getItem: function (k) { return localStorage.getItem(k); }, setItem: function (k, v) { localStorage.setItem(k, v); }, removeItem: function (k) { localStorage.removeItem(k); } };
   }
+  function refreshPreview(force) {
+    const slot = document.getElementById('sync-preview');
+    if (!slot || typeof root.__dogverbReadState !== 'function') return;
+    if (!force && slot.textContent && slot.textContent.indexOf('将上传本机进度') === 0) return;
+    const preview = previewOf(root.__dogverbReadState() || {});
+    slot.textContent = '已学 ' + preview.cards + '，自建词书 ' + preview.custom + '，打卡 ' + preview.days;
+  }
   function paint() {
+    refreshPreview(false);
     const box = document.getElementById('syncstatus');
     if (!box) return;
     const deadMsg = deadMessage();
@@ -246,7 +255,6 @@
       statusText = NULL_STATUS;
       errorText = 'project-null: cards=' + projectDiag.remoteCards + ' days=' + projectDiag.remoteDaysRows + ' studyDays=' + projectDiag.remoteStudyDays;
       paint();
-      noteSyncResult(false);
       return { applied: false, skippedMerge: true, projectNull: true, result: projectDiag.result };
     }
     const applied = root.__dogverbApplyRemote(next);
@@ -256,6 +264,7 @@
       localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
       statusText = connectedText || '已连接';
       errorText = '';
+      refreshPreview(true);
       paint();
       noteSyncResult(true);
       return { applied: true };
@@ -291,8 +300,39 @@
     if (!readBox().length && opted()) await pull();
     return res;
   }
+  function retainUnsent(sentBox, kept) {
+    const sent = {};
+    (sentBox || []).forEach(function (item) { if (item && item.id) sent[item.id] = 1; });
+    const out = [];
+    const seen = {};
+    (kept || []).forEach(function (item) {
+      if (!item || !item.id || seen[item.id]) return;
+      seen[item.id] = 1;
+      out.push(item);
+    });
+    readBox().forEach(function (item) {
+      if (!item || !item.id || seen[item.id] || sent[item.id]) return;
+      seen[item.id] = 1;
+      out.push(item);
+    });
+    return out;
+  }
+  let flushTail = Promise.resolve();
   async function flush() {
     if (!opted()) return { skipped: true };
+    const prev = flushTail;
+    let release;
+    const slot = new Promise(function (resolve) { release = resolve; });
+    flushTail = slot;
+    try {
+      await prev;
+      if (!opted()) return { skipped: true };
+      return await flushOnce();
+    } finally {
+      release();
+    }
+  }
+  async function flushOnce() {
     const box = readBox();
     if (!box.length) return { empty: true };
     try {
@@ -311,14 +351,16 @@
       box.forEach(function (item) {
         if (!item || !item.id) return;
         const row = byId[item.id];
-        const failedRow = !row || (row.reason && row.reason !== 'duplicate');
+        // Keep/retry only when this id was returned with a non-duplicate reason.
+        // Missing ids, success rows, and duplicates are cleared.
+        const failedRow = !!(row && row.reason && row.reason !== 'duplicate');
         if (!failedRow) return;
         const bumped = bumpRetry(item);
         if (bumped.dead) {
           if (!deadIds[bumped.id]) { newlyDead.push(bumped); deadIds[bumped.id] = 1; }
         } else kept.push(bumped);
       });
-      writeBox(kept);
+      writeBox(retainUnsent(box, kept));
       writeDead(newlyDead);
       if (failed.length) {
         statusText = '有 ' + failed.length + ' 条没写上：' + failed[0].reason;
@@ -394,18 +436,39 @@
     projectDiag.remoteCards = fields.remoteCards;
     projectDiag.remoteDaysRows = fields.remoteDaysRows;
     projectDiag.remoteStudyDays = fields.remoteStudyDays;
+    projectDiag.daysSkippedByZone = fields.daysSkippedByZone || 0;
+    projectDiag.studyDaysSkippedByZone = fields.studyDaysSkippedByZone || 0;
     projectDiag.localEmpty = fields.localEmpty;
     projectDiag.remoteEmpty = fields.remoteEmpty;
     projectDiag.result = fields.result;
     recordDiag();
   }
+  function countZoneSkips(remote) {
+    let daysSkippedByZone = 0;
+    let studyDaysSkippedByZone = 0;
+    if (isPlainObject(remote) && isPlainObject(remote.days)) {
+      Object.keys(remote.days).forEach(function (key) {
+        const row = remote.days[key];
+        if (row && row.zone !== 'device-local') daysSkippedByZone += 1;
+      });
+    }
+    if (remote && Array.isArray(remote.studyDays)) {
+      remote.studyDays.forEach(function (d) {
+        if (d && d.zone !== 'device-local') studyDaysSkippedByZone += 1;
+      });
+    }
+    return { daysSkippedByZone: daysSkippedByZone, studyDaysSkippedByZone: studyDaysSkippedByZone };
+  }
   function project(remote, local) {
     const localEmpty = learningEmpty(sanitize(local || {}));
     if (remoteShapeProblem(remote)) {
+      const shapeSkips = countZoneSkips(remote);
       rememberProject({
         remoteCards: countRemoteCards(remote),
         remoteDaysRows: isPlainObject(remote) && isPlainObject(remote.days) ? Object.keys(remote.days).length : 0,
         remoteStudyDays: remote && Array.isArray(remote.studyDays) ? remote.studyDays.length : 0,
+        daysSkippedByZone: shapeSkips.daysSkippedByZone,
+        studyDaysSkippedByZone: shapeSkips.studyDaysSkippedByZone,
         localEmpty: localEmpty, remoteEmpty: false, result: 'null-shape'
       });
       return null;
@@ -415,15 +478,20 @@
     const remoteStudyDays = (remote.studyDays || []).length;
     const remoteCustom = (remote.customBooks || []).length;
     const remoteEmpty = !remoteCards && !remoteCustom && !remoteStudyDays && !remoteDaysRows;
+    const zoneSkips = countZoneSkips(remote);
     if (remoteEmpty && !localEmpty) {
       rememberProject({
         remoteCards: remoteCards, remoteDaysRows: remoteDaysRows, remoteStudyDays: remoteStudyDays,
+        daysSkippedByZone: zoneSkips.daysSkippedByZone,
+        studyDaysSkippedByZone: zoneSkips.studyDaysSkippedByZone,
         localEmpty: localEmpty, remoteEmpty: true, result: 'null-empty'
       });
       return null;
     }
     rememberProject({
       remoteCards: remoteCards, remoteDaysRows: remoteDaysRows, remoteStudyDays: remoteStudyDays,
+      daysSkippedByZone: zoneSkips.daysSkippedByZone,
+      studyDaysSkippedByZone: zoneSkips.studyDaysSkippedByZone,
       localEmpty: localEmpty, remoteEmpty: remoteEmpty, result: 'merged'
     });
     const next = clone(local);
@@ -558,9 +626,6 @@
         await clearJoining(session);
         localStorage.setItem(ON, '1');
         blurPairingFields();
-        const remote = await backend().pull(session);
-        finishRemoteApply(remote, '已连接');
-        arm();
       } catch (e) {
         const err = e && e.data && e.data.error;
         if (err === 'pair-expired') {
@@ -579,7 +644,17 @@
         await clearJoining(sess);
         errorText = '配对没有成功';
         paint();
+        return;
       }
+      try {
+        const remote = await backend().pull(session);
+        finishRemoteApply(remote, '已连接');
+      } catch (e) {
+        statusText = '已连上，但这次拉取失败：暂时连不上同步';
+        errorText = '';
+        paint();
+      }
+      arm();
     };
     setTimeout(tick, 700);
   }
