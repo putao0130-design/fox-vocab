@@ -75,12 +75,12 @@ function boot(opts) {
     VocabSyncPrep: require('../sync-prep.js'),
     DogverbSync: { idbStorage: function () { return { get: async function () { return null; }, set: async function () {} }; } },
     DogverbSupabase: { disabled: function () { return false; }, bind: function () { return {}; } },
-    DOGVERB_SYNC_CONFIG: { url: PROJECT_URL, anonKey: FAKE_ANON },
     __dogverbReadState: function () { return { v: 2, books: {}, customBooks: [], days: {}, studyDays: [], fox: {} }; },
     __dogverbApplyRemote: function () { return { applied: true }; }
   };
   ctx.globalThis = ctx;
   ctx.window = ctx;
+  if (!opts.noCfg) ctx.DOGVERB_SYNC_CONFIG = { url: PROJECT_URL, anonKey: FAKE_ANON };
   vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'sync-app.js'), 'utf8'), ctx, { filename: 'sync-app.js' });
   return {
     ctx: ctx, localStorage: localStorage, document: document, script: script,
@@ -107,10 +107,19 @@ function testStampFallsBackToScriptSrcSelector() {
   assert.strictEqual(env.stamp(), '脚本 v=42 / 数据 未开启');
 }
 
+function testStampIsNonEmptyWhenConfigMissing() {
+  const env = boot({ scriptSrc: 'sync-app.js?v=42', syncOn: false, noCfg: true });
+  env.mount();
+  const text = env.stamp();
+  assert.ok(text && text.length, 'under !cfg() the version stamp must be non-empty');
+  assert.strictEqual(text, '脚本 v=42 / 数据 未开启');
+}
+
 function main() {
   testStampReadsQueryStringAndReportsDisabled();
   testStampReadsQueryStringAndReportsEnabled();
   testStampFallsBackToScriptSrcSelector();
+  testStampIsNonEmptyWhenConfigMissing();
   console.log('ok ' + module.filename);
 }
 main();

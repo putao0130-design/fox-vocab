@@ -1,5 +1,5 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=38 on this preview branch only: navigate requests are network-first and refresh the cached index.html; plus the earlier P0 flush, join gap-fill, pending-pairing, arming, and days/fox max-merge fixes. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=38; GitHub Pages only deploys main. */
-const CACHE = 'dog-verb-shell-v38';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=39 on this preview branch only: navigate requests are network-first with a 3s timeout and cache: 'no-cache', and refresh the cached index.html; plus the earlier P0 flush, join gap-fill, pending-pairing, arming, and days/fox max-merge fixes. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=39; GitHub Pages only deploys main. */
+const CACHE = 'dog-verb-shell-v39';
 const SHELL = [
   './index.html',
   './style.css?v=32',
@@ -59,13 +59,23 @@ self.addEventListener('fetch', event => {
     return;
   }
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).then(function (res) {
+    const network = fetch(event.request, { cache: 'no-cache' });
+    network.then(function (res) {
       if (res && res.ok) {
         const copy = res.clone();
         caches.open(CACHE).then(function (cache) { return cache.put('./index.html', copy); });
       }
-      return res;
+    }).catch(function () {});
+    let timer;
+    const timeout = new Promise(function (resolve) {
+      timer = setTimeout(function () { resolve(null); }, 3000);
+    });
+    event.respondWith(Promise.race([network, timeout]).then(function (res) {
+      if (timer) clearTimeout(timer);
+      if (res) return res;
+      return caches.match('./index.html');
     }).catch(function () {
+      if (timer) clearTimeout(timer);
       return caches.match('./index.html');
     }));
     return;
