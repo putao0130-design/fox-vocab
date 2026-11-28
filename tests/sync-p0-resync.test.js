@@ -512,7 +512,8 @@ function applyCommitOpsToRemote(remote, events) {
     batch.forEach(function (id) { allPushed[id] = 1; });
   });
   leftoverOverlap.forEach(function (item) { if (item && item.id) allPushed[item.id] = 1; });
-  midIds.concat(['commit-1']).forEach(function (id) {
+  const firstBatch = pushedBatches[0] || [];
+  firstBatch.concat(midIds).forEach(function (id) {
     assert.ok(allPushed[id], 'outbox event ' + id + ' must not be dropped by overlapping flushes');
   });
   assert.deepStrictEqual(leftoverOverlap, [], 'after serialized follow-up flushes, successfully pushed events are cleared');
@@ -588,8 +589,8 @@ function applyCommitOpsToRemote(remote, events) {
   assert.deepStrictEqual(cardWords, ['economy', 'environment']);
   const studyDaysPushed = ops.filter(function (op) { return op.kind === 'study'; }).map(function (op) { return op.day; }).sort();
   assert.deepStrictEqual(studyDaysPushed, ['2026-11-18', '2026-11-19']);
-  const dayOrFoxPushed = ops.filter(function (op) { return op.kind === 'day' || op.kind === 'fox'; });
-  assert.deepStrictEqual(dayOrFoxPushed, [], 'gap-fill must not reverse-engineer additive day/fox ops from a snapshot');
+  const dayDaysPushed = ops.filter(function (op) { return op.kind === 'day'; }).map(function (op) { return op.day; }).sort();
+  assert.deepStrictEqual(dayDaysPushed, ['2026-11-18', '2026-11-19']);
   assert.ok(ops.every(function (op) {
     return op.kind !== 'card' || (op.word !== 'analyse' && op.word !== 'approach' && op.word !== 'area' && op.word !== 'assess');
   }), 'must not push the host/cloud cards back as new events');
@@ -858,6 +859,90 @@ function applyCommitOpsToRemote(remote, events) {
     assert.strictEqual(env.state.fox.food, 3);
   }
   testSameDayMergeAgainStaysStableNotEight();
+
+
+  // A 4/3 + B 2/2: after join apply, snapshot gap (extra cards and check-in days)
+  // is pushed through acceptEvents even when the space already has host commit-1..N ids.
+  async function testHostCatchesJoinerUnionDespiteExistingCommitIds() {
+    const prep = require('../sync-prep.js');
+    const store = prep.createStore();
+    const spaceId = 'space';
+    const now = Date.now();
+    const hostSnap = (function () {
+      const s = hostSeedFour();
+      s.studyDays = ['2026-11-20', '2026-11-22', '2026-11-24'];
+      s.days = {
+        '2026-11-20': { new: 1, review: 0, correct: 1, wrong: 0 },
+        '2026-11-22': { new: 1, review: 0, correct: 1, wrong: 0 },
+        '2026-11-24': { new: 1, review: 0, correct: 1, wrong: 0 }
+      };
+      return s;
+    })();
+    const imported = prep.importLegacy(store, spaceId, hostSnap);
+    assert.ok(imported && imported.ok, 'host enable-time legacy import must succeed');
+    for (let i = 1; i <= 28; i++) {
+      const acc = prep.acceptEvents(store, spaceId, [{
+        id: 'commit-' + i, type: 'commit',
+        ops: [{ kind: 'study', zone: 'device-local', day: '2026-11-20' }]
+      }], { appliedAt: now });
+      assert.strictEqual(acc.ok, true);
+      assert.strictEqual(acc.results[0].consumed, true, 'host commit-' + i + ' must be stored first');
+    }
+    const cloud = prep.materialize(store, spaceId);
+    assert.strictEqual(cardCount(cloud), 4);
+    assert.strictEqual((cloud.studyDays || []).length, 3);
+    const pushedJoin = [];
+    const joiner = boot({
+      syncOn: true, focus: 'body',
+      state: joinerSeedTwo(),
+      remote: { state: cloud },
+      pushEvents: async function (session, events) {
+        pushedJoin.push(JSON.parse(JSON.stringify(events || [])));
+        const acc = prep.acceptEvents(store, spaceId, events, { appliedAt: Date.now() });
+        return {
+          results: (acc.results || []).map(function (row) {
+            return { id: row.id, consumed: !!row.consumed, noop: !!row.noop, reason: row.reason || null };
+          })
+        };
+      }
+    });
+    const joinApply = joiner.ctx.DogverbAppSync.finishRemoteApply({ state: cloud }, '已连接');
+    assert.strictEqual(joinApply.applied, true);
+    assert.strictEqual(cardCount(joiner.state), 6);
+    assert.strictEqual((joiner.state.studyDays || []).length, 5);
+    await joiner.ctx.DogverbAppSync.flush();
+    assert.ok(pushedJoin.length >= 1, 'joiner snapshot gap must be pushed');
+    const kinds = [];
+    pushedJoin.forEach(function (batch) {
+      (batch || []).forEach(function (ev) {
+        (ev.ops || []).forEach(function (op) { kinds.push(op.kind); });
+      });
+    });
+    assert.ok(kinds.indexOf('card') !== -1, 'gap must enqueue the extra cards');
+    assert.ok(kinds.indexOf('study') !== -1, 'gap must enqueue the extra check-in days');
+    const cloudAfter = prep.materialize(store, spaceId);
+    assert.strictEqual(cardCount(cloudAfter), 6, 'server must not drop the joiner gap as a commit-N duplicate');
+    const pawsCloud = (cloudAfter.studyDays || []).map(function (d) { return (d && d.day) || d; }).sort();
+    assert.deepStrictEqual(pawsCloud, ['2026-11-18', '2026-11-19', '2026-11-20', '2026-11-22', '2026-11-24']);
+    const hostState = (function () {
+      const s = hostSeedFour();
+      s.studyDays = ['2026-11-20', '2026-11-22', '2026-11-24'];
+      s.days = {
+        '2026-11-20': { new: 1, review: 0, correct: 1, wrong: 0 },
+        '2026-11-22': { new: 1, review: 0, correct: 1, wrong: 0 },
+        '2026-11-24': { new: 1, review: 0, correct: 1, wrong: 0 }
+      };
+      return s;
+    })();
+    const host = boot({ syncOn: true, focus: 'body', state: hostState, remote: { state: cloudAfter } });
+    const hostApply = host.ctx.DogverbAppSync.finishRemoteApply({ state: cloudAfter }, '已连接');
+    assert.strictEqual(hostApply.applied, true);
+    assert.strictEqual(cardCount(host.state), 6);
+    assert.strictEqual((host.state.studyDays || []).length, 5);
+    assert.deepStrictEqual((host.state.studyDays || []).slice().sort(), ['2026-11-18', '2026-11-19', '2026-11-20', '2026-11-22', '2026-11-24']);
+    assert.ok(host.state.books[BOOK].cards.economy && host.state.books[BOOK].cards.analyse);
+  }
+  await testHostCatchesJoinerUnionDespiteExistingCommitIds();
 
   // Adapter P0-4: submitPairing persists immediately with pendingPairing=1 and pairingId.
   const store = Object.create(null);

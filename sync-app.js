@@ -305,6 +305,21 @@
   function blankState() {
     return { v: 2, bookId: '', settings: {}, books: {}, customBooks: [], days: {}, studyDays: [], fox: {} };
   }
+  function nextCommitId() {
+    const seq = (Number(localStorage.getItem(SEQ)) || 0) + 1;
+    localStorage.setItem(SEQ, String(seq));
+    let uniq = '';
+    try {
+      if (root.crypto && typeof root.crypto.randomUUID === 'function') uniq = root.crypto.randomUUID();
+      else if (root.crypto && typeof root.crypto.getRandomValues === 'function') {
+        const buf = new Uint8Array(8);
+        root.crypto.getRandomValues(buf);
+        uniq = Array.prototype.map.call(buf, function (b) { return (b + 256).toString(16).slice(1); }).join('');
+      }
+    } catch (e) { uniq = ''; }
+    if (!uniq) uniq = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    return 'commit-' + seq + '-' + uniq;
+  }
   function enqueueCloudGap(remoteState, merged) {
     if (!opted() || !remoteState || !merged) return { ops: 0 };
     const saved = {
@@ -321,23 +336,17 @@
     Object.assign(projectDiag, saved);
     recordDiag();
     if (!cloudAsLocal) return { ops: 0 };
-    const rawOps = diff(sanitize(cloudAsLocal), sanitize(merged));
-    // Additive day/fox ops must not be reverse-engineered from a snapshot.
-    // Reuse any such ops already sitting in the outbox; do not invent new ones.
-    const ops = rawOps.filter(function (op) { return op && op.kind !== 'day' && op.kind !== 'fox'; });
+    const ops = diff(sanitize(cloudAsLocal), sanitize(merged));
+    if (!ops.length) return { ops: 0 };
     const box = readBox();
     const fingerprint = JSON.stringify(ops);
     const reused = box.some(function (ev) {
-      if (!ev || ev.type !== 'commit' || !Array.isArray(ev.ops)) return false;
-      const queued = ev.ops.filter(function (op) { return op && op.kind !== 'day' && op.kind !== 'fox'; });
-      return JSON.stringify(queued) === fingerprint;
+      return ev && ev.type === 'commit' && Array.isArray(ev.ops) && JSON.stringify(ev.ops) === fingerprint;
     });
-    if (reused || !ops.length) return { ops: ops.length, id: reused ? 'reused' : '', items: ops, reused: !!reused };
-    const seq = (Number(localStorage.getItem(SEQ)) || 0) + 1;
-    const id = 'commit-' + seq;
+    if (reused) return { ops: ops.length, id: 'reused', items: ops, reused: true };
+    const id = nextCommitId();
     box.push({ id: id, type: 'commit', ops: ops });
     writeBox(box);
-    localStorage.setItem(SEQ, String(seq));
     return { ops: ops.length, id: id, items: ops, reused: false };
   }
   function finishRemoteApply(remote, connectedText) {
@@ -681,11 +690,9 @@
     const ops = diff(before, clean);
     localStorage.setItem(BASE, JSON.stringify(clean));
     if (!ops.length) return;
-    const seq = (Number(localStorage.getItem(SEQ)) || 0) + 1;
     const box = readBox();
-    box.push({ id: 'commit-' + seq, type: 'commit', ops: ops });
-    localStorage.setItem(OUT, JSON.stringify(box));
-    localStorage.setItem(SEQ, String(seq));
+    box.push({ id: nextCommitId(), type: 'commit', ops: ops });
+    writeBox(box);
     flush();
   }
   async function armTick() {

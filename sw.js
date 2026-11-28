@@ -1,5 +1,5 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=39 on this preview branch only: navigate requests are network-first with a 3s timeout and cache: 'no-cache', and refresh the cached index.html; plus the earlier P0 flush, join gap-fill, pending-pairing, arming, and days/fox max-merge fixes. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=39; GitHub Pages only deploys main. */
-const CACHE = 'dog-verb-shell-v39';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=40 on this preview branch only: navigate requests are network-first with a 3s timeout and cache: 'no-cache', and refresh the cached index.html; plus the earlier P0 flush, join gap-fill, pending-pairing, arming, and days/fox max-merge fixes. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=40; GitHub Pages only deploys main. */
+const CACHE = 'dog-verb-shell-v40';
 const SHELL = [
   './index.html',
   './style.css?v=32',
@@ -10,7 +10,7 @@ const SHELL = [
   './sync-prep.js?v=34',
   './supabase/client-adapter.js?v=36',
   './sync-config.js?v=33',
-  './sync-app.js?v=38',
+  './sync-app.js?v=40',
   './data/books-index.js?v=31',
   './data/book-ielts.js',
   './data/book-kaoyan.js',
