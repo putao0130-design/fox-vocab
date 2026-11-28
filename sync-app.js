@@ -10,14 +10,35 @@
   const SEQ = 'foxVocab.syncSeq';
   const OUT = 'foxVocab.syncOutbox';
   const REV = 'foxVocab.syncSettingsRev';
+  const DEAD = 'foxVocab.syncDead';
+  const PAIR_TTL_MS = 5 * 60 * 1000;
+  const ARM_FAST_MS = 5000;
+  const ARM_SLOW_MS = 30000;
+  const NULL_STATUS = '已连接，但云端数据没读出来，本次没有合并';
   let session = null;
   let joining = null;
+  let waitingPair = 0;
   let timer = 0;
+  let intervalMs = ARM_FAST_MS;
+  let failStreak = 0;
+  let visBound = 0;
   let statusText = '';
   let errorText = '';
   let recoveryOnce = '';
   let pendingRemote = null;
   let pendingBound = 0;
+  const projectDiag = {
+    remoteCards: 0, remoteDaysRows: 0, remoteStudyDays: 0,
+    localEmpty: false, remoteEmpty: false, result: ''
+  };
+  const syncDiag = {
+    project: projectDiag,
+    pullBlockedByOutbox: 0,
+    lastPullBlockCount: 0,
+    deadCount: 0,
+    failStreak: 0,
+    intervalMs: ARM_FAST_MS
+  };
 
   function cfg() {
     const c = root.DOGVERB_SYNC_CONFIG;
@@ -31,7 +52,55 @@
     return root.DogverbSupabase.bind(c);
   }
   function opted() { return !!(cfg() && localStorage.getItem(ON) === '1'); }
-  function readBox() { try { return JSON.parse(localStorage.getItem(OUT) || '[]'); } catch (e) { return []; } }
+  function readAllBox() { try { return JSON.parse(localStorage.getItem(OUT) || '[]'); } catch (e) { return []; } }
+  function isDead(item) { return !!(item && item.dead); }
+  function readBox() { return readAllBox().filter(function (item) { return item && !isDead(item); }); }
+  function readDead() {
+    let stored = [];
+    try { stored = JSON.parse(localStorage.getItem(DEAD) || '[]'); } catch (e) { stored = []; }
+    if (!Array.isArray(stored)) stored = [];
+    const leftover = readAllBox().filter(isDead);
+    const seen = {};
+    const out = [];
+    stored.concat(leftover).forEach(function (item) {
+      if (!item || !item.id || seen[item.id]) return;
+      seen[item.id] = 1;
+      out.push(item);
+    });
+    return out;
+  }
+  function writeBox(items) { localStorage.setItem(OUT, JSON.stringify(items || [])); }
+  function writeDead(items) {
+    const list = items || [];
+    localStorage.setItem(DEAD, JSON.stringify(list));
+    syncDiag.deadCount = list.length;
+  }
+  function deadMessage() {
+    const n = readDead().length;
+    return n ? ('有 ' + n + ' 条没传上去（点此重试）') : '';
+  }
+  function recordDiag() {
+    syncDiag.project = projectDiag;
+    syncDiag.failStreak = failStreak;
+    syncDiag.intervalMs = intervalMs;
+    syncDiag.deadCount = readDead().length;
+    root.__dogverbSyncDiag = syncDiag;
+    return syncDiag;
+  }
+  function noteSyncResult(ok) {
+    if (ok) failStreak = 0;
+    else failStreak += 1;
+    const next = failStreak >= 5 ? ARM_SLOW_MS : ARM_FAST_MS;
+    recordDiag();
+    if (timer && next !== intervalMs) {
+      clearInterval(timer);
+      intervalMs = next;
+      timer = setInterval(armTick, intervalMs);
+    } else {
+      intervalMs = next;
+    }
+    syncDiag.intervalMs = intervalMs;
+  }
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
   function num(v) { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; }
   function sanitize(state) {
@@ -119,7 +188,17 @@
   function paint() {
     const box = document.getElementById('syncstatus');
     if (!box) return;
-    box.textContent = [statusText, errorText].filter(Boolean).join(' ');
+    const deadMsg = deadMessage();
+    const parts = [statusText, errorText];
+    if (deadMsg && statusText !== deadMsg && errorText !== deadMsg) parts.push(deadMsg);
+    box.textContent = parts.filter(Boolean).join(' ');
+    if (deadMsg) {
+      box.onclick = function () { retryDead(); };
+      if (box.style) box.style.cursor = 'pointer';
+    } else {
+      box.onclick = null;
+      if (box.style) box.style.cursor = '';
+    }
   }
   function previewOf(state) {
     let cards = 0;
@@ -164,12 +243,11 @@
     const next = project(remote.state, root.__dogverbReadState());
     if (!next) {
       pendingRemote = null;
-      localStorage.setItem(REV, String(remote.state.settingsRev || 0));
-      localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
-      statusText = connectedText || '已连接';
-      errorText = '';
+      statusText = NULL_STATUS;
+      errorText = 'project-null: cards=' + projectDiag.remoteCards + ' days=' + projectDiag.remoteDaysRows + ' studyDays=' + projectDiag.remoteStudyDays;
       paint();
-      return { applied: true, skippedMerge: true };
+      noteSyncResult(false);
+      return { applied: false, skippedMerge: true, projectNull: true, result: projectDiag.result };
     }
     const applied = root.__dogverbApplyRemote(next);
     if (applied && applied.applied) {
@@ -179,11 +257,39 @@
       statusText = connectedText || '已连接';
       errorText = '';
       paint();
+      noteSyncResult(true);
       return { applied: true };
     }
     pendingRemote = { remote: remote, connectedText: connectedText || '已连接' };
     listenForPendingApply();
     return applied || { deferred: true };
+  }
+  function bumpRetry(item) {
+    const next = Object.assign({}, item, { retries: (Number(item && item.retries) || 0) + 1 });
+    if (next.retries >= 3) {
+      next.dead = true;
+      return next;
+    }
+    return next;
+  }
+  async function retryDead() {
+    const dead = readDead();
+    if (!dead.length) return { empty: true };
+    const box = readBox();
+    dead.forEach(function (item) {
+      const ev = Object.assign({}, item);
+      delete ev.dead;
+      ev.retries = 0;
+      box.push(ev);
+    });
+    writeBox(box);
+    writeDead([]);
+    statusText = '正在重试上传';
+    errorText = '';
+    paint();
+    const res = await flush();
+    if (!readBox().length && opted()) await pull();
+    return res;
   }
   async function flush() {
     if (!opted()) return { skipped: true };
@@ -193,41 +299,133 @@
       await ensureSession();
       if (!session) return { skipped: true };
       const res = await backend().pushEvents(session, box);
-      if (res && res.offline) { statusText = '离线，本机进度已记下，联网后会继续传'; errorText = ''; paint(); return res; }
-      const bad = (res.results || []).filter(function (row) { return row.reason && row.reason !== 'duplicate'; });
-      localStorage.setItem(OUT, '[]');
-      statusText = '已同步';
-      errorText = bad.length ? '有一条没写上：' + bad[0].reason : '';
+      if (res && res.offline) { statusText = '离线，本机进度已记下，联网后会继续传'; errorText = ''; paint(); noteSyncResult(false); return res; }
+      const results = (res && res.results) || [];
+      const byId = {};
+      results.forEach(function (row) { if (row && row.id) byId[row.id] = row; });
+      const failed = results.filter(function (row) { return row && row.reason && row.reason !== 'duplicate'; });
+      const kept = [];
+      const newlyDead = readDead();
+      const deadIds = {};
+      newlyDead.forEach(function (item) { if (item && item.id) deadIds[item.id] = 1; });
+      box.forEach(function (item) {
+        if (!item || !item.id) return;
+        const row = byId[item.id];
+        const failedRow = !row || (row.reason && row.reason !== 'duplicate');
+        if (!failedRow) return;
+        const bumped = bumpRetry(item);
+        if (bumped.dead) {
+          if (!deadIds[bumped.id]) { newlyDead.push(bumped); deadIds[bumped.id] = 1; }
+        } else kept.push(bumped);
+      });
+      writeBox(kept);
+      writeDead(newlyDead);
+      if (failed.length) {
+        statusText = '有 ' + failed.length + ' 条没写上：' + failed[0].reason;
+        errorText = '';
+        noteSyncResult(false);
+      } else {
+        statusText = '已同步';
+        errorText = '';
+        noteSyncResult(true);
+      }
       paint();
       return res;
     } catch (e) {
       errorText = '同步失败';
       statusText = '本机进度还在';
       paint();
+      noteSyncResult(false);
       return { error: true };
     }
   }
   async function pull() {
-    if (!opted()) return;
+    if (!opted()) return { skipped: true };
     try {
+      const flushed = await flush();
+      const box = readBox();
+      if (box.length) {
+        statusText = '本机有 ' + box.length + ' 条待上传，暂不拉取';
+        syncDiag.pullBlockedByOutbox += 1;
+        syncDiag.lastPullBlockCount = box.length;
+        recordDiag();
+        paint();
+        return { blocked: true, outbox: box.length, flushed: flushed };
+      }
       await ensureSession();
-      if (!session) return;
+      if (!session) return { skipped: true };
       const remote = await backend().pull(session);
-      if (readBox().length) return;
       return finishRemoteApply(remote, '已连接');
     } catch (e) {
       if (e && e.data && e.data.error === 'unauthorized') { errorText = '这台设备已退出同步'; statusText = ''; }
       else errorText = '暂时连不上同步';
       paint();
+      noteSyncResult(false);
+      return { error: true };
     }
   }
+  function isPlainObject(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+  function remoteShapeProblem(remote) {
+    if (!isPlainObject(remote)) return true;
+    if (remote.books != null && !isPlainObject(remote.books)) return true;
+    if (remote.days != null && !isPlainObject(remote.days)) return true;
+    if (remote.studyDays != null && !Array.isArray(remote.studyDays)) return true;
+    if (remote.customBooks != null && !Array.isArray(remote.customBooks)) return true;
+    if (remote.books) {
+      const ids = Object.keys(remote.books);
+      for (let i = 0; i < ids.length; i++) {
+        const book = remote.books[ids[i]];
+        if (!isPlainObject(book)) return true;
+        if (book.cards != null && !isPlainObject(book.cards)) return true;
+      }
+    }
+    return false;
+  }
+  function countRemoteCards(remote) {
+    let n = 0;
+    if (!isPlainObject(remote) || !isPlainObject(remote.books)) return 0;
+    Object.keys(remote.books).forEach(function (id) {
+      const book = remote.books[id];
+      if (isPlainObject(book) && isPlainObject(book.cards)) n += Object.keys(book.cards).length;
+    });
+    return n;
+  }
+  function rememberProject(fields) {
+    projectDiag.remoteCards = fields.remoteCards;
+    projectDiag.remoteDaysRows = fields.remoteDaysRows;
+    projectDiag.remoteStudyDays = fields.remoteStudyDays;
+    projectDiag.localEmpty = fields.localEmpty;
+    projectDiag.remoteEmpty = fields.remoteEmpty;
+    projectDiag.result = fields.result;
+    recordDiag();
+  }
   function project(remote, local) {
-    if (!remote) return null;
-    let remoteCards = 0;
-    Object.keys(remote.books || {}).forEach(function (id) { remoteCards += Object.keys(remote.books[id].cards || {}).length; });
-    const localEmpty = learningEmpty(sanitize(local));
-    const remoteEmpty = !remoteCards && !(remote.customBooks || []).length && !(remote.studyDays || []).length;
-    if (remoteEmpty && !localEmpty) return null;
+    const localEmpty = learningEmpty(sanitize(local || {}));
+    if (remoteShapeProblem(remote)) {
+      rememberProject({
+        remoteCards: countRemoteCards(remote),
+        remoteDaysRows: isPlainObject(remote) && isPlainObject(remote.days) ? Object.keys(remote.days).length : 0,
+        remoteStudyDays: remote && Array.isArray(remote.studyDays) ? remote.studyDays.length : 0,
+        localEmpty: localEmpty, remoteEmpty: false, result: 'null-shape'
+      });
+      return null;
+    }
+    const remoteCards = countRemoteCards(remote);
+    const remoteDaysRows = Object.keys(remote.days || {}).length;
+    const remoteStudyDays = (remote.studyDays || []).length;
+    const remoteCustom = (remote.customBooks || []).length;
+    const remoteEmpty = !remoteCards && !remoteCustom && !remoteStudyDays && !remoteDaysRows;
+    if (remoteEmpty && !localEmpty) {
+      rememberProject({
+        remoteCards: remoteCards, remoteDaysRows: remoteDaysRows, remoteStudyDays: remoteStudyDays,
+        localEmpty: localEmpty, remoteEmpty: true, result: 'null-empty'
+      });
+      return null;
+    }
+    rememberProject({
+      remoteCards: remoteCards, remoteDaysRows: remoteDaysRows, remoteStudyDays: remoteStudyDays,
+      localEmpty: localEmpty, remoteEmpty: remoteEmpty, result: 'merged'
+    });
     const next = clone(local);
     next.settings = Object.assign({}, local.settings || {}, remote.settings || {});
     if (remote.settings && remote.settings.bookId) next.bookId = remote.settings.bookId;
@@ -283,6 +481,7 @@
     return next;
   }
   function onSave(state) {
+    if (opted()) arm();
     if (!opted()) return;
     const clean = sanitize(state);
     let before = null;
@@ -303,9 +502,113 @@
     localStorage.setItem(SEQ, String(seq));
     flush();
   }
+  async function armTick() {
+    if (!opted()) return;
+    await pull();
+    refreshPending();
+  }
+  function bindVisibility() {
+    if (visBound || !root.document || !root.document.addEventListener) return;
+    visBound = 1;
+    root.document.addEventListener('visibilitychange', function () {
+      if (root.document.visibilityState === 'visible' && opted()) pull();
+    });
+  }
   function arm() {
+    bindVisibility();
     if (timer) return;
-    timer = setInterval(function () { if (opted()) { flush(); pull(); refreshPending(); } }, 5000);
+    intervalMs = failStreak >= 5 ? ARM_SLOW_MS : ARM_FAST_MS;
+    syncDiag.intervalMs = intervalMs;
+    timer = setInterval(armTick, intervalMs);
+  }
+  async function clearJoining(sess) {
+    waitingPair = 0;
+    joining = null;
+    const api = cfg() ? backend() : null;
+    if (api && typeof api.clearPendingPairing === 'function' && sess) {
+      try { await api.clearPendingPairing(sess); } catch (e) { /* keep going */ }
+    }
+  }
+  function remainingSeconds(deadline) {
+    return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  }
+  function startWaitLoop(joiningSession, expiresAt, resumed) {
+    if (waitingPair) return;
+    waitingPair = 1;
+    joining = { session: joiningSession, fingerprint: joiningSession && joiningSession.fingerprint };
+    const deadline = Number(expiresAt) > 0 ? Number(expiresAt) : (Date.now() + PAIR_TTL_MS);
+    const tick = async function () {
+      if (!joining || !waitingPair) return;
+      const left = remainingSeconds(deadline);
+      if (left <= 0) {
+        const sess = joining.session;
+        await clearJoining(sess);
+        statusText = '';
+        errorText = '配对已过期，请重新生成配对码';
+        paint();
+        return;
+      }
+      if (resumed) {
+        statusText = '上次配对未完成，正在继续（还剩 ' + left + ' 秒）';
+        errorText = '';
+        paint();
+      }
+      try {
+        session = await backend().claimPairing(joining.session);
+        await clearJoining(session);
+        localStorage.setItem(ON, '1');
+        blurPairingFields();
+        const remote = await backend().pull(session);
+        finishRemoteApply(remote, '已连接');
+        arm();
+      } catch (e) {
+        const err = e && e.data && e.data.error;
+        if (err === 'pair-expired') {
+          const sess = joining && joining.session;
+          await clearJoining(sess);
+          statusText = '';
+          errorText = '配对已过期，请重新生成配对码';
+          paint();
+          return;
+        }
+        if (err === 'pair-not-confirmed' || err === 'nonce-replay') {
+          setTimeout(tick, 700);
+          return;
+        }
+        const sess = joining && joining.session;
+        await clearJoining(sess);
+        errorText = '配对没有成功';
+        paint();
+      }
+    };
+    setTimeout(tick, 700);
+  }
+  async function resumePendingPairing() {
+    if (waitingPair || (session && session.refreshToken)) return false;
+    const c = cfg();
+    if (!c) return false;
+    const api = backend();
+    if (!api || typeof api.resumePendingPairing !== 'function') return false;
+    const pending = await api.resumePendingPairing({ storage: sync.idbStorage() });
+    if (!pending || !pending.session) return false;
+    const left = remainingSeconds(pending.expiresAt || 0);
+    if (left <= 0) {
+      await api.clearPendingPairing(pending.session);
+      statusText = '';
+      errorText = '配对已过期，请重新生成配对码';
+      paint();
+      return false;
+    }
+    statusText = '上次配对未完成，正在继续（还剩 ' + left + ' 秒）';
+    errorText = '';
+    paint();
+    startWaitLoop(pending.session, pending.expiresAt, true);
+    return true;
+  }
+  function boot() {
+    bindVisibility();
+    if (opted()) arm();
+    resumePendingPairing().catch(function () {});
   }
   async function recoverWithSecret() {
     const input = document.getElementById('sync-recover');
@@ -370,21 +673,8 @@
       joining = await backend().submitPairing({ payload: payload, deviceName: '新设备', storage: sync.idbStorage() });
       statusText = '已提交，等原来的那台确认指纹 ' + joining.fingerprint.slice(0, 8);
       paint();
-      const wait = async function () {
-        if (!joining) return;
-        try {
-          session = await backend().claimPairing(joining.session);
-          localStorage.setItem(ON, '1');
-          blurPairingFields();
-          const remote = await backend().pull(session);
-          finishRemoteApply(remote, '已连接');
-          arm();
-        } catch (e) {
-          if (e && e.data && (e.data.error === 'pair-not-confirmed' || e.data.error === 'nonce-replay')) setTimeout(wait, 700);
-          else { errorText = '配对没有成功'; paint(); }
-        }
-      };
-      setTimeout(wait, 700);
+      const expiresAt = (joining.session && joining.session.pendingPairingExpiresAt) || joining.expiresAt;
+      startWaitLoop(joining.session, expiresAt, false);
     } catch (e) { errorText = '配对码无效或已过期'; paint(); }
   }
   async function refreshPending() {
@@ -460,8 +750,12 @@
   root.DogverbAppSync = {
     mount: mount, flush: flush, pull: pull, join: join, recoverWithSecret: recoverWithSecret,
     finishRemoteApply: finishRemoteApply, retryPendingApply: retryPendingApply, ensureSession: ensureSession,
+    arm: arm, boot: boot, retryDead: retryDead, project: project,
     status: function () { return { statusText: statusText, errorText: errorText }; },
     pending: function () { return pendingRemote; },
+    diag: function () { return recordDiag(); },
+    projectDiag: function () { return projectDiag; },
+    timerInfo: function () { return { intervalMs: intervalMs, failStreak: failStreak, armed: !!timer }; },
     debugServer: function (url) { if (session) session.server = url; if (joining && joining.session) joining.session.server = url; }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

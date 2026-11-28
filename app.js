@@ -1586,4 +1586,7 @@
   };
   bindIme();
   window.__ready = go((location.hash || '#home').slice(1).split('?')[0] in views ? location.hash.slice(1) : 'home');
+  if (window.DogverbAppSync && typeof window.DogverbAppSync.boot === 'function') {
+    try { window.DogverbAppSync.boot(); } catch (e) { /* sync must not block learning */ }
+  }
 })();

@@ -1,16 +1,16 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=35 on this preview branch only: joining while the pairing field stays focused (the default path on Safari, Edge, and HarmonyOS browsers, not a Chrome special case) no longer snapshots stale local progress as syncBase, and an expired access token is refreshed so a later pull or home reload can still apply the merge. Live main stays at v=34 until this change ships. Do not open production ?v=35; GitHub Pages only deploys main. Fetch handling is unchanged. */
-const CACHE = 'dog-verb-shell-v35';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=36 on this preview branch only: do not silently mark 已连接 or write syncBase when project() returns null; keep failed outbox events and dead-letter them after 3 failures; persist a pending pairing immediately and resume it on startup with a pairing-code TTL; arm sync after home save/__ready, pull when the page becomes visible, and back off the timer after repeated failures. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=36; GitHub Pages only deploys main. Fetch handling is unchanged. */
+const CACHE = 'dog-verb-shell-v36';
 const SHELL = [
   './index.html',
   './style.css?v=32',
-  './app.js?v=35',
+  './app.js?v=36',
   './core.js?v=32',
   './sync-wire.js?v=33',
   './sync-client.js?v=33',
   './sync-prep.js?v=34',
-  './supabase/client-adapter.js?v=35',
+  './supabase/client-adapter.js?v=36',
   './sync-config.js?v=33',
-  './sync-app.js?v=35',
+  './sync-app.js?v=36',
   './data/books-index.js?v=31',
   './data/book-ielts.js',
   './data/book-kaoyan.js',

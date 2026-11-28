@@ -1,0 +1,519 @@
+// P0 sync fixes: project() null handling, outbox flush/dead-letter,
+// pending pairing persist/resume/timeout, and arming sync without the settings page.
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const adapter = require('../supabase/client-adapter.js');
+const wire = require('../sync-wire.js');
+
+const ROOT = path.join(__dirname, '..');
+const KEY = 'foxVocab.v2';
+const ON = 'foxVocab.syncOn';
+const BASE = 'foxVocab.syncBase';
+const OUT = 'foxVocab.syncOutbox';
+const DEAD = 'foxVocab.syncDead';
+const BOOK = 'ielts-toefl-core';
+const PROJECT_URL = adapter.PROJECT_URL;
+const FAKE_ANON = 'anon-public-test-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+const NULL_STATUS = '已连接，但云端数据没读出来，本次没有合并';
+
+function card(last, reps) {
+  return { due: last + 86400000, stability: 2, difficulty: 5, reps: reps, lapses: 0, state: 2, last_review: last, learnedAt: last, mastered: false, masteredAt: null };
+}
+function localState() {
+  return {
+    v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+    books: { [BOOK]: { cards: { alpha: card(1, 1), beta: card(2, 1) }, sentences: [], extra: [], today: [] } },
+    customBooks: [], days: { '2026-11-03': { new: 1, review: 0, correct: 1, wrong: 0 }, '2026-11-04': { new: 1, review: 0, correct: 1, wrong: 0 } },
+    studyDays: ['2026-11-03', '2026-11-04'], fox: { food: 2, xp: 2, fed: 0, name: '豆豆' }
+  };
+}
+function remoteState() {
+  const books = { [BOOK]: { cards: {}, sentences: [], extra: [], today: [] } };
+  const days = {};
+  const studyDays = [];
+  const words = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi'];
+  words.forEach(function (word, i) {
+    books[BOOK].cards[word] = card(1000 + i, 1);
+    const day = i < 2 ? '2026-11-0' + (3 + i) : '2026-11-' + String(5 + (i % 5)).padStart(2, '0');
+    days[day] = { day: day, zone: 'device-local', new: 1, review: 0, correct: 1, wrong: 0 };
+    studyDays.push({ day: day, zone: 'device-local', source: 'test' });
+  });
+  ['2026-11-10', '2026-11-11'].forEach(function (day) {
+    days[day] = { day: day, zone: 'device-local', new: 1, review: 0, correct: 1, wrong: 0 };
+    studyDays.push({ day: day, zone: 'device-local', source: 'test' });
+  });
+  return {
+    v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK, settingsRev: 3 },
+    settingsRev: 3, books: books, customBooks: [], days: days, studyDays: studyDays,
+    fox: { food: 14, xp: 14, fed: 0, name: '豆豆' }
+  };
+}
+function cardCount(state) {
+  let n = 0;
+  Object.keys((state && state.books) || {}).forEach(function (id) {
+    n += Object.keys((state.books[id] && state.books[id].cards) || {}).length;
+  });
+  return n;
+}
+function memoryLocalStorage() {
+  const m = Object.create(null);
+  return {
+    getItem: function (k) { return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null; },
+    setItem: function (k, v) { m[k] = String(v); },
+    removeItem: function (k) { delete m[k]; }
+  };
+}
+function el(tag, id, parent) {
+  const node = {
+    tagName: String(tag).toUpperCase(),
+    nodeType: 1,
+    id: id || '',
+    value: '',
+    textContent: '',
+    innerHTML: '',
+    className: '',
+    style: {},
+    parentNode: parent || null,
+    onclick: null,
+    addEventListener: function () {},
+    closest: function (sel) {
+      if (!sel || sel.charAt(0) !== '#') return null;
+      const want = sel.slice(1);
+      let cur = node;
+      while (cur) {
+        if (cur.id === want) return cur;
+        cur = cur.parentNode;
+      }
+      return null;
+    }
+  };
+  return node;
+}
+
+function boot(opts) {
+  opts = opts || {};
+  const prep = require('../sync-prep.js');
+  const localStorage = memoryLocalStorage();
+  let S = opts.state ? JSON.parse(JSON.stringify(opts.state)) : localState();
+  localStorage.setItem(KEY, JSON.stringify(S));
+  if (opts.syncOn) localStorage.setItem(ON, '1');
+  if (opts.outbox) localStorage.setItem(OUT, JSON.stringify(opts.outbox));
+  if (opts.dead) localStorage.setItem(DEAD, JSON.stringify(opts.dead));
+
+  const slot = el('div', 'sync-slot');
+  const ids = {
+    'sync-slot': slot,
+    'syncstatus': el('div', 'syncstatus', slot),
+    'sync-preview': el('div', 'sync-preview', slot),
+    'sync-enable': el('button', 'sync-enable', slot),
+    'sync-go': el('button', 'sync-go', slot),
+    'sync-secret': el('input', 'sync-secret', slot),
+    'sync-hid': el('button', 'sync-hid', slot),
+    'sync-code': el('input', 'sync-code', slot),
+    'sync-join': el('input', 'sync-join', slot),
+    'sync-submit': el('button', 'sync-submit', slot),
+    'sync-recover': el('input', 'sync-recover', slot),
+    'sync-recover-go': el('button', 'sync-recover-go', slot),
+    'sync-pending': el('div', 'sync-pending', slot)
+  };
+  const body = el('body', '');
+  body.tagName = 'BODY';
+  let active = opts.focus === 'body' ? body : ids['sync-join'];
+  const listeners = {};
+  const timeouts = [];
+  const intervals = [];
+  let tid = 0;
+  const logs = { pull: 0, flush: 0, push: 0, refresh: 0, resume: 0, apply: 0, claim: 0, pendingResume: 0, clearPending: 0 };
+  let forceDefer = !!opts.forceDefer;
+  const remote = opts.remote || { state: remoteState() };
+  const pushImpl = opts.pushEvents || async function (session, events) {
+    logs.push += 1;
+    return { results: (events || []).map(function (ev) { return { id: ev.id, consumed: true, reason: null }; }) };
+  };
+
+  const backend = {
+    accessExpired: function (session) {
+      if (!session || !session.accessToken) return true;
+      if (!session.accessExpires) return false;
+      return Date.now() >= session.accessExpires - 15000;
+    },
+    refreshSession: async function (session) {
+      logs.refresh += 1;
+      session.accessToken = 'fresh-access';
+      session.refreshToken = 'fresh-refresh';
+      session.accessExpires = Date.now() + 5 * 60 * 1000;
+      return session;
+    },
+    resume: async function () {
+      logs.resume += 1;
+      return {
+        accessToken: 'resumed-access', refreshToken: 'resumed-refresh',
+        accessExpires: Date.now() + 5 * 60 * 1000, spaceId: 'space', deviceId: 'dev', role: 'member'
+      };
+    },
+    submitPairing: async function () {
+      const expiresAt = opts.pairExpiresAt != null ? opts.pairExpiresAt : (Date.now() + 5 * 60 * 1000);
+      return {
+        fingerprint: 'abcdabcd99999999', status: 'pending', expiresAt: expiresAt,
+        session: {
+          pairingId: 'pair-1', fingerprint: 'abcdabcd99999999',
+          pendingPairing: 1, pendingPairingExpiresAt: expiresAt
+        }
+      };
+    },
+    claimPairing: async function (session) {
+      logs.claim += 1;
+      if (opts.claimError) {
+        const err = new Error(opts.claimError);
+        err.data = { error: opts.claimError };
+        throw err;
+      }
+      session.accessToken = opts.accessToken || 'join-access';
+      session.refreshToken = 'join-refresh';
+      session.accessExpires = Date.now() + 5 * 60 * 1000;
+      session.spaceId = 'space';
+      session.deviceId = 'member-dev';
+      session.role = 'member';
+      delete session.pendingPairing;
+      return session;
+    },
+    pull: async function (session) {
+      logs.pull += 1;
+      if (opts.pullFails) {
+        const err = new Error('network');
+        err.data = { error: 'network' };
+        throw err;
+      }
+      return JSON.parse(JSON.stringify(remote));
+    },
+    pushEvents: async function (session, events) {
+      return pushImpl(session, events);
+    },
+    mintPairing: async function () { return { payload: 'TEST-PAYLOAD-NOT-A-REAL-CODE' }; },
+    pendingPairings: async function () { return { pending: [] }; },
+    resumePendingPairing: async function () {
+      logs.pendingResume += 1;
+      if (!opts.pendingResume) return null;
+      return opts.pendingResume;
+    },
+    clearPendingPairing: async function () { logs.clearPending += 1; }
+  };
+
+  const document = {
+    body: body,
+    visibilityState: 'visible',
+    get activeElement() { return active; },
+    set activeElement(v) { active = v; },
+    getElementById: function (id) { return ids[id] || null; },
+    addEventListener: function (type, fn) {
+      (listeners[type] = listeners[type] || []).push(fn);
+    },
+    dispatch: function (type) {
+      (listeners[type] || []).forEach(function (fn) { fn({ type: type }); });
+    }
+  };
+  ids['sync-join'].value = 'TEST-PAYLOAD-NOT-A-REAL-CODE';
+  ids['sync-join'].blur = function () { if (opts.allowBlur) active = body; };
+  ids['sync-recover'].blur = ids['sync-join'].blur;
+  ids['sync-code'].blur = ids['sync-join'].blur;
+  ids['sync-secret'].blur = ids['sync-join'].blur;
+
+  const ctx = {
+    console: console,
+    Date: Date, JSON: JSON, Object: Object, Array: Array, Number: Number,
+    String: String, Math: Math, Error: Error, Boolean: Boolean, Promise: Promise,
+    parseInt: parseInt, isFinite: isFinite, NaN: NaN, undefined: undefined,
+    setTimeout: function (fn, ms) { const id = ++tid; timeouts.push({ id: id, fn: fn, ms: ms }); return id; },
+    clearTimeout: function (id) { for (let i = timeouts.length - 1; i >= 0; i--) if (timeouts[i].id === id) timeouts.splice(i, 1); },
+    setInterval: function (fn, ms) { const id = ++tid; intervals.push({ id: id, fn: fn, ms: ms }); return id; },
+    clearInterval: function (id) { for (let i = intervals.length - 1; i >= 0; i--) if (intervals[i].id === id) intervals.splice(i, 1); },
+    localStorage: localStorage,
+    document: document,
+    VocabSyncPrep: prep,
+    DogverbSync: { idbStorage: function () { return { get: async function () { return null; }, set: async function () {} }; } },
+    DogverbSupabase: { disabled: function () { return false; }, bind: function () { return backend; } },
+    DOGVERB_SYNC_CONFIG: { url: PROJECT_URL, anonKey: FAKE_ANON }
+  };
+  ctx.globalThis = ctx;
+  ctx.window = ctx;
+  ctx.__dogverbReadState = function () { return JSON.parse(JSON.stringify(S)); };
+  ctx.__dogverbApplyRemote = function (next) {
+    if (forceDefer) { return { deferred: true }; }
+    logs.apply += 1;
+    S = JSON.parse(JSON.stringify(next));
+    localStorage.setItem(KEY, JSON.stringify(S));
+    return { applied: true };
+  };
+
+  vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'sync-app.js'), 'utf8'), ctx, { filename: 'sync-app.js' });
+
+  async function flushTimeouts() {
+    const batch = timeouts.splice(0, timeouts.length);
+    for (let i = 0; i < batch.length; i++) await batch[i].fn();
+  }
+
+  return {
+    ctx: ctx, ids: ids, document: document, localStorage: localStorage, logs: logs,
+    backend: backend, intervals: intervals, timeouts: timeouts,
+    get state() { return S; },
+    flushTimeouts: flushTimeouts,
+    status: function () { return ctx.DogverbAppSync.status(); },
+    diag: function () { return ctx.DogverbAppSync.diag(); },
+    projectDiag: function () { return ctx.DogverbAppSync.projectDiag(); },
+    timerInfo: function () { return ctx.DogverbAppSync.timerInfo(); }
+  };
+}
+
+function emptyRemote() {
+  return { v: 2, settings: {}, books: {}, customBooks: [], days: {}, studyDays: [], fox: {} };
+}
+
+(async function main() {
+  // P0-1: genuine empty cloud vs local progress — no 已连接, no syncBase write, machine-readable error.
+  const empty = boot({ syncOn: true, focus: 'body', remote: { state: emptyRemote() } });
+  const beforeEmpty = empty.localStorage.getItem(BASE);
+  const appliedEmpty = empty.ctx.DogverbAppSync.finishRemoteApply({ state: emptyRemote() }, '已连接');
+  assert.strictEqual(appliedEmpty.projectNull, true);
+  assert.strictEqual(appliedEmpty.result, 'null-empty');
+  assert.strictEqual(empty.status().statusText, NULL_STATUS);
+  assert.notStrictEqual(empty.status().statusText, '已连接');
+  assert.strictEqual(empty.status().errorText, 'project-null: cards=0 days=0 studyDays=0');
+  assert.strictEqual(empty.localStorage.getItem(BASE), beforeEmpty, 'must not write syncBase when project returns null');
+  assert.strictEqual(empty.projectDiag().result, 'null-empty');
+  assert.strictEqual(empty.projectDiag().remoteEmpty, true);
+  assert.strictEqual(empty.projectDiag().localEmpty, false);
+  assert.strictEqual(cardCount(empty.state), 2, 'local progress is left untouched');
+
+  // P0-1: unreadable shape errors as null-shape, not a successful connect.
+  const shaped = boot({ syncOn: true, focus: 'body' });
+  const badRemote = { books: [{ cards: [{ word: 'alpha' }] }], days: ['2026-11-03'], studyDays: { day: '2026-11-03' } };
+  const appliedShape = shaped.ctx.DogverbAppSync.finishRemoteApply({ state: badRemote }, '已连接');
+  assert.strictEqual(appliedShape.result, 'null-shape');
+  assert.strictEqual(shaped.projectDiag().result, 'null-shape');
+  assert.strictEqual(shaped.status().statusText, NULL_STATUS);
+  assert.ok(/^project-null: cards=/.test(shaped.status().errorText));
+  assert.strictEqual(shaped.localStorage.getItem(BASE), null);
+  assert.strictEqual(cardCount(shaped.state), 2);
+
+  // P0-1: readable cloud payload still merges and may show 已连接.
+  const merged = boot({ syncOn: true, focus: 'body' });
+  const appliedOk = merged.ctx.DogverbAppSync.finishRemoteApply({ state: remoteState() }, '已连接');
+  assert.strictEqual(appliedOk.applied, true);
+  assert.strictEqual(merged.projectDiag().result, 'merged');
+  assert.strictEqual(merged.status().statusText, '已连接');
+  assert.strictEqual(cardCount(merged.state), 14);
+  assert.strictEqual(cardCount(JSON.parse(merged.localStorage.getItem(BASE))), 14);
+  assert.strictEqual(merged.projectDiag().remoteCards, 14);
+  assert.ok(merged.projectDiag().remoteDaysRows >= 1);
+  assert.ok(merged.projectDiag().remoteStudyDays >= 1);
+
+  // P0-2: pull flushes first; a leftover outbox is not a silent return.
+  const flushCalls = [];
+  const blocked = boot({
+    syncOn: true, focus: 'body',
+    outbox: [{ id: 'commit-1', type: 'commit', ops: [{ kind: 'fox', food: 1 }] }],
+    pushEvents: async function (session, events) {
+      flushCalls.push(events.map(function (e) { return e.id; }));
+      return { results: events.map(function (ev) { return { id: ev.id, reason: 'no-food' }; }) };
+    }
+  });
+  const pullRes = await blocked.ctx.DogverbAppSync.pull();
+  assert.ok(flushCalls.length >= 1, 'pull must flush before inspecting the outbox');
+  assert.strictEqual(pullRes.blocked, true);
+  assert.strictEqual(blocked.status().statusText, '本机有 1 条待上传，暂不拉取');
+  assert.strictEqual(blocked.logs.pull, 0, 'must not pull while the main outbox still has events');
+  assert.ok(blocked.diag().pullBlockedByOutbox >= 1);
+  assert.strictEqual(JSON.parse(blocked.localStorage.getItem(OUT)).length, 1, 'failed event stays in the outbox');
+
+  // P0-3: flush keeps failures, clears successes and duplicates, and uses the new copy.
+  const mixed = boot({
+    syncOn: true, focus: 'body',
+    outbox: [
+      { id: 'ok-1', type: 'commit', ops: [{ kind: 'fox', food: 1 }] },
+      { id: 'dup-1', type: 'commit', ops: [{ kind: 'fox', food: 1 }] },
+      { id: 'bad-1', type: 'commit', ops: [{ kind: 'fox', food: 1 }] }
+    ],
+    pushEvents: async function (session, events) {
+      return {
+        results: [
+          { id: 'ok-1', consumed: true, reason: null },
+          { id: 'dup-1', consumed: false, reason: 'duplicate' },
+          { id: 'bad-1', consumed: false, reason: 'no-food' }
+        ]
+      };
+    }
+  });
+  await mixed.ctx.DogverbAppSync.flush();
+  const left = JSON.parse(mixed.localStorage.getItem(OUT) || '[]');
+  assert.deepStrictEqual(left.map(function (e) { return e.id; }), ['bad-1']);
+  assert.strictEqual(left[0].retries, 1);
+  assert.strictEqual(mixed.status().statusText, '有 1 条没写上：no-food');
+
+  // P0-2: the same event failing 3 times is dead-lettered and can be retried.
+  const stuck = boot({
+    syncOn: true, focus: 'body',
+    outbox: [{ id: 'bad-2', type: 'commit', ops: [{ kind: 'fox', food: 1 }] }],
+    pushEvents: async function (session, events) {
+      return { results: events.map(function (ev) { return { id: ev.id, reason: 'no-food' }; }) };
+    }
+  });
+  await stuck.ctx.DogverbAppSync.flush();
+  await stuck.ctx.DogverbAppSync.flush();
+  assert.strictEqual(JSON.parse(stuck.localStorage.getItem(OUT) || '[]').length, 1);
+  await stuck.ctx.DogverbAppSync.flush();
+  assert.deepStrictEqual(JSON.parse(stuck.localStorage.getItem(OUT) || '[]'), []);
+  const dead = JSON.parse(stuck.localStorage.getItem(DEAD) || '[]');
+  assert.strictEqual(dead.length, 1);
+  assert.strictEqual(dead[0].id, 'bad-2');
+  assert.strictEqual(dead[0].dead, true);
+  assert.strictEqual(dead[0].retries, 3);
+  assert.ok(stuck.ids.syncstatus.textContent.indexOf('有 1 条没传上去（点此重试）') !== -1);
+  assert.strictEqual(typeof stuck.ids.syncstatus.onclick, 'function');
+
+  let retried = 0;
+  stuck.backend.pushEvents = async function (session, events) {
+    retried += 1;
+    return { results: events.map(function (ev) { return { id: ev.id, consumed: true, reason: null }; }) };
+  };
+  await stuck.ctx.DogverbAppSync.retryDead();
+  assert.ok(retried >= 1, 'click/retry re-queues dead items and flushes');
+  assert.deepStrictEqual(JSON.parse(stuck.localStorage.getItem(DEAD) || '[]'), []);
+  assert.deepStrictEqual(JSON.parse(stuck.localStorage.getItem(OUT) || '[]'), []);
+  assert.ok(stuck.logs.pull >= 1, 'after a successful retry, pull can proceed');
+
+  // P0-4 client wait() loop: a deadline in the past shows the expiry copy and stops polling.
+  const expired = boot({ focus: 'join', pairExpiresAt: Date.now() - 1000, claimError: 'pair-not-confirmed' });
+  await expired.ctx.DogverbAppSync.join();
+  await expired.flushTimeouts();
+  assert.strictEqual(expired.status().errorText, '配对已过期，请重新生成配对码');
+  assert.strictEqual(expired.logs.claim, 0, 'expired wait must not keep claiming');
+  const leftover = expired.timeouts.length;
+  await expired.flushTimeouts();
+  assert.strictEqual(expired.timeouts.length, leftover, 'expiry must not schedule another 700ms poll');
+  assert.ok(expired.logs.clearPending >= 1);
+
+  // P0-4: startup resume of an unclaimed pairing shows the continue copy.
+  const resumeAt = Date.now() + 45 * 1000;
+  const resumed = boot({
+    focus: 'body',
+    pendingResume: {
+      session: { pairingId: 'pair-resume', fingerprint: 'abcdabcd99999999', pendingPairing: 1, pendingPairingExpiresAt: resumeAt },
+      expiresAt: resumeAt
+    }
+  });
+  resumed.ctx.DogverbAppSync.boot();
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  assert.ok(resumed.logs.pendingResume >= 1);
+  assert.ok(/^上次配对未完成，正在继续（还剩 \d+ 秒）$/.test(resumed.status().statusText), resumed.status().statusText);
+  assert.ok(resumed.timeouts.length >= 1, 'resume continues wait() polling');
+
+  // P0-5: arm starts from boot/save without mount; second arm does not stack intervals.
+  const home = boot({ syncOn: true, focus: 'body' });
+  assert.strictEqual(home.timerInfo().armed, false);
+  home.ctx.__dogverbAfterSave(home.state);
+  assert.strictEqual(home.timerInfo().armed, true);
+  assert.strictEqual(home.intervals.length, 1);
+  assert.strictEqual(home.timerInfo().intervalMs, 5000);
+  home.ctx.DogverbAppSync.arm();
+  home.ctx.DogverbAppSync.boot();
+  assert.strictEqual(home.intervals.length, 1, 'arm is idempotent and must not stack intervals');
+
+  // P0-5: becoming visible triggers an immediate pull.
+  const pullsBefore = home.logs.pull;
+  home.document.visibilityState = 'visible';
+  home.document.dispatch('visibilitychange');
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  assert.ok(home.logs.pull > pullsBefore, 'visibilitychange to visible must pull');
+
+  // P0-5: 5 consecutive failures back off to 30s; a success returns to 5s.
+  const slow = boot({ syncOn: true, focus: 'body', pullFails: true });
+  for (let i = 0; i < 5; i++) await slow.ctx.DogverbAppSync.pull();
+  slow.ctx.DogverbAppSync.arm();
+  assert.strictEqual(slow.timerInfo().failStreak, 5);
+  assert.strictEqual(slow.timerInfo().intervalMs, 30000);
+  slow.backend.pull = async function () {
+    slow.logs.pull += 1;
+    return { state: remoteState() };
+  };
+  // replace the failing flag by swapping pull; next pull should succeed
+  const after = await slow.ctx.DogverbAppSync.pull();
+  assert.ok(after && after.applied);
+  assert.strictEqual(slow.timerInfo().failStreak, 0);
+  assert.strictEqual(slow.timerInfo().intervalMs, 5000);
+
+  // P0-5: mount still pulls immediately (and still arms).
+  const mounted = boot({ syncOn: true, focus: 'body' });
+  mounted.ctx.DogverbAppSync.mount();
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  assert.ok(mounted.logs.pull >= 1, 'mount keeps its immediate pull');
+  assert.strictEqual(cardCount(mounted.state), 14);
+  assert.strictEqual(mounted.status().statusText, '已连接');
+  assert.strictEqual(mounted.timerInfo().armed, true);
+
+  // Adapter P0-4: submitPairing persists immediately with pendingPairing=1 and pairingId.
+  const store = Object.create(null);
+  const storage = {
+    get: async function (k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
+    set: async function (k, v) { store[k] = v; }
+  };
+  let nonce = 0;
+  const fetchFn = async function (url, opts) {
+    const body = JSON.parse(opts.body);
+    const json = function (obj, status) {
+      return { ok: (status || 200) < 400, status: status || 200, json: async function () { return obj; } };
+    };
+    if (body.action === 'challenge') return json({ nonce: 'n' + (++nonce) });
+    if (body.action === 'submit') {
+      return json({ fingerprint: 'f'.repeat(64), status: 'waiting-for-original', pairingId: 'pair-persist', expiresAt: Date.now() + 60 * 1000 });
+    }
+    if (body.action === 'claim') {
+      return json({
+        accessToken: 'claimed-access', refreshToken: 'claimed-refresh', accessTtlMs: 300000,
+        spaceId: 'space', deviceId: 'dev', role: 'member', fingerprint: 'f'.repeat(64)
+      });
+    }
+    return json({ error: 'unexpected-action' }, 400);
+  };
+  const api = adapter.bind({ url: PROJECT_URL, anonKey: FAKE_ANON, fetch: fetchFn });
+  const submitted = await api.submitPairing({ code: 'FAKECODE', deviceName: 'test device', storage: storage });
+  assert.ok(store['supabase-device'], 'submitPairing must persist before claim');
+  assert.strictEqual(store['supabase-device'].pendingPairing, 1);
+  assert.strictEqual(store['supabase-device'].pairingId, 'pair-persist');
+  assert.ok(store['supabase-device'].privateKey, 'device key is persisted immediately');
+  assert.ok(!store['supabase-device'].refreshToken, 'unclaimed session has no refresh token yet');
+  assert.strictEqual(submitted.session.pendingPairing, 1);
+  const pending = await api.resumePendingPairing({ storage: storage });
+  assert.ok(pending && pending.session);
+  assert.strictEqual(pending.pairingId, 'pair-persist');
+  assert.ok(pending.expiresAt > Date.now());
+
+  const claimed = await api.claimPairing(submitted.session);
+  assert.ok(claimed.refreshToken);
+  assert.ok(!store['supabase-device'].pendingPairing, 'claim persist must drop pendingPairing');
+  assert.ok(store['supabase-device'].refreshToken);
+  const afterClaim = await api.resumePendingPairing({ storage: storage });
+  assert.strictEqual(afterClaim, null);
+
+  // Adapter: clearPendingPairing on expiry must not resume forever on later startups.
+  store['supabase-device'] = {
+    url: PROJECT_URL, pendingPairing: 1, pairingId: 'pair-old',
+    publicJwk: { kty: 'EC' }, fingerprint: 'f'.repeat(64), privateKey: submitted.session.privateKey,
+    pendingPairingExpiresAt: Date.now() - 1000
+  };
+  const stale = await api.resumePendingPairing({ storage: storage });
+  assert.ok(stale);
+  await api.clearPendingPairing(stale.session);
+  const gone = await api.resumePendingPairing({ storage: storage });
+  assert.strictEqual(gone, null);
+
+  assert.strictEqual(adapter.PAIR_TTL_MS, 5 * 60 * 1000);
+
+  console.log('ok ' + module.filename);
+})().catch(function (err) {
+  console.error(err && err.stack || err);
+  process.exit(1);
+});
