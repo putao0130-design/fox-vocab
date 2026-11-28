@@ -1,5 +1,5 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=37 on this preview branch only: after a successful join/pull apply, the client enqueues and flushes the local-only extras (the post-merge gap against the cloud snapshot) so the union can reach the cloud and the host; plus the earlier P0 flush, pending-pairing, and arming fixes. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=37; GitHub Pages only deploys main. Fetch handling is unchanged. */
-const CACHE = 'dog-verb-shell-v37';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=38 on this preview branch only: navigate requests are network-first and refresh the cached index.html; plus the earlier P0 flush, join gap-fill, pending-pairing, arming, and days/fox max-merge fixes. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=38; GitHub Pages only deploys main. */
+const CACHE = 'dog-verb-shell-v38';
 const SHELL = [
   './index.html',
   './style.css?v=32',
@@ -10,7 +10,7 @@ const SHELL = [
   './sync-prep.js?v=34',
   './supabase/client-adapter.js?v=36',
   './sync-config.js?v=33',
-  './sync-app.js?v=37',
+  './sync-app.js?v=38',
   './data/books-index.js?v=31',
   './data/book-ielts.js',
   './data/book-kaoyan.js',
@@ -58,7 +58,17 @@ self.addEventListener('fetch', event => {
     event.respondWith(fetch(event.request));
     return;
   }
-  event.respondWith(caches.match(event.request).then(hit => hit || fetch(event.request).catch(() => {
-    if (event.request.mode === 'navigate') return caches.match('./index.html');
-  })));
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request).then(function (res) {
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then(function (cache) { return cache.put('./index.html', copy); });
+      }
+      return res;
+    }).catch(function () {
+      return caches.match('./index.html');
+    }));
+    return;
+  }
+  event.respondWith(caches.match(event.request).then(hit => hit || fetch(event.request)));
 });

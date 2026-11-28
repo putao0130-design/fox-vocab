@@ -53,6 +53,46 @@
     return root.DogverbSupabase.bind(c);
   }
   function opted() { return !!(cfg() && localStorage.getItem(ON) === '1'); }
+  const capturedScriptSrc = (function () {
+    try {
+      if (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) {
+        return document.currentScript.src;
+      }
+    } catch (e) { /* read later from the loaded script tag */ }
+    return '';
+  })();
+  function loadedSyncAppSrc() {
+    if (capturedScriptSrc) return capturedScriptSrc;
+    try {
+      if (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) {
+        return document.currentScript.src;
+      }
+    } catch (e) {}
+    if (typeof document === 'undefined') return '';
+    if (typeof document.querySelector === 'function') {
+      const tagged = document.querySelector('script[src*="sync-app"]');
+      if (tagged && tagged.src) return tagged.src;
+    }
+    const nodes = document.getElementsByTagName ? document.getElementsByTagName('script') : [];
+    for (let i = 0; i < nodes.length; i++) {
+      const src = nodes[i].src || (nodes[i].getAttribute && nodes[i].getAttribute('src')) || '';
+      if (String(src).indexOf('sync-app') !== -1) return src;
+    }
+    return '';
+  }
+  function scriptVersion() {
+    const src = loadedSyncAppSrc();
+    const m = String(src).match(/[?&]v=([^&]*)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function versionStampText() {
+    const data = localStorage.getItem(ON) === '1' ? '已开启' : '未开启';
+    return '脚本 v=' + scriptVersion() + ' / 数据 ' + data;
+  }
+  function paintStamp() {
+    const el = document.getElementById('sync-build');
+    if (el) el.textContent = versionStampText();
+  }
   function readAllBox() { try { return JSON.parse(localStorage.getItem(OUT) || '[]'); } catch (e) { return []; } }
   function isDead(item) { return !!(item && item.dead); }
   function readBox() { return readAllBox().filter(function (item) { return item && !isDead(item); }); }
@@ -208,6 +248,7 @@
     slot.textContent = '已学 ' + preview.cards + '，自建词书 ' + preview.custom + '，打卡 ' + preview.days;
   }
   function paint() {
+    paintStamp();
     refreshPreview(false);
     const box = document.getElementById('syncstatus');
     if (!box) return;
@@ -874,10 +915,11 @@
     const slot = document.getElementById('sync-slot');
     if (!slot) return;
     if (!cfg()) {
-      slot.innerHTML = '<div class="card"><div class="ctitle">跨设备同步</div><div class="hint">配对码同步还没接通。接通后，学习进度、复习计划、生词和自助词书会在这台手机、Windows 和 Mac 的同一个网页之间自动同步。手动导出不能代替自动同步。请先在 Supabase 控制台按 docs/supabase-sync.md 做完迁移和函数，再把 Project Settings → API 里的 anon/public 密钥填进 sync-config.js（不要把 service_role 或数据库密码写进仓库或聊天）。</div></div>';
+      slot.innerHTML = '<div class="card"><div id="sync-build" class="hint"></div><div class="ctitle">跨设备同步</div><div class="hint">配对码同步还没接通。接通后，学习进度、复习计划、生词和自助词书会在这台手机、Windows 和 Mac 的同一个网页之间自动同步。手动导出不能代替自动同步。请先在 Supabase 控制台按 docs/supabase-sync.md 做完迁移和函数，再把 Project Settings → API 里的 anon/public 密钥填进 sync-config.js（不要把 service_role 或数据库密码写进仓库或聊天）。</div></div>';
+      paintStamp();
       return;
     }
-    slot.innerHTML = '<div class="card"><div class="ctitle">跨设备同步</div><div class="hint">用配对码连接设备，不用注册学习账号。学习进度、复习计划、生词和自助词书会自动同步。手动导出仍可当备份，但不能代替自动同步。</div><div id="syncstatus" class="hint"></div><div id="sync-preview" class="hint"></div><div class="row"><button type="button" class="primary" id="sync-enable">在这台开启</button><button type="button" class="ghost" id="sync-go">确认备份并上传</button></div><label class="field">恢复码（只显示这一次）<input id="sync-secret" type="text" readonly autocomplete="off"></label><button type="button" class="ghost sm" id="sync-hid">我已保存恢复码</button><label class="field">配对码<input id="sync-code" type="text" readonly autocomplete="off"></label><label class="field">加入另一台<input id="sync-join" type="text" autocomplete="off" spellcheck="false" placeholder="粘贴配对码"></label><button type="button" class="primary" id="sync-submit">提交配对</button><label class="field">用恢复码重新加入<input id="sync-recover" type="text" autocomplete="off" spellcheck="false" placeholder="粘贴恢复码"></label><button type="button" class="ghost" id="sync-recover-go">用恢复码加入</button><div id="sync-pending"></div></div>';
+    slot.innerHTML = '<div class="card"><div id="sync-build" class="hint"></div><div class="ctitle">跨设备同步</div><div class="hint">用配对码连接设备，不用注册学习账号。学习进度、复习计划、生词和自助词书会自动同步。手动导出仍可当备份，但不能代替自动同步。</div><div id="syncstatus" class="hint"></div><div id="sync-preview" class="hint"></div><div class="row"><button type="button" class="primary" id="sync-enable">在这台开启</button><button type="button" class="ghost" id="sync-go">确认备份并上传</button></div><label class="field">恢复码（只显示这一次）<input id="sync-secret" type="text" readonly autocomplete="off"></label><button type="button" class="ghost sm" id="sync-hid">我已保存恢复码</button><label class="field">配对码<input id="sync-code" type="text" readonly autocomplete="off"></label><label class="field">加入另一台<input id="sync-join" type="text" autocomplete="off" spellcheck="false" placeholder="粘贴配对码"></label><button type="button" class="primary" id="sync-submit">提交配对</button><label class="field">用恢复码重新加入<input id="sync-recover" type="text" autocomplete="off" spellcheck="false" placeholder="粘贴恢复码"></label><button type="button" class="ghost" id="sync-recover-go">用恢复码加入</button><div id="sync-pending"></div></div>';
     statusText = opted() ? '已开启' : '还没开启。开启前会先做一份不可覆盖的本机备份。';
     paint();
     document.getElementById('sync-enable').onclick = enableNew;
