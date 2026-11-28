@@ -244,10 +244,10 @@ for (const line of [ieltsHead, ielts.description, kyHead, kaoyan.description, an
 assert.ok(!ieltsHead.includes('KyleBing') && !ielts.description.includes('KyleBing'));
 const indexHtml = fs.readFileSync(nodePath.join(__dirname, '../index.html'), 'utf8');
 const sw = fs.readFileSync(nodePath.join(__dirname, '../sw.js'), 'utf8');
-assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v34'"));
-assert.ok(sw.includes('Live main stays at v=33 until this change ships'));
-assert.ok(indexHtml.includes('style.css?v=32') && indexHtml.includes('core.js?v=32') && indexHtml.includes('app.js?v=33') && indexHtml.includes('sw.js?v=34'));
-assert.ok(!indexHtml.includes('style.css?v=31') && !indexHtml.includes('core.js?v=31') && !indexHtml.includes('app.js?v=32') && !indexHtml.includes('sw.js?v=32'));
+assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v35'"));
+assert.ok(sw.includes('Live main stays at v=34 until this change ships'));
+assert.ok(indexHtml.includes('style.css?v=32') && indexHtml.includes('core.js?v=32') && indexHtml.includes('app.js?v=35') && indexHtml.includes('sw.js?v=35'));
+assert.ok(!indexHtml.includes('style.css?v=31') && !indexHtml.includes('core.js?v=31') && !indexHtml.includes('app.js?v=33') && !indexHtml.includes('sw.js?v=34'));
 assert.ok(indexHtml.includes('data/senses.js?v=32') && sw.includes('./data/senses.js?v=32'));
 assert.ok(indexHtml.includes('data/books-index.js?v=31') && sw.includes('./data/books-index.js?v=31'));
 assert.ok(!indexHtml.includes('?v=29') && !sw.includes('?v=29') && !sw.includes('shell-v29'));

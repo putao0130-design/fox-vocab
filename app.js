@@ -209,6 +209,13 @@
   function fieldBusy() {
     const el = document.activeElement;
     if (!el || el.nodeType !== 1) return false;
+    // Pairing / recovery fields live in #sync-slot. On Safari, Edge, and
+    // HarmonyOS browsers the cursor commonly stays in #sync-join after submit
+    // (this is the default path, not a Chrome special case). That leftover
+    // focus must not defer a just-fetched merge, or join can show 已连接 on
+    // stale local state. The id list is a fallback if Element.closest is missing.
+    if (el.closest && el.closest('#sync-slot')) return false;
+    if (el.id === 'sync-join' || el.id === 'sync-recover' || el.id === 'sync-code' || el.id === 'sync-secret') return false;
     return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
   }
   function typingEl(el) {

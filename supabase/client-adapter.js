@@ -68,6 +68,37 @@
       session.fingerprint = tokens.fingerprint || session.fingerprint;
       session.accessToken = tokens.accessToken;
       session.refreshToken = tokens.refreshToken;
+      const ttl = Number(tokens.accessTtlMs);
+      session.accessExpires = Date.now() + (ttl > 0 ? ttl : 5 * 60 * 1000);
+    }
+    function accessExpired(session, skewMs) {
+      if (!session || !session.accessToken) return true;
+      if (!session.accessExpires) return false;
+      return Date.now() >= session.accessExpires - (typeof skewMs === 'number' ? skewMs : 15000);
+    }
+    async function refreshSession(session) {
+      if (!session || !session.refreshToken || !session.privateKey) {
+        const err = new Error('expired');
+        err.data = { error: 'expired' };
+        throw err;
+      }
+      const signed = await proof(session, 'refresh', '');
+      const tokens = await invoke(config, 'refresh', Object.assign({ refreshToken: session.refreshToken }, signed));
+      adopt(session, tokens);
+      await persist(session);
+      return session;
+    }
+    async function withAccess(session, run) {
+      if (accessExpired(session)) await refreshSession(session);
+      try {
+        return await run();
+      } catch (e) {
+        if (e && e.data && e.data.error === 'expired') {
+          await refreshSession(session);
+          return await run();
+        }
+        throw e;
+      }
     }
     async function persist(session) {
       if (!session.storage) return;
@@ -93,8 +124,10 @@
         return { session: session, recoverySecret: recoverySecret };
       },
       async mintPairing(session) {
-        const signed = await proof(session, 'mint-pair', '');
-        return invoke(config, 'mint', Object.assign({ accessToken: session.accessToken }, signed));
+        return withAccess(session, async function () {
+          const signed = await proof(session, 'mint-pair', '');
+          return invoke(config, 'mint', Object.assign({ accessToken: session.accessToken }, signed));
+        });
       },
       async submitPairing(opts) {
         const device = await generateDevice();
@@ -116,8 +149,10 @@
         };
       },
       async confirmPairing(session, pairingId, fingerprint) {
-        const signed = await proof(session, 'confirm-pair', pairingId);
-        return invoke(config, 'confirm', Object.assign({ accessToken: session.accessToken, pairingId: pairingId, fingerprint: fingerprint }, signed));
+        return withAccess(session, async function () {
+          const signed = await proof(session, 'confirm-pair', pairingId);
+          return invoke(config, 'confirm', Object.assign({ accessToken: session.accessToken, pairingId: pairingId, fingerprint: fingerprint }, signed));
+        });
       },
       async claimPairing(session) {
         const signed = await proof(session, 'claim-pair', session.pairingId);
@@ -137,10 +172,12 @@
         });
         if (!merged.length) return { results: [] };
         try {
-          const signed = await proof(session, 'sync', '');
-          const res = await invoke(config, 'push', Object.assign({ accessToken: session.accessToken, events: merged }, signed));
-          if (session.storage) await session.storage.set('outbox', []);
-          return res;
+          return await withAccess(session, async function () {
+            const signed = await proof(session, 'sync', '');
+            const res = await invoke(config, 'push', Object.assign({ accessToken: session.accessToken, events: merged }, signed));
+            if (session.storage) await session.storage.set('outbox', []);
+            return res;
+          });
         } catch (e) {
           if (e.network) {
             if (session.storage) await session.storage.set('outbox', merged);
@@ -150,18 +187,26 @@
         }
       },
       async pushLegacy(session, snapshot) {
-        const signed = await proof(session, 'sync', '');
-        return invoke(config, 'push', Object.assign({ accessToken: session.accessToken, legacy: snapshot, events: [] }, signed));
+        return withAccess(session, async function () {
+          const signed = await proof(session, 'sync', '');
+          return invoke(config, 'push', Object.assign({ accessToken: session.accessToken, legacy: snapshot, events: [] }, signed));
+        });
       },
       async pull(session) {
-        return invoke(config, 'pull', { accessToken: session.accessToken });
+        return withAccess(session, function () {
+          return invoke(config, 'pull', { accessToken: session.accessToken });
+        });
       },
       async pendingPairings(session) {
-        return invoke(config, 'pending', { accessToken: session.accessToken });
+        return withAccess(session, function () {
+          return invoke(config, 'pending', { accessToken: session.accessToken });
+        });
       },
       async revokeDevice(session, deviceId) {
-        const signed = await proof(session, 'revoke', deviceId);
-        return invoke(config, 'revoke', Object.assign({ accessToken: session.accessToken, deviceId: deviceId }, signed));
+        return withAccess(session, async function () {
+          const signed = await proof(session, 'revoke', deviceId);
+          return invoke(config, 'revoke', Object.assign({ accessToken: session.accessToken, deviceId: deviceId }, signed));
+        });
       },
       async recover(opts) {
         const device = await generateDevice();
@@ -185,7 +230,9 @@
         adopt(session, tokens);
         await persist(session);
         return session;
-      }
+      },
+      accessExpired: accessExpired,
+      refreshSession: refreshSession
     };
   }
   const api = { bind: bind, disabled: disabled, PROJECT_URL: PROJECT_URL, ORIGIN: ORIGIN };
