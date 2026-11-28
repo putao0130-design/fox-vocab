@@ -270,6 +270,68 @@ function emptyRemote() {
   return { v: 2, settings: {}, books: {}, customBooks: [], days: {}, studyDays: [], fox: {} };
 }
 
+
+function hostSeedFour() {
+  const books = { [BOOK]: { cards: {}, sentences: [], extra: [], today: [] } };
+  const days = {};
+  const studyDays = [];
+  ['analyse', 'approach', 'area', 'assess'].forEach(function (word, i) {
+    books[BOOK].cards[word] = card(2000 + i, 1);
+  });
+  ['2026-11-20', '2026-11-22', '2026-11-24'].forEach(function (day) {
+    days[day] = { day: day, zone: 'device-local', new: 1, review: 0, correct: 1, wrong: 0 };
+    studyDays.push({ day: day, zone: 'device-local', source: 'test' });
+  });
+  return {
+    v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK, settingsRev: 1 },
+    settingsRev: 1, books: books, customBooks: [], days: days, studyDays: studyDays,
+    fox: { food: 4, xp: 4, fed: 0, name: 'SeedA' }
+  };
+}
+function joinerSeedTwo() {
+  return {
+    v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+    books: { [BOOK]: { cards: { economy: card(10, 1), environment: card(11, 1) }, sentences: [], extra: [], today: [] } },
+    customBooks: [],
+    days: {
+      '2026-11-18': { new: 1, review: 0, correct: 1, wrong: 0 },
+      '2026-11-19': { new: 1, review: 0, correct: 1, wrong: 0 }
+    },
+    studyDays: ['2026-11-18', '2026-11-19'],
+    fox: { food: 2, xp: 2, fed: 0, name: 'SeedB' }
+  };
+}
+function applyCommitOpsToRemote(remote, events) {
+  const next = JSON.parse(JSON.stringify(remote));
+  (events || []).forEach(function (ev) {
+    (ev.ops || []).forEach(function (op) {
+      if (op.kind === 'card') {
+        if (!next.books[op.bookId]) next.books[op.bookId] = { cards: {}, sentences: [], extra: [], today: [] };
+        next.books[op.bookId].cards[op.word] = op.card;
+      } else if (op.kind === 'study') {
+        const has = (next.studyDays || []).some(function (d) { return d && d.day === op.day && d.zone === (op.zone || 'device-local'); });
+        if (!has) next.studyDays.push({ day: op.day, zone: op.zone || 'device-local', source: 'event' });
+      } else if (op.kind === 'day') {
+        const day = op.day;
+        let key = null;
+        Object.keys(next.days || {}).forEach(function (k) {
+          const row = next.days[k];
+          if (row && row.day === day && row.zone === (op.zone || 'device-local')) key = k;
+        });
+        if (!key) key = day;
+        const row = next.days[key] || { day: day, zone: op.zone || 'device-local', new: 0, review: 0, correct: 0, wrong: 0 };
+        const delta = op.delta || {};
+        row.new = (row.new || 0) + (delta.new || 0);
+        row.review = (row.review || 0) + (delta.review || 0);
+        row.correct = (row.correct || 0) + (delta.correct || 0);
+        row.wrong = (row.wrong || 0) + (delta.wrong || 0);
+        next.days[key] = row;
+      }
+    });
+  });
+  return next;
+}
+
 (async function main() {
   // P0-1: genuine empty cloud vs local progress — no 已连接, no syncBase write, machine-readable error.
   const empty = boot({ syncOn: true, focus: 'body', remote: { state: emptyRemote() } });
@@ -493,6 +555,105 @@ function emptyRemote() {
   assert.ok((zoned.state.studyDays || []).indexOf('2026-11-20') === -1);
   assert.ok((zoned.state.studyDays || []).indexOf('2026-11-21') === -1);
 
+  // Join-side push-back: after apply merges remote 4/3 with local 2/2 into 6/5,
+  // the joiner must enqueue and flush the local-only extras so a later host pull can see 6/5.
+  const pushedJoin = [];
+  const joiner = boot({
+    syncOn: true, focus: 'body',
+    state: joinerSeedTwo(),
+    remote: { state: hostSeedFour() },
+    pushEvents: async function (session, events) {
+      pushedJoin.push(JSON.parse(JSON.stringify(events || [])));
+      return { results: (events || []).map(function (ev) { return { id: ev.id, consumed: true, reason: null }; }) };
+    }
+  });
+  assert.strictEqual(cardCount(joiner.state), 2);
+  assert.strictEqual((joiner.state.studyDays || []).length, 2);
+  const joinApply = joiner.ctx.DogverbAppSync.finishRemoteApply({ state: hostSeedFour() }, '已连接');
+  assert.strictEqual(joinApply.applied, true);
+  assert.strictEqual(cardCount(joiner.state), 6);
+  assert.strictEqual((joiner.state.studyDays || []).length, 5);
+  assert.ok((joiner.state.studyDays || []).indexOf('2026-11-18') !== -1);
+  assert.ok((joiner.state.studyDays || []).indexOf('2026-11-24') !== -1);
+  assert.ok(joiner.state.books[BOOK].cards.economy);
+  assert.ok(joiner.state.books[BOOK].cards.analyse);
+  assert.strictEqual(joiner.status().statusText, '已连接');
+  assert.strictEqual(joiner.projectDiag().result, 'merged');
+  assert.strictEqual(joiner.projectDiag().remoteCards, 4, 'diag must stay on the real merge, not the blank cloud snapshot');
+  const queued = JSON.parse(joiner.localStorage.getItem(OUT) || '[]');
+  assert.ok(queued.length >= 1, 'post-merge local extras must be enqueued');
+  const ops = [];
+  queued.forEach(function (ev) { (ev.ops || []).forEach(function (op) { ops.push(op); }); });
+  const cardWords = ops.filter(function (op) { return op.kind === 'card'; }).map(function (op) { return op.word; }).sort();
+  assert.deepStrictEqual(cardWords, ['economy', 'environment']);
+  const studyDaysPushed = ops.filter(function (op) { return op.kind === 'study'; }).map(function (op) { return op.day; }).sort();
+  assert.deepStrictEqual(studyDaysPushed, ['2026-11-18', '2026-11-19']);
+  const dayDaysPushed = ops.filter(function (op) { return op.kind === 'day'; }).map(function (op) { return op.day; }).sort();
+  assert.deepStrictEqual(dayDaysPushed, ['2026-11-18', '2026-11-19']);
+  assert.ok(ops.every(function (op) {
+    return op.kind !== 'card' || (op.word !== 'analyse' && op.word !== 'approach' && op.word !== 'area' && op.word !== 'assess');
+  }), 'must not push the host/cloud cards back as new events');
+  await joiner.ctx.DogverbAppSync.flush();
+  assert.ok(pushedJoin.length >= 1);
+  assert.deepStrictEqual(JSON.parse(joiner.localStorage.getItem(OUT) || '[]'), []);
+  assert.strictEqual(joiner.status().statusText, '已连接', 'successful post-merge flush must not replace 已连接');
+
+  const cloudAfter = applyCommitOpsToRemote(hostSeedFour(), pushedJoin.reduce(function (all, batch) { return all.concat(batch); }, []));
+  assert.strictEqual(cardCount(cloudAfter), 6);
+  assert.strictEqual((cloudAfter.studyDays || []).length, 5);
+
+  const host = boot({
+    syncOn: true, focus: 'body',
+    state: (function () {
+      const s = hostSeedFour();
+      s.studyDays = ['2026-11-20', '2026-11-22', '2026-11-24'];
+      s.days = {
+        '2026-11-20': { new: 1, review: 0, correct: 1, wrong: 0 },
+        '2026-11-22': { new: 1, review: 0, correct: 1, wrong: 0 },
+        '2026-11-24': { new: 1, review: 0, correct: 1, wrong: 0 }
+      };
+      return s;
+    })(),
+    remote: { state: cloudAfter }
+  });
+  const hostApply = host.ctx.DogverbAppSync.finishRemoteApply({ state: cloudAfter }, '已连接');
+  assert.strictEqual(hostApply.applied, true);
+  assert.strictEqual(cardCount(host.state), 6, 'host pull of the updated cloud project sees the union');
+  assert.strictEqual((host.state.studyDays || []).length, 5);
+  assert.ok(host.state.books[BOOK].cards.economy && host.state.books[BOOK].cards.analyse);
+  const hostOps = [];
+  JSON.parse(host.localStorage.getItem(OUT) || '[]').forEach(function (ev) {
+    (ev.ops || []).forEach(function (op) { hostOps.push(op); });
+  });
+  const hostNewCards = hostOps.filter(function (op) { return op.kind === 'card'; });
+  assert.strictEqual(hostNewCards.length, 0, 'host already represented in the cloud must not re-push the union');
+
+  // Same path through join() (claim + pull + apply), not only finishRemoteApply.
+  const pushedViaJoin = [];
+  const viaJoin = boot({
+    focus: 'join',
+    state: joinerSeedTwo(),
+    remote: { state: hostSeedFour() },
+    pushEvents: async function (session, events) {
+      pushedViaJoin.push(JSON.parse(JSON.stringify(events || [])));
+      return { results: (events || []).map(function (ev) { return { id: ev.id, consumed: true, reason: null }; }) };
+    }
+  });
+  await viaJoin.ctx.DogverbAppSync.join();
+  await viaJoin.flushTimeouts();
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  await new Promise(function (resolve) { setImmediate(resolve); });
+  await viaJoin.ctx.DogverbAppSync.flush();
+  assert.strictEqual(cardCount(viaJoin.state), 6);
+  assert.strictEqual((viaJoin.state.studyDays || []).length, 5);
+  assert.strictEqual(viaJoin.status().statusText, '已连接');
+  const viaOps = [];
+  pushedViaJoin.forEach(function (batch) {
+    batch.forEach(function (ev) { (ev.ops || []).forEach(function (op) { viaOps.push(op); }); });
+  });
+  assert.deepStrictEqual(viaOps.filter(function (op) { return op.kind === 'card'; }).map(function (op) { return op.word; }).sort(), ['economy', 'environment']);
+
+  // Follow-up: project-null must not count toward failStreak backoff.
   // Follow-up: project-null must not count toward failStreak backoff.
   const noBackoff = boot({ syncOn: true, focus: 'body', pullFails: true });
   for (let i = 0; i < 4; i++) await noBackoff.ctx.DogverbAppSync.pull();

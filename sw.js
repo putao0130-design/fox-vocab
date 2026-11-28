@@ -1,5 +1,5 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=36 on this preview branch only: do not silently mark 已连接 or write syncBase when project() returns null; keep failed outbox events and dead-letter them after 3 failures; persist a pending pairing immediately and resume it on startup with a pairing-code TTL; arm sync after home save/__ready, pull when the page becomes visible, and back off the timer after repeated failures. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=36; GitHub Pages only deploys main. Fetch handling is unchanged. */
-const CACHE = 'dog-verb-shell-v36';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=37 on this preview branch only: after a successful join/pull apply, the client enqueues and flushes the local-only extras (the post-merge gap against the cloud snapshot) so the union can reach the cloud and the host; plus the earlier P0 flush, pending-pairing, and arming fixes. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=37; GitHub Pages only deploys main. Fetch handling is unchanged. */
+const CACHE = 'dog-verb-shell-v37';
 const SHELL = [
   './index.html',
   './style.css?v=32',
@@ -10,7 +10,7 @@ const SHELL = [
   './sync-prep.js?v=34',
   './supabase/client-adapter.js?v=36',
   './sync-config.js?v=33',
-  './sync-app.js?v=36',
+  './sync-app.js?v=37',
   './data/books-index.js?v=31',
   './data/book-ielts.js',
   './data/book-kaoyan.js',

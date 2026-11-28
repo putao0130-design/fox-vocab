@@ -247,6 +247,35 @@
     document.addEventListener('focusout', retryPendingApply);
     document.addEventListener('visibilitychange', retryPendingApply);
   }
+  function blankState() {
+    return { v: 2, bookId: '', settings: {}, books: {}, customBooks: [], days: {}, studyDays: [], fox: {} };
+  }
+  function enqueueCloudGap(remoteState, merged) {
+    if (!opted() || !remoteState || !merged) return { ops: 0 };
+    const saved = {
+      remoteCards: projectDiag.remoteCards,
+      remoteDaysRows: projectDiag.remoteDaysRows,
+      remoteStudyDays: projectDiag.remoteStudyDays,
+      daysSkippedByZone: projectDiag.daysSkippedByZone,
+      studyDaysSkippedByZone: projectDiag.studyDaysSkippedByZone,
+      localEmpty: projectDiag.localEmpty,
+      remoteEmpty: projectDiag.remoteEmpty,
+      result: projectDiag.result
+    };
+    const cloudAsLocal = project(remoteState, blankState(), { record: false });
+    Object.assign(projectDiag, saved);
+    recordDiag();
+    if (!cloudAsLocal) return { ops: 0 };
+    const ops = diff(sanitize(cloudAsLocal), sanitize(merged));
+    if (!ops.length) return { ops: 0 };
+    const seq = (Number(localStorage.getItem(SEQ)) || 0) + 1;
+    const box = readBox();
+    const id = 'commit-' + seq;
+    box.push({ id: id, type: 'commit', ops: ops });
+    writeBox(box);
+    localStorage.setItem(SEQ, String(seq));
+    return { ops: ops.length, id: id, items: ops };
+  }
   function finishRemoteApply(remote, connectedText) {
     if (!remote || !remote.state) return { skipped: true };
     const next = project(remote.state, root.__dogverbReadState());
@@ -267,7 +296,9 @@
       refreshPreview(true);
       paint();
       noteSyncResult(true);
-      return { applied: true };
+      const pushed = enqueueCloudGap(remote.state, root.__dogverbReadState());
+      if (pushed && pushed.ops) flush({ keepStatusOnSuccess: true });
+      return { applied: true, queued: pushed && pushed.ops ? pushed.ops : 0, queuedId: pushed && pushed.id };
     }
     pendingRemote = { remote: remote, connectedText: connectedText || '已连接' };
     listenForPendingApply();
@@ -318,7 +349,7 @@
     return out;
   }
   let flushTail = Promise.resolve();
-  async function flush() {
+  async function flush(opts) {
     if (!opted()) return { skipped: true };
     const prev = flushTail;
     let release;
@@ -327,12 +358,12 @@
     try {
       await prev;
       if (!opted()) return { skipped: true };
-      return await flushOnce();
+      return await flushOnce(opts);
     } finally {
       release();
     }
   }
-  async function flushOnce() {
+  async function flushOnce(opts) {
     const box = readBox();
     if (!box.length) return { empty: true };
     try {
@@ -367,8 +398,10 @@
         errorText = '';
         noteSyncResult(false);
       } else {
-        statusText = '已同步';
-        errorText = '';
+        if (!(opts && opts.keepStatusOnSuccess)) {
+          statusText = '已同步';
+          errorText = '';
+        }
         noteSyncResult(true);
       }
       paint();
@@ -459,11 +492,12 @@
     }
     return { daysSkippedByZone: daysSkippedByZone, studyDaysSkippedByZone: studyDaysSkippedByZone };
   }
-  function project(remote, local) {
+  function project(remote, local, opts) {
+    const record = !(opts && opts.record === false);
     const localEmpty = learningEmpty(sanitize(local || {}));
     if (remoteShapeProblem(remote)) {
       const shapeSkips = countZoneSkips(remote);
-      rememberProject({
+      if (record) rememberProject({
         remoteCards: countRemoteCards(remote),
         remoteDaysRows: isPlainObject(remote) && isPlainObject(remote.days) ? Object.keys(remote.days).length : 0,
         remoteStudyDays: remote && Array.isArray(remote.studyDays) ? remote.studyDays.length : 0,
@@ -480,7 +514,7 @@
     const remoteEmpty = !remoteCards && !remoteCustom && !remoteStudyDays && !remoteDaysRows;
     const zoneSkips = countZoneSkips(remote);
     if (remoteEmpty && !localEmpty) {
-      rememberProject({
+      if (record) rememberProject({
         remoteCards: remoteCards, remoteDaysRows: remoteDaysRows, remoteStudyDays: remoteStudyDays,
         daysSkippedByZone: zoneSkips.daysSkippedByZone,
         studyDaysSkippedByZone: zoneSkips.studyDaysSkippedByZone,
@@ -488,7 +522,7 @@
       });
       return null;
     }
-    rememberProject({
+    if (record) rememberProject({
       remoteCards: remoteCards, remoteDaysRows: remoteDaysRows, remoteStudyDays: remoteStudyDays,
       daysSkippedByZone: zoneSkips.daysSkippedByZone,
       studyDaysSkippedByZone: zoneSkips.studyDaysSkippedByZone,
