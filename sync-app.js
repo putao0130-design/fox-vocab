@@ -11,6 +11,7 @@
   const OUT = 'foxVocab.syncOutbox';
   const REV = 'foxVocab.syncSettingsRev';
   const DEAD = 'foxVocab.syncDead';
+  const REMOTE_BASE = 'foxVocab.syncRemoteBase';
   const PAIR_TTL_MS = 5 * 60 * 1000;
   const ARM_FAST_MS = 5000;
   const ARM_SLOW_MS = 30000;
@@ -104,6 +105,29 @@
   }
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
   function num(v) { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; }
+  function reviewTime(v) {
+    if (v == null || v === '') return 0;
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    const parsed = Date.parse(v);
+    if (Number.isFinite(parsed)) return parsed;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function cardNewer(incoming, have) {
+    const it = reviewTime(incoming && incoming.last_review);
+    const ht = reviewTime(have && have.last_review);
+    if (it !== ht) return it > ht;
+    return num(incoming && incoming.reps) > num(have && have.reps);
+  }
+  function readRemoteBase() {
+    try { return JSON.parse(localStorage.getItem(REMOTE_BASE) || 'null'); } catch (e) { return null; }
+  }
+  function writeRemoteBase(snap) {
+    localStorage.setItem(REMOTE_BASE, JSON.stringify({ days: (snap && snap.days) || {}, fox: (snap && snap.fox) || {} }));
+  }
+  function sumField(local, remote, prev) {
+    return Math.max(0, num(local) + num(remote) - num(prev));
+  }
   function sanitize(state) {
     const s = clone(state);
     if (s.fox) { delete s.fox.hunger; delete s.fox.lastCheck; }
@@ -266,15 +290,24 @@
     Object.assign(projectDiag, saved);
     recordDiag();
     if (!cloudAsLocal) return { ops: 0 };
-    const ops = diff(sanitize(cloudAsLocal), sanitize(merged));
-    if (!ops.length) return { ops: 0 };
-    const seq = (Number(localStorage.getItem(SEQ)) || 0) + 1;
+    const rawOps = diff(sanitize(cloudAsLocal), sanitize(merged));
+    // Additive day/fox ops must not be reverse-engineered from a snapshot.
+    // Reuse any such ops already sitting in the outbox; do not invent new ones.
+    const ops = rawOps.filter(function (op) { return op && op.kind !== 'day' && op.kind !== 'fox'; });
     const box = readBox();
+    const fingerprint = JSON.stringify(ops);
+    const reused = box.some(function (ev) {
+      if (!ev || ev.type !== 'commit' || !Array.isArray(ev.ops)) return false;
+      const queued = ev.ops.filter(function (op) { return op && op.kind !== 'day' && op.kind !== 'fox'; });
+      return JSON.stringify(queued) === fingerprint;
+    });
+    if (reused || !ops.length) return { ops: ops.length, id: reused ? 'reused' : '', items: ops, reused: !!reused };
+    const seq = (Number(localStorage.getItem(SEQ)) || 0) + 1;
     const id = 'commit-' + seq;
     box.push({ id: id, type: 'commit', ops: ops });
     writeBox(box);
     localStorage.setItem(SEQ, String(seq));
-    return { ops: ops.length, id: id, items: ops };
+    return { ops: ops.length, id: id, items: ops, reused: false };
   }
   function finishRemoteApply(remote, connectedText) {
     if (!remote || !remote.state) return { skipped: true };
@@ -291,6 +324,8 @@
       pendingRemote = null;
       localStorage.setItem(REV, String(remote.state.settingsRev || 0));
       localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
+      const remoteSnap = project(remote.state, blankState(), { record: false });
+      if (remoteSnap) writeRemoteBase({ days: remoteSnap.days || {}, fox: remoteSnap.fox || {} });
       statusText = connectedText || '已连接';
       errorText = '';
       refreshPreview(true);
@@ -537,7 +572,7 @@
       const cur = next.books[id] || { cards: {}, sentences: {}, extra: [], today: [] };
       Object.keys(src.cards || {}).forEach(function (word) {
         const have = cur.cards[word]; const incoming = src.cards[word];
-        if (!have || num(incoming.last_review) >= num(have.last_review)) cur.cards[word] = incoming;
+        if (!have || cardNewer(incoming, have)) cur.cards[word] = incoming;
       });
       const pins = {};
       (cur.today || []).forEach(function (w) { pins[w] = 1; });
@@ -572,13 +607,37 @@
       cur.new += num(row.new); cur.review += num(row.review); cur.correct += num(row.correct); cur.wrong += num(row.wrong);
       sums[row.day] = cur;
     });
-    Object.keys(sums).forEach(function (day) { next.days[day] = sums[day]; });
+    const base = (opts && opts.record === false) ? null : readRemoteBase();
+    const baseDays = (base && base.days) || {};
+    next.days = next.days || {};
+    const dayKeys = {};
+    Object.keys(next.days).forEach(function (day) { dayKeys[day] = 1; });
+    Object.keys(sums).forEach(function (day) { dayKeys[day] = 1; });
+    Object.keys(dayKeys).forEach(function (day) {
+      const loc = next.days[day] || {};
+      const rem = sums[day] || {};
+      const prev = baseDays[day] || {};
+      next.days[day] = {
+        new: sumField(loc.new, rem.new, prev.new),
+        review: sumField(loc.review, rem.review, prev.review),
+        correct: sumField(loc.correct, rem.correct, prev.correct),
+        wrong: sumField(loc.wrong, rem.wrong, prev.wrong)
+      };
+    });
     const marks = {};
     (next.studyDays || []).forEach(function (d) { marks[d] = 1; });
     (remote.studyDays || []).forEach(function (d) { if (d.zone === 'device-local') marks[d.day] = 1; });
     next.studyDays = Object.keys(marks).sort();
     if (remote.fox) {
-      next.fox = Object.assign({}, next.fox || {}, { food: remote.fox.food, xp: remote.fox.xp, fed: remote.fox.fed, name: remote.fox.name });
+      const lf = next.fox || {};
+      const rf = remote.fox;
+      const bf = (base && base.fox) || {};
+      next.fox = Object.assign({}, lf, {
+        food: sumField(lf.food, rf.food, bf.food),
+        xp: sumField(lf.xp, rf.xp, bf.xp),
+        fed: sumField(lf.fed, rf.fed, bf.fed),
+        name: (rf.name != null && rf.name !== '') ? rf.name : lf.name
+      });
     }
     return next;
   }

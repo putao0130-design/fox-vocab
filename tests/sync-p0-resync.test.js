@@ -588,8 +588,8 @@ function applyCommitOpsToRemote(remote, events) {
   assert.deepStrictEqual(cardWords, ['economy', 'environment']);
   const studyDaysPushed = ops.filter(function (op) { return op.kind === 'study'; }).map(function (op) { return op.day; }).sort();
   assert.deepStrictEqual(studyDaysPushed, ['2026-11-18', '2026-11-19']);
-  const dayDaysPushed = ops.filter(function (op) { return op.kind === 'day'; }).map(function (op) { return op.day; }).sort();
-  assert.deepStrictEqual(dayDaysPushed, ['2026-11-18', '2026-11-19']);
+  const dayOrFoxPushed = ops.filter(function (op) { return op.kind === 'day' || op.kind === 'fox'; });
+  assert.deepStrictEqual(dayOrFoxPushed, [], 'gap-fill must not reverse-engineer additive day/fox ops from a snapshot');
   assert.ok(ops.every(function (op) {
     return op.kind !== 'card' || (op.word !== 'analyse' && op.word !== 'approach' && op.word !== 'area' && op.word !== 'assess');
   }), 'must not push the host/cloud cards back as new events');
@@ -736,6 +736,128 @@ function applyCommitOpsToRemote(remote, events) {
   assert.strictEqual(cardCount(mounted.state), 14);
   assert.strictEqual(mounted.status().statusText, '已连接');
   assert.strictEqual(mounted.timerInfo().armed, true);
+
+  // Independent unit test 1: local card with a later last_review is kept.
+  function testLocalLaterLastReviewIsKept() {
+    const later = boot({
+      syncOn: true, focus: 'body',
+      state: {
+        v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+        books: { [BOOK]: { cards: { keepme: { due: 2, stability: 99, difficulty: 5, reps: 2, lapses: 0, state: 2, last_review: '2026-11-28T12:00:00.000Z', learnedAt: 1, mastered: false, masteredAt: null } }, sentences: [], extra: [], today: [] } },
+        customBooks: [], days: {}, studyDays: [], fox: { food: 0, xp: 0, fed: 0, name: 'SeedB' }
+      },
+      remote: { state: {
+        v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+        books: { [BOOK]: { cards: { keepme: { due: 3, stability: 1, difficulty: 5, reps: 9, lapses: 0, state: 2, last_review: '2026-11-27T12:00:00.000Z', learnedAt: 1, mastered: false, masteredAt: null } }, sentences: [], extra: [], today: [] } },
+        customBooks: [], days: {}, studyDays: [], fox: { food: 0, xp: 0, fed: 0, name: 'SeedA' }
+      } }
+    });
+    const ret = later.ctx.DogverbAppSync.finishRemoteApply({ state: {
+      v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+      books: { [BOOK]: { cards: { keepme: { due: 3, stability: 1, difficulty: 5, reps: 9, lapses: 0, state: 2, last_review: '2026-11-27T12:00:00.000Z', learnedAt: 1, mastered: false, masteredAt: null } }, sentences: [], extra: [], today: [] } },
+      customBooks: [], days: {}, studyDays: [], fox: { food: 0, xp: 0, fed: 0, name: 'SeedA' }
+    } }, '已连接');
+    assert.strictEqual(ret.applied, true);
+    const kept = later.state.books[BOOK].cards.keepme;
+    assert.strictEqual(kept.stability, 99, 'local card with a later last_review must be kept');
+    assert.strictEqual(kept.last_review, '2026-11-28T12:00:00.000Z');
+    assert.strictEqual(kept.reps, 2);
+  }
+  testLocalLaterLastReviewIsKept();
+
+  // Independent unit test 2: pushing the same gap-fill twice must not double days or fox/dog food.
+  async function testGapFillTwiceDoesNotDoubleDaysOrFox() {
+    const day = '2026-11-20';
+    const local = {
+      v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+      books: { [BOOK]: { cards: { economy: card(10, 1) }, sentences: [], extra: [], today: [] } },
+      customBooks: [],
+      days: { [day]: { new: 2, review: 0, correct: 2, wrong: 0 } },
+      studyDays: [day],
+      fox: { food: 2, xp: 2, fed: 0, name: 'SeedB' }
+    };
+    const remote = {
+      v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK, settingsRev: 1 },
+      settingsRev: 1,
+      books: { [BOOK]: { cards: { analyse: card(2000, 1) }, sentences: [], extra: [], today: [] } },
+      customBooks: [],
+      days: { [day]: { day: day, zone: 'device-local', new: 3, review: 0, correct: 3, wrong: 0 } },
+      studyDays: [{ day: day, zone: 'device-local', source: 'test' }],
+      fox: { food: 4, xp: 4, fed: 0, name: 'SeedA' }
+    };
+    const env = boot({ syncOn: true, focus: 'body', state: local, remote: { state: remote } });
+    const first = env.ctx.DogverbAppSync.finishRemoteApply({ state: remote }, '已连接');
+    assert.strictEqual(first.applied, true);
+    const daysAfterFirst = env.state.days[day].new;
+    const foodAfterFirst = env.state.fox.food;
+    assert.strictEqual(daysAfterFirst, 5);
+    assert.strictEqual(foodAfterFirst, 6);
+    const second = env.ctx.DogverbAppSync.finishRemoteApply({ state: remote }, '已连接');
+    assert.strictEqual(second.applied, true);
+    assert.strictEqual(env.state.days[day].new, daysAfterFirst, 'second gap-fill/apply must not double day counts');
+    assert.strictEqual(env.state.fox.food, foodAfterFirst, 'second gap-fill/apply must not double fox/dog food');
+    const queued = JSON.parse(env.localStorage.getItem(OUT) || '[]');
+    let dayOps = 0, foxOps = 0;
+    queued.forEach(function (ev) {
+      (ev.ops || []).forEach(function (op) {
+        if (op.kind === 'day') dayOps += 1;
+        if (op.kind === 'fox') foxOps += 1;
+      });
+    });
+    assert.strictEqual(dayOps, 0, 'gap-fill must not enqueue snapshot-derived day ops');
+    assert.strictEqual(foxOps, 0, 'gap-fill must not enqueue snapshot-derived fox ops');
+  }
+  await testGapFillTwiceDoesNotDoubleDaysOrFox();
+
+  // Independent unit test 3: same-day learns of 3 and 2 merge to 5.
+  function testSameDayLearnsSumToFive() {
+    const day = '2026-11-21';
+    const local = {
+      v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+      books: { [BOOK]: { cards: {}, sentences: [], extra: [], today: [] } },
+      customBooks: [], days: { [day]: { new: 2, review: 0, correct: 2, wrong: 0 } },
+      studyDays: [day], fox: { food: 2, xp: 0, fed: 0, name: 'SeedB' }
+    };
+    const remote = {
+      v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+      books: { [BOOK]: { cards: {}, sentences: [], extra: [], today: [] } },
+      customBooks: [],
+      days: { [day]: { day: day, zone: 'device-local', new: 3, review: 0, correct: 3, wrong: 0 } },
+      studyDays: [{ day: day, zone: 'device-local', source: 'test' }],
+      fox: { food: 3, xp: 0, fed: 0, name: 'SeedA' }
+    };
+    const env = boot({ syncOn: true, focus: 'body', state: local, remote: { state: remote } });
+    const ret = env.ctx.DogverbAppSync.finishRemoteApply({ state: remote }, '已连接');
+    assert.strictEqual(ret.applied, true);
+    assert.strictEqual(env.state.days[day].new, 5, 'same-day 3 and 2 must sum to 5');
+  }
+  testSameDayLearnsSumToFive();
+
+  // Independent unit test 4: running the same-day sum merge again stays 5, not 8.
+  function testSameDayMergeAgainStaysFiveNotEight() {
+    const day = '2026-11-21';
+    const local = {
+      v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+      books: { [BOOK]: { cards: {}, sentences: [], extra: [], today: [] } },
+      customBooks: [], days: { [day]: { new: 2, review: 0, correct: 2, wrong: 0 } },
+      studyDays: [day], fox: { food: 2, xp: 0, fed: 0, name: 'SeedB' }
+    };
+    const remote = {
+      v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
+      books: { [BOOK]: { cards: {}, sentences: [], extra: [], today: [] } },
+      customBooks: [],
+      days: { [day]: { day: day, zone: 'device-local', new: 3, review: 0, correct: 3, wrong: 0 } },
+      studyDays: [{ day: day, zone: 'device-local', source: 'test' }],
+      fox: { food: 3, xp: 0, fed: 0, name: 'SeedA' }
+    };
+    const env = boot({ syncOn: true, focus: 'body', state: local, remote: { state: remote } });
+    assert.strictEqual(env.ctx.DogverbAppSync.finishRemoteApply({ state: remote }, '已连接').applied, true);
+    assert.strictEqual(env.state.days[day].new, 5);
+    assert.strictEqual(env.ctx.DogverbAppSync.finishRemoteApply({ state: remote }, '已连接').applied, true);
+    assert.strictEqual(env.state.days[day].new, 5, 'merging again must stay 5, not 8');
+    assert.strictEqual(env.state.fox.food, 5);
+  }
+  testSameDayMergeAgainStaysFiveNotEight();
 
   // Adapter P0-4: submitPairing persists immediately with pendingPairing=1 and pairingId.
   const store = Object.create(null);
