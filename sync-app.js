@@ -269,7 +269,7 @@
     errorText = '';
     try {
       const backup = prep.commitPrecloudBackup(storageAdapter());
-      if (!backup.ok && !backup.noop) { errorText = '备份没有写成，同步没有开始'; paint(); return; }
+      if (prep.precloudBackupWriteFailed(backup)) { errorText = '备份没有写成，同步没有开始'; paint(); return; }
       const made = await backend().recover({ recoverySecret: secret, deviceName: '这台设备', storage: sync.idbStorage() });
       session = made.session;
       localStorage.setItem(ON, '1');
@@ -286,8 +286,9 @@
   }
   async function enableNew() {
     errorText = '';
+    // A leftover foxVocab.precloud.backup must stay immutable, but it must not block the current preview or arming 确认备份并上传.
     const backup = prep.commitPrecloudBackup(storageAdapter());
-    if (!backup.ok) { errorText = '备份没有写成，同步没有开始'; paint(); return; }
+    if (prep.precloudBackupWriteFailed(backup)) { errorText = '备份没有写成，同步没有开始'; paint(); return; }
     const state = sanitize(root.__dogverbReadState());
     const preview = previewOf(state);
     const slot = document.getElementById('sync-preview');

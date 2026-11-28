@@ -260,6 +260,32 @@ assert.strictEqual(disk.getItem('foxVocab.v2'), '{"v":2,"changed":true}');
 assert.strictEqual(JSON.parse(disk.getItem(P.BACKUP_KEY)).sources['foxVocab.v2'], rawV2, 'a second backup does not overwrite the first');
 disk.setItem('foxVocab.v2', rawV2);
 
+// Leftover immutable backup after the source key later changes (e.g. a new
+// calendar day saved foxVocab.v2). enableNew must still proceed and must not
+// clobber the first snapshot.
+const leftoverDisk = P.memoryStorage({ 'foxVocab.v1': rawV1, 'foxVocab.v1.backup': rawV1Backup, 'foxVocab.v2': rawV2 });
+const firstBackup = P.commitPrecloudBackup(leftoverDisk);
+assert.strictEqual(firstBackup.ok, true);
+const originalBackup = leftoverDisk.getItem(P.BACKUP_KEY);
+assert.ok(originalBackup);
+leftoverDisk.setItem('foxVocab.v2', JSON.stringify({ v: 2, changed: true, lastCheck: 1764288000000 }));
+const retryCommit = P.commitPrecloudBackup(leftoverDisk);
+assert.strictEqual(retryCommit.ok, false);
+assert.strictEqual(retryCommit.reason, 'backup-exists');
+assert.strictEqual(retryCommit.wrote, false);
+assert.strictEqual(leftoverDisk.getItem(P.BACKUP_KEY), originalBackup, 'enable/commit must not overwrite the first precloud snapshot');
+assert.strictEqual(JSON.parse(originalBackup).sources['foxVocab.v2'], rawV2);
+assert.strictEqual(P.precloudBackupWriteFailed(retryCommit), false, 'a leftover valid backup must not hard-stop enableNew');
+assert.strictEqual(P.precloudBackupWriteFailed(firstBackup), false);
+assert.strictEqual(P.precloudBackupWriteFailed({ ok: false, reason: 'write-failed' }), true);
+assert.strictEqual(P.precloudBackupWriteFailed({ ok: false, reason: 'read-failed' }), true);
+assert.strictEqual(P.precloudBackupWriteFailed({ ok: false, reason: 'readback-mismatch' }), true);
+assert.strictEqual(P.precloudBackupWriteFailed({ ok: false, reason: 'rollback-failed' }), true);
+const syncApp = fs.readFileSync(path.join(__dirname, '..', 'sync-app.js'), 'utf8');
+assert.ok(syncApp.includes('precloudBackupWriteFailed(backup)'));
+assert.ok(!/if \(!backup\.ok\) \{ errorText = '备份没有写成/.test(syncApp));
+assert.ok(!/if \(!backup\.ok && !backup\.noop\)/.test(syncApp));
+
 const throwing = P.memoryStorage({ 'foxVocab.v2': rawV2, 'foxVocab.v1': rawV1, 'foxVocab.v1.backup': rawV1Backup });
 throwing.setItem = function (k) { if (k === P.BACKUP_KEY) throw new Error('full'); };
 const failed = P.commitPrecloudBackup(throwing);
@@ -298,11 +324,11 @@ const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 assert.ok(!appJs.includes('foxVocab.precloud'));
 assert.ok(appJs.includes("localStorage.setItem(KEY, JSON.stringify(S))"));
-assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v33'"));
-assert.ok(html.includes('app.js?v=33') && html.includes('sw.js?v=33') && html.includes('sync-app.js?v=33'));
+assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v34'"));
+assert.ok(html.includes('app.js?v=33') && html.includes('sw.js?v=34') && html.includes('sync-app.js?v=34'));
 assert.ok(html.includes('data/etymology.js?v=31') && html.includes('data/senses.js?v=32') && html.includes('data/t2s.js?v=22'));
 assert.ok(html.includes('style.css?v=32') && html.includes('core.js?v=32'));
-assert.ok(sw.includes('sync-app.js?v=33'));
+assert.ok(sw.includes('sync-app.js?v=34'));
 assert.ok(sw.includes("etymology.js?v=31") && sw.includes("senses.js?v=32"));
 
 console.log('sync-prep tests ok');

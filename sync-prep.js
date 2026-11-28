@@ -601,6 +601,19 @@
     if (!sameSources(before, after)) return { ok: false, aborted: true, wrote: true, reason: 'sources-moved', sourcesIntact: false };
     return { ok: true, noop: false, wrote: true, key: BACKUP_KEY, sourcesIntact: true };
   }
+  // A leftover valid snapshot (backup-exists / sources-moved) is not a write
+  // failure. enableNew may still preview and arm upload. The first backup stays
+  // immutable. Hard-stop only genuine read/write failures.
+  function precloudBackupWriteFailed(result) {
+    if (!result) return true;
+    if (result.ok) return false;
+    if (result.reason === 'backup-exists' || result.reason === 'sources-moved') return false;
+    return result.reason === 'read-failed'
+      || result.reason === 'write-failed'
+      || result.reason === 'readback-mismatch'
+      || result.reason === 'rollback-failed'
+      || !result.reason;
+  }
   function restorePrecloudBackup(storage) {
     let raw;
     try { raw = storage.getItem(BACKUP_KEY); }
@@ -650,7 +663,7 @@
     shanghaiDayKey: shanghaiDayKey, canonical: canonical, migrationIdFor: migrationIdFor,
     normalizeSnapshot: normalizeSnapshot, isEmptySnapshot: isEmptySnapshot,
     createStore: createStore, emptyAccount: emptyAccount, importLegacy: importLegacy, acceptEvents: acceptEvents, materialize: materialize,
-    memoryStorage: memoryStorage, commitPrecloudBackup: commitPrecloudBackup, restorePrecloudBackup: restorePrecloudBackup
+    memoryStorage: memoryStorage, commitPrecloudBackup: commitPrecloudBackup, precloudBackupWriteFailed: precloudBackupWriteFailed, restorePrecloudBackup: restorePrecloudBackup
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.VocabSyncPrep = api;

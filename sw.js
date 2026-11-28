@@ -1,5 +1,5 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=33 on this preview branch only: pairing-code sync client files, plus the settings hooks in app.js. Live main stays at v=32 until this change ships. Do not open production ?v=33; GitHub Pages only deploys main. Fetch handling is unchanged. */
-const CACHE = 'dog-verb-shell-v33';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=34 on this preview branch only: leftover precloud backup no longer blocks 在这台开启. Live main stays at v=33 until this change ships. Do not open production ?v=34; GitHub Pages only deploys main. Fetch handling is unchanged. */
+const CACHE = 'dog-verb-shell-v34';
 const SHELL = [
   './index.html',
   './style.css?v=32',
@@ -7,10 +7,10 @@ const SHELL = [
   './core.js?v=32',
   './sync-wire.js?v=33',
   './sync-client.js?v=33',
-  './sync-prep.js?v=33',
+  './sync-prep.js?v=34',
   './supabase/client-adapter.js?v=33',
   './sync-config.js?v=33',
-  './sync-app.js?v=33',
+  './sync-app.js?v=34',
   './data/books-index.js?v=31',
   './data/book-ielts.js',
   './data/book-kaoyan.js',
