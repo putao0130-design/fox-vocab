@@ -1,16 +1,16 @@
-/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=35 on this preview branch only: joining while the pairing field stays focused (the default path on Safari, Edge, and HarmonyOS browsers, not a Chrome special case) no longer snapshots stale local progress as syncBase, and an expired access token is refreshed so a later pull or home reload can still apply the merge. Live main stays at v=34 until this change ships. Do not open production ?v=35; GitHub Pages only deploys main. Fetch handling is unchanged. */
-const CACHE = 'dog-verb-shell-v35';
+/* Dog Verb shell cache. Install identity stays app-v18. Quote-card assets stay at v=22. Etymology data stays at ?v=31. Study-card sense list and typography stay at ?v=32. Shell query is v=40 on this preview branch only: navigate requests are network-first with a 3s timeout and cache: 'no-cache', and refresh the cached index.html; plus the earlier P0 flush, join gap-fill, pending-pairing, arming, and days/fox max-merge fixes. Official Pages is at v=35 / dog-verb-shell-v35 until this change ships. Do not open production ?v=40; GitHub Pages only deploys main. */
+const CACHE = 'dog-verb-shell-v40';
 const SHELL = [
   './index.html',
   './style.css?v=32',
-  './app.js?v=35',
+  './app.js?v=36',
   './core.js?v=32',
   './sync-wire.js?v=33',
   './sync-client.js?v=33',
   './sync-prep.js?v=34',
-  './supabase/client-adapter.js?v=35',
+  './supabase/client-adapter.js?v=36',
   './sync-config.js?v=33',
-  './sync-app.js?v=35',
+  './sync-app.js?v=40',
   './data/books-index.js?v=31',
   './data/book-ielts.js',
   './data/book-kaoyan.js',
@@ -58,7 +58,27 @@ self.addEventListener('fetch', event => {
     event.respondWith(fetch(event.request));
     return;
   }
-  event.respondWith(caches.match(event.request).then(hit => hit || fetch(event.request).catch(() => {
-    if (event.request.mode === 'navigate') return caches.match('./index.html');
-  })));
+  if (event.request.mode === 'navigate') {
+    const network = fetch(event.request, { cache: 'no-cache' });
+    network.then(function (res) {
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then(function (cache) { return cache.put('./index.html', copy); });
+      }
+    }).catch(function () {});
+    let timer;
+    const timeout = new Promise(function (resolve) {
+      timer = setTimeout(function () { resolve(null); }, 3000);
+    });
+    event.respondWith(Promise.race([network, timeout]).then(function (res) {
+      if (timer) clearTimeout(timer);
+      if (res) return res;
+      return caches.match('./index.html');
+    }).catch(function () {
+      if (timer) clearTimeout(timer);
+      return caches.match('./index.html');
+    }));
+    return;
+  }
+  event.respondWith(caches.match(event.request).then(hit => hit || fetch(event.request)));
 });

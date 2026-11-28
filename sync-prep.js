@@ -41,7 +41,7 @@
   function emptyAccount() { return freshAccount(); }
   function freshAccount() {
     return {
-      migrations: {}, events: {}, seq: 0,
+      migrations: {}, events: {}, eventOps: {}, seq: 0,
       settings: null, settingsRev: 0, settingsConflicts: [],
       fox: null, foxDelta: { food: 0, xp: 0, fed: 0 }, legacyDays: {}, eventDays: {}, studyMarks: {},
       books: {}, customBooks: {}, tombstones: {}, cardLineage: {},
@@ -308,9 +308,12 @@
     const delta = acc.foxDelta || { food: 0, xp: 0, fed: 0 };
     return { food: Math.max(0, num(base.food) + clampCount(delta.food)), xp: Math.max(0, num(base.xp) + clampCount(delta.xp)), fed: Math.max(0, num(base.fed) + clampCount(delta.fed)), name: base.name || '小狗' };
   }
-  function applyCommitOps(acc, ops) {
+  function applyCommitOps(acc, ops, eventId) {
     if (!acc.foxDelta) acc.foxDelta = { food: 0, xp: 0, fed: 0 };
+    if (!acc.eventOps) acc.eventOps = {};
     for (let i = 0; i < ops.length; i++) {
+      const opKey = eventId ? String(eventId) + ':' + i : '';
+      if (opKey && acc.eventOps[opKey]) continue;
       const op = ops[i];
       if (!op || typeof op.kind !== 'string') continue;
       if (op.kind === 'card' && op.bookId && op.word && op.card && !acc.tombstones[op.bookId]) {
@@ -369,6 +372,7 @@
         if (!acc.fox) acc.fox = { food: 0, xp: 0, fed: 0, name: '小狗' };
         if (typeof op.name === 'string' && op.name.trim()) acc.fox.name = op.name.trim().slice(0, 20);
       }
+      if (opKey) acc.eventOps[opKey] = 1;
     }
   }
   function ratingOf(value) {
@@ -462,7 +466,7 @@
     if (ev.type === 'commit') {
       if (!Array.isArray(ev.ops) || !ev.ops.length) return { consume: false, reason: 'bad-commit' };
       if (ev.ops.some(function (op) { return op && op.kind === 'reset'; })) return { consume: false, reason: 'reset-not-synced' };
-      applyCommitOps(acc, ev.ops);
+      applyCommitOps(acc, ev.ops, ev.id);
       return { commit: ev.ops.length, clientNowIgnored: true };
     }
     if (ev.type === 'feed') {

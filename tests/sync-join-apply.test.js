@@ -181,6 +181,11 @@ function boot(opts) {
       }
       return JSON.parse(JSON.stringify(remote));
     },
+    pushEvents: async function (session, events) {
+      logs.push = (logs.push || 0) + 1;
+      logs.pushedEvents = (logs.pushedEvents || []).concat(events || []);
+      return { results: (events || []).map(function (ev) { return { id: ev.id, consumed: true, reason: null }; }) };
+    },
     mintPairing: async function () { return { payload: 'TEST-PAYLOAD-NOT-A-REAL-CODE' }; },
     pendingPairings: async function () { return { pending: [] }; },
     recover: async function () {

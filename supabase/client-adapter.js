@@ -100,13 +100,48 @@
         throw e;
       }
     }
+    const PAIR_TTL_MS = 5 * 60 * 1000;
     async function persist(session) {
       if (!session.storage) return;
-      await session.storage.set('supabase-device', {
+      const rec = {
         url: config.url, spaceId: session.spaceId, deviceId: session.deviceId, role: session.role,
         refreshToken: session.refreshToken, publicJwk: session.publicJwk, fingerprint: session.fingerprint,
         privateKey: session.privateKey
+      };
+      if (session.pendingPairing && session.pairingId && !session.refreshToken) {
+        rec.pendingPairing = 1;
+        rec.pairingId = session.pairingId;
+        rec.pendingPairingExpiresAt = session.pendingPairingExpiresAt;
+      }
+      await session.storage.set('supabase-device', rec);
+    }
+    async function clearPendingPairing(session) {
+      if (!session) return;
+      delete session.pendingPairing;
+      delete session.pendingPairingExpiresAt;
+      if (!session.storage) return;
+      const saved = await session.storage.get('supabase-device');
+      if (!saved || saved.pendingPairing !== 1) return;
+      if (session.refreshToken || saved.refreshToken) {
+        await persist(session);
+        return;
+      }
+      await session.storage.set('supabase-device', {
+        url: saved.url, publicJwk: saved.publicJwk, fingerprint: saved.fingerprint,
+        privateKey: saved.privateKey, role: saved.role
       });
+    }
+    async function resumePendingPairing(opts) {
+      const storage = storageOf(opts);
+      if (!storage) return null;
+      const saved = await storage.get('supabase-device');
+      if (!saved || saved.url !== config.url || saved.pendingPairing !== 1 || !saved.pairingId || !saved.privateKey) return null;
+      if (saved.refreshToken) return null;
+      return {
+        session: Object.assign({ storage: storage, server: 'supabase:' + config.url }, saved),
+        expiresAt: Number(saved.pendingPairingExpiresAt) || 0,
+        pairingId: saved.pairingId
+      };
     }
     return {
       async createSpace(opts) {
@@ -139,13 +174,17 @@
           code: code, payload: opts.payload, publicKey: device.publicJwk, fingerprint: device.fingerprint,
           deviceName: opts.deviceName || 'new device', nonce: challenge.nonce, signature: signature
         });
+        const expiresAt = Number(submitted.expiresAt) > 0 ? Number(submitted.expiresAt) : (Date.now() + PAIR_TTL_MS);
+        const session = {
+          storage: storageOf(opts), privateKey: device.privateKey, publicJwk: device.publicJwk,
+          fingerprint: device.fingerprint, pairingId: submitted.pairingId, role: 'member',
+          server: 'supabase:' + config.url,
+          pendingPairing: 1, pendingPairingExpiresAt: expiresAt
+        };
+        await persist(session);
         return {
           fingerprint: submitted.fingerprint, status: submitted.status,
-          session: {
-            storage: storageOf(opts), privateKey: device.privateKey, publicJwk: device.publicJwk,
-            fingerprint: device.fingerprint, pairingId: submitted.pairingId, role: 'member',
-            server: 'supabase:' + config.url
-          }
+          session: session, expiresAt: expiresAt
         };
       },
       async confirmPairing(session, pairingId, fingerprint) {
@@ -232,10 +271,12 @@
         return session;
       },
       accessExpired: accessExpired,
-      refreshSession: refreshSession
+      refreshSession: refreshSession,
+      resumePendingPairing: resumePendingPairing,
+      clearPendingPairing: clearPendingPairing
     };
   }
-  const api = { bind: bind, disabled: disabled, PROJECT_URL: PROJECT_URL, ORIGIN: ORIGIN };
+  const api = { bind: bind, disabled: disabled, PROJECT_URL: PROJECT_URL, ORIGIN: ORIGIN, PAIR_TTL_MS: 5 * 60 * 1000 };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DogverbSupabase = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

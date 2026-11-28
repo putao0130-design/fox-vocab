@@ -10,14 +10,36 @@
   const SEQ = 'foxVocab.syncSeq';
   const OUT = 'foxVocab.syncOutbox';
   const REV = 'foxVocab.syncSettingsRev';
+  const DEAD = 'foxVocab.syncDead';
+  const PAIR_TTL_MS = 5 * 60 * 1000;
+  const ARM_FAST_MS = 5000;
+  const ARM_SLOW_MS = 30000;
+  const NULL_STATUS = '已连接，但云端数据没读出来，本次没有合并';
   let session = null;
   let joining = null;
+  let waitingPair = 0;
   let timer = 0;
+  let intervalMs = ARM_FAST_MS;
+  let failStreak = 0;
+  let visBound = 0;
   let statusText = '';
   let errorText = '';
   let recoveryOnce = '';
   let pendingRemote = null;
   let pendingBound = 0;
+  const projectDiag = {
+    remoteCards: 0, remoteDaysRows: 0, remoteStudyDays: 0,
+    daysSkippedByZone: 0, studyDaysSkippedByZone: 0,
+    localEmpty: false, remoteEmpty: false, result: ''
+  };
+  const syncDiag = {
+    project: projectDiag,
+    pullBlockedByOutbox: 0,
+    lastPullBlockCount: 0,
+    deadCount: 0,
+    failStreak: 0,
+    intervalMs: ARM_FAST_MS
+  };
 
   function cfg() {
     const c = root.DOGVERB_SYNC_CONFIG;
@@ -31,9 +53,111 @@
     return root.DogverbSupabase.bind(c);
   }
   function opted() { return !!(cfg() && localStorage.getItem(ON) === '1'); }
-  function readBox() { try { return JSON.parse(localStorage.getItem(OUT) || '[]'); } catch (e) { return []; } }
+  const capturedScriptSrc = (function () {
+    try {
+      if (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) {
+        return document.currentScript.src;
+      }
+    } catch (e) { /* read later from the loaded script tag */ }
+    return '';
+  })();
+  function loadedSyncAppSrc() {
+    if (capturedScriptSrc) return capturedScriptSrc;
+    try {
+      if (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) {
+        return document.currentScript.src;
+      }
+    } catch (e) {}
+    if (typeof document === 'undefined') return '';
+    if (typeof document.querySelector === 'function') {
+      const tagged = document.querySelector('script[src*="sync-app"]');
+      if (tagged && tagged.src) return tagged.src;
+    }
+    const nodes = document.getElementsByTagName ? document.getElementsByTagName('script') : [];
+    for (let i = 0; i < nodes.length; i++) {
+      const src = nodes[i].src || (nodes[i].getAttribute && nodes[i].getAttribute('src')) || '';
+      if (String(src).indexOf('sync-app') !== -1) return src;
+    }
+    return '';
+  }
+  function scriptVersion() {
+    const src = loadedSyncAppSrc();
+    const m = String(src).match(/[?&]v=([^&]*)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function versionStampText() {
+    const data = localStorage.getItem(ON) === '1' ? '已开启' : '未开启';
+    return '脚本 v=' + scriptVersion() + ' / 数据 ' + data;
+  }
+  function paintStamp() {
+    const el = document.getElementById('sync-build');
+    if (el) el.textContent = versionStampText();
+  }
+  function readAllBox() { try { return JSON.parse(localStorage.getItem(OUT) || '[]'); } catch (e) { return []; } }
+  function isDead(item) { return !!(item && item.dead); }
+  function readBox() { return readAllBox().filter(function (item) { return item && !isDead(item); }); }
+  function readDead() {
+    let stored = [];
+    try { stored = JSON.parse(localStorage.getItem(DEAD) || '[]'); } catch (e) { stored = []; }
+    if (!Array.isArray(stored)) stored = [];
+    const leftover = readAllBox().filter(isDead);
+    const seen = {};
+    const out = [];
+    stored.concat(leftover).forEach(function (item) {
+      if (!item || !item.id || seen[item.id]) return;
+      seen[item.id] = 1;
+      out.push(item);
+    });
+    return out;
+  }
+  function writeBox(items) { localStorage.setItem(OUT, JSON.stringify(items || [])); }
+  function writeDead(items) {
+    const list = items || [];
+    localStorage.setItem(DEAD, JSON.stringify(list));
+    syncDiag.deadCount = list.length;
+  }
+  function deadMessage() {
+    const n = readDead().length;
+    return n ? ('有 ' + n + ' 条没传上去（点此重试）') : '';
+  }
+  function recordDiag() {
+    syncDiag.project = projectDiag;
+    syncDiag.failStreak = failStreak;
+    syncDiag.intervalMs = intervalMs;
+    syncDiag.deadCount = readDead().length;
+    root.__dogverbSyncDiag = syncDiag;
+    return syncDiag;
+  }
+  function noteSyncResult(ok) {
+    if (ok) failStreak = 0;
+    else failStreak += 1;
+    const next = failStreak >= 5 ? ARM_SLOW_MS : ARM_FAST_MS;
+    recordDiag();
+    if (timer && next !== intervalMs) {
+      clearInterval(timer);
+      intervalMs = next;
+      timer = setInterval(armTick, intervalMs);
+    } else {
+      intervalMs = next;
+    }
+    syncDiag.intervalMs = intervalMs;
+  }
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
   function num(v) { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; }
+  function reviewTime(v) {
+    if (v == null || v === '') return 0;
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    const parsed = Date.parse(v);
+    if (Number.isFinite(parsed)) return parsed;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function cardNewer(incoming, have) {
+    const it = reviewTime(incoming && incoming.last_review);
+    const ht = reviewTime(have && have.last_review);
+    if (it !== ht) return it > ht;
+    return num(incoming && incoming.reps) > num(have && have.reps);
+  }
   function sanitize(state) {
     const s = clone(state);
     if (s.fox) { delete s.fox.hunger; delete s.fox.lastCheck; }
@@ -116,10 +240,29 @@
   function storageAdapter() {
     return { getItem: function (k) { return localStorage.getItem(k); }, setItem: function (k, v) { localStorage.setItem(k, v); }, removeItem: function (k) { localStorage.removeItem(k); } };
   }
+  function refreshPreview(force) {
+    const slot = document.getElementById('sync-preview');
+    if (!slot || typeof root.__dogverbReadState !== 'function') return;
+    if (!force && slot.textContent && slot.textContent.indexOf('将上传本机进度') === 0) return;
+    const preview = previewOf(root.__dogverbReadState() || {});
+    slot.textContent = '已学 ' + preview.cards + '，自建词书 ' + preview.custom + '，打卡 ' + preview.days;
+  }
   function paint() {
+    paintStamp();
+    refreshPreview(false);
     const box = document.getElementById('syncstatus');
     if (!box) return;
-    box.textContent = [statusText, errorText].filter(Boolean).join(' ');
+    const deadMsg = deadMessage();
+    const parts = [statusText, errorText];
+    if (deadMsg && statusText !== deadMsg && errorText !== deadMsg) parts.push(deadMsg);
+    box.textContent = parts.filter(Boolean).join(' ');
+    if (deadMsg) {
+      box.onclick = function () { retryDead(); };
+      if (box.style) box.style.cursor = 'pointer';
+    } else {
+      box.onclick = null;
+      if (box.style) box.style.cursor = '';
+    }
   }
   function previewOf(state) {
     let cards = 0;
@@ -159,17 +302,62 @@
     document.addEventListener('focusout', retryPendingApply);
     document.addEventListener('visibilitychange', retryPendingApply);
   }
+  function blankState() {
+    return { v: 2, bookId: '', settings: {}, books: {}, customBooks: [], days: {}, studyDays: [], fox: {} };
+  }
+  function nextCommitId() {
+    const seq = (Number(localStorage.getItem(SEQ)) || 0) + 1;
+    localStorage.setItem(SEQ, String(seq));
+    let uniq = '';
+    try {
+      if (root.crypto && typeof root.crypto.randomUUID === 'function') uniq = root.crypto.randomUUID();
+      else if (root.crypto && typeof root.crypto.getRandomValues === 'function') {
+        const buf = new Uint8Array(8);
+        root.crypto.getRandomValues(buf);
+        uniq = Array.prototype.map.call(buf, function (b) { return (b + 256).toString(16).slice(1); }).join('');
+      }
+    } catch (e) { uniq = ''; }
+    if (!uniq) uniq = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    return 'commit-' + seq + '-' + uniq;
+  }
+  function enqueueCloudGap(remoteState, merged) {
+    if (!opted() || !remoteState || !merged) return { ops: 0 };
+    const saved = {
+      remoteCards: projectDiag.remoteCards,
+      remoteDaysRows: projectDiag.remoteDaysRows,
+      remoteStudyDays: projectDiag.remoteStudyDays,
+      daysSkippedByZone: projectDiag.daysSkippedByZone,
+      studyDaysSkippedByZone: projectDiag.studyDaysSkippedByZone,
+      localEmpty: projectDiag.localEmpty,
+      remoteEmpty: projectDiag.remoteEmpty,
+      result: projectDiag.result
+    };
+    const cloudAsLocal = project(remoteState, blankState(), { record: false });
+    Object.assign(projectDiag, saved);
+    recordDiag();
+    if (!cloudAsLocal) return { ops: 0 };
+    const ops = diff(sanitize(cloudAsLocal), sanitize(merged));
+    if (!ops.length) return { ops: 0 };
+    const box = readBox();
+    const fingerprint = JSON.stringify(ops);
+    const reused = box.some(function (ev) {
+      return ev && ev.type === 'commit' && Array.isArray(ev.ops) && JSON.stringify(ev.ops) === fingerprint;
+    });
+    if (reused) return { ops: ops.length, id: 'reused', items: ops, reused: true };
+    const id = nextCommitId();
+    box.push({ id: id, type: 'commit', ops: ops });
+    writeBox(box);
+    return { ops: ops.length, id: id, items: ops, reused: false };
+  }
   function finishRemoteApply(remote, connectedText) {
     if (!remote || !remote.state) return { skipped: true };
     const next = project(remote.state, root.__dogverbReadState());
     if (!next) {
       pendingRemote = null;
-      localStorage.setItem(REV, String(remote.state.settingsRev || 0));
-      localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
-      statusText = connectedText || '已连接';
-      errorText = '';
+      statusText = NULL_STATUS;
+      errorText = 'project-null: cards=' + projectDiag.remoteCards + ' days=' + projectDiag.remoteDaysRows + ' studyDays=' + projectDiag.remoteStudyDays;
       paint();
-      return { applied: true, skippedMerge: true };
+      return { applied: false, skippedMerge: true, projectNull: true, result: projectDiag.result };
     }
     const applied = root.__dogverbApplyRemote(next);
     if (applied && applied.applied) {
@@ -178,56 +366,241 @@
       localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
       statusText = connectedText || '已连接';
       errorText = '';
+      refreshPreview(true);
       paint();
-      return { applied: true };
+      noteSyncResult(true);
+      const pushed = enqueueCloudGap(remote.state, root.__dogverbReadState());
+      if (pushed && pushed.ops) flush({ keepStatusOnSuccess: true });
+      return { applied: true, queued: pushed && pushed.ops ? pushed.ops : 0, queuedId: pushed && pushed.id };
     }
     pendingRemote = { remote: remote, connectedText: connectedText || '已连接' };
     listenForPendingApply();
     return applied || { deferred: true };
   }
-  async function flush() {
+  function bumpRetry(item) {
+    const next = Object.assign({}, item, { retries: (Number(item && item.retries) || 0) + 1 });
+    if (next.retries >= 3) {
+      next.dead = true;
+      return next;
+    }
+    return next;
+  }
+  async function retryDead() {
+    const dead = readDead();
+    if (!dead.length) return { empty: true };
+    const box = readBox();
+    dead.forEach(function (item) {
+      const ev = Object.assign({}, item);
+      delete ev.dead;
+      ev.retries = 0;
+      box.push(ev);
+    });
+    writeBox(box);
+    writeDead([]);
+    statusText = '正在重试上传';
+    errorText = '';
+    paint();
+    const res = await flush();
+    if (!readBox().length && opted()) await pull();
+    return res;
+  }
+  function retainUnsent(sentBox, kept) {
+    const sent = {};
+    (sentBox || []).forEach(function (item) { if (item && item.id) sent[item.id] = 1; });
+    const out = [];
+    const seen = {};
+    (kept || []).forEach(function (item) {
+      if (!item || !item.id || seen[item.id]) return;
+      seen[item.id] = 1;
+      out.push(item);
+    });
+    readBox().forEach(function (item) {
+      if (!item || !item.id || seen[item.id] || sent[item.id]) return;
+      seen[item.id] = 1;
+      out.push(item);
+    });
+    return out;
+  }
+  let flushTail = Promise.resolve();
+  async function flush(opts) {
     if (!opted()) return { skipped: true };
+    const prev = flushTail;
+    let release;
+    const slot = new Promise(function (resolve) { release = resolve; });
+    flushTail = slot;
+    try {
+      await prev;
+      if (!opted()) return { skipped: true };
+      return await flushOnce(opts);
+    } finally {
+      release();
+    }
+  }
+  async function flushOnce(opts) {
     const box = readBox();
     if (!box.length) return { empty: true };
     try {
       await ensureSession();
       if (!session) return { skipped: true };
       const res = await backend().pushEvents(session, box);
-      if (res && res.offline) { statusText = '离线，本机进度已记下，联网后会继续传'; errorText = ''; paint(); return res; }
-      const bad = (res.results || []).filter(function (row) { return row.reason && row.reason !== 'duplicate'; });
-      localStorage.setItem(OUT, '[]');
-      statusText = '已同步';
-      errorText = bad.length ? '有一条没写上：' + bad[0].reason : '';
+      if (res && res.offline) { statusText = '离线，本机进度已记下，联网后会继续传'; errorText = ''; paint(); noteSyncResult(false); return res; }
+      const results = (res && res.results) || [];
+      const byId = {};
+      results.forEach(function (row) { if (row && row.id) byId[row.id] = row; });
+      const failed = results.filter(function (row) { return row && row.reason && row.reason !== 'duplicate'; });
+      const kept = [];
+      const newlyDead = readDead();
+      const deadIds = {};
+      newlyDead.forEach(function (item) { if (item && item.id) deadIds[item.id] = 1; });
+      box.forEach(function (item) {
+        if (!item || !item.id) return;
+        const row = byId[item.id];
+        // Keep/retry only when this id was returned with a non-duplicate reason.
+        // Missing ids, success rows, and duplicates are cleared.
+        const failedRow = !!(row && row.reason && row.reason !== 'duplicate');
+        if (!failedRow) return;
+        const bumped = bumpRetry(item);
+        if (bumped.dead) {
+          if (!deadIds[bumped.id]) { newlyDead.push(bumped); deadIds[bumped.id] = 1; }
+        } else kept.push(bumped);
+      });
+      writeBox(retainUnsent(box, kept));
+      writeDead(newlyDead);
+      if (failed.length) {
+        statusText = '有 ' + failed.length + ' 条没写上：' + failed[0].reason;
+        errorText = '';
+        noteSyncResult(false);
+      } else {
+        if (!(opts && opts.keepStatusOnSuccess)) {
+          statusText = '已同步';
+          errorText = '';
+        }
+        noteSyncResult(true);
+      }
       paint();
       return res;
     } catch (e) {
       errorText = '同步失败';
       statusText = '本机进度还在';
       paint();
+      noteSyncResult(false);
       return { error: true };
     }
   }
   async function pull() {
-    if (!opted()) return;
+    if (!opted()) return { skipped: true };
     try {
+      const flushed = await flush();
+      const box = readBox();
+      if (box.length) {
+        statusText = '本机有 ' + box.length + ' 条待上传，暂不拉取';
+        syncDiag.pullBlockedByOutbox += 1;
+        syncDiag.lastPullBlockCount = box.length;
+        recordDiag();
+        paint();
+        return { blocked: true, outbox: box.length, flushed: flushed };
+      }
       await ensureSession();
-      if (!session) return;
+      if (!session) return { skipped: true };
       const remote = await backend().pull(session);
-      if (readBox().length) return;
       return finishRemoteApply(remote, '已连接');
     } catch (e) {
       if (e && e.data && e.data.error === 'unauthorized') { errorText = '这台设备已退出同步'; statusText = ''; }
       else errorText = '暂时连不上同步';
       paint();
+      noteSyncResult(false);
+      return { error: true };
     }
   }
-  function project(remote, local) {
-    if (!remote) return null;
-    let remoteCards = 0;
-    Object.keys(remote.books || {}).forEach(function (id) { remoteCards += Object.keys(remote.books[id].cards || {}).length; });
-    const localEmpty = learningEmpty(sanitize(local));
-    const remoteEmpty = !remoteCards && !(remote.customBooks || []).length && !(remote.studyDays || []).length;
-    if (remoteEmpty && !localEmpty) return null;
+  function isPlainObject(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+  function remoteShapeProblem(remote) {
+    if (!isPlainObject(remote)) return true;
+    if (remote.books != null && !isPlainObject(remote.books)) return true;
+    if (remote.days != null && !isPlainObject(remote.days)) return true;
+    if (remote.studyDays != null && !Array.isArray(remote.studyDays)) return true;
+    if (remote.customBooks != null && !Array.isArray(remote.customBooks)) return true;
+    if (remote.books) {
+      const ids = Object.keys(remote.books);
+      for (let i = 0; i < ids.length; i++) {
+        const book = remote.books[ids[i]];
+        if (!isPlainObject(book)) return true;
+        if (book.cards != null && !isPlainObject(book.cards)) return true;
+      }
+    }
+    return false;
+  }
+  function countRemoteCards(remote) {
+    let n = 0;
+    if (!isPlainObject(remote) || !isPlainObject(remote.books)) return 0;
+    Object.keys(remote.books).forEach(function (id) {
+      const book = remote.books[id];
+      if (isPlainObject(book) && isPlainObject(book.cards)) n += Object.keys(book.cards).length;
+    });
+    return n;
+  }
+  function rememberProject(fields) {
+    projectDiag.remoteCards = fields.remoteCards;
+    projectDiag.remoteDaysRows = fields.remoteDaysRows;
+    projectDiag.remoteStudyDays = fields.remoteStudyDays;
+    projectDiag.daysSkippedByZone = fields.daysSkippedByZone || 0;
+    projectDiag.studyDaysSkippedByZone = fields.studyDaysSkippedByZone || 0;
+    projectDiag.localEmpty = fields.localEmpty;
+    projectDiag.remoteEmpty = fields.remoteEmpty;
+    projectDiag.result = fields.result;
+    recordDiag();
+  }
+  function countZoneSkips(remote) {
+    let daysSkippedByZone = 0;
+    let studyDaysSkippedByZone = 0;
+    if (isPlainObject(remote) && isPlainObject(remote.days)) {
+      Object.keys(remote.days).forEach(function (key) {
+        const row = remote.days[key];
+        if (row && row.zone !== 'device-local') daysSkippedByZone += 1;
+      });
+    }
+    if (remote && Array.isArray(remote.studyDays)) {
+      remote.studyDays.forEach(function (d) {
+        if (d && d.zone !== 'device-local') studyDaysSkippedByZone += 1;
+      });
+    }
+    return { daysSkippedByZone: daysSkippedByZone, studyDaysSkippedByZone: studyDaysSkippedByZone };
+  }
+  function project(remote, local, opts) {
+    const record = !(opts && opts.record === false);
+    const localEmpty = learningEmpty(sanitize(local || {}));
+    if (remoteShapeProblem(remote)) {
+      const shapeSkips = countZoneSkips(remote);
+      if (record) rememberProject({
+        remoteCards: countRemoteCards(remote),
+        remoteDaysRows: isPlainObject(remote) && isPlainObject(remote.days) ? Object.keys(remote.days).length : 0,
+        remoteStudyDays: remote && Array.isArray(remote.studyDays) ? remote.studyDays.length : 0,
+        daysSkippedByZone: shapeSkips.daysSkippedByZone,
+        studyDaysSkippedByZone: shapeSkips.studyDaysSkippedByZone,
+        localEmpty: localEmpty, remoteEmpty: false, result: 'null-shape'
+      });
+      return null;
+    }
+    const remoteCards = countRemoteCards(remote);
+    const remoteDaysRows = Object.keys(remote.days || {}).length;
+    const remoteStudyDays = (remote.studyDays || []).length;
+    const remoteCustom = (remote.customBooks || []).length;
+    const remoteEmpty = !remoteCards && !remoteCustom && !remoteStudyDays && !remoteDaysRows;
+    const zoneSkips = countZoneSkips(remote);
+    if (remoteEmpty && !localEmpty) {
+      if (record) rememberProject({
+        remoteCards: remoteCards, remoteDaysRows: remoteDaysRows, remoteStudyDays: remoteStudyDays,
+        daysSkippedByZone: zoneSkips.daysSkippedByZone,
+        studyDaysSkippedByZone: zoneSkips.studyDaysSkippedByZone,
+        localEmpty: localEmpty, remoteEmpty: true, result: 'null-empty'
+      });
+      return null;
+    }
+    if (record) rememberProject({
+      remoteCards: remoteCards, remoteDaysRows: remoteDaysRows, remoteStudyDays: remoteStudyDays,
+      daysSkippedByZone: zoneSkips.daysSkippedByZone,
+      studyDaysSkippedByZone: zoneSkips.studyDaysSkippedByZone,
+      localEmpty: localEmpty, remoteEmpty: remoteEmpty, result: 'merged'
+    });
     const next = clone(local);
     next.settings = Object.assign({}, local.settings || {}, remote.settings || {});
     if (remote.settings && remote.settings.bookId) next.bookId = remote.settings.bookId;
@@ -237,7 +610,7 @@
       const cur = next.books[id] || { cards: {}, sentences: {}, extra: [], today: [] };
       Object.keys(src.cards || {}).forEach(function (word) {
         const have = cur.cards[word]; const incoming = src.cards[word];
-        if (!have || num(incoming.last_review) >= num(have.last_review)) cur.cards[word] = incoming;
+        if (!have || cardNewer(incoming, have)) cur.cards[word] = incoming;
       });
       const pins = {};
       (cur.today || []).forEach(function (w) { pins[w] = 1; });
@@ -272,17 +645,38 @@
       cur.new += num(row.new); cur.review += num(row.review); cur.correct += num(row.correct); cur.wrong += num(row.wrong);
       sums[row.day] = cur;
     });
-    Object.keys(sums).forEach(function (day) { next.days[day] = sums[day]; });
+    next.days = next.days || {};
+    const dayKeys = {};
+    Object.keys(next.days).forEach(function (day) { dayKeys[day] = 1; });
+    Object.keys(sums).forEach(function (day) { dayKeys[day] = 1; });
+    Object.keys(dayKeys).forEach(function (day) {
+      const loc = next.days[day] || {};
+      const rem = sums[day] || {};
+      next.days[day] = {
+        new: Math.max(num(loc.new), num(rem.new)),
+        review: Math.max(num(loc.review), num(rem.review)),
+        correct: Math.max(num(loc.correct), num(rem.correct)),
+        wrong: Math.max(num(loc.wrong), num(rem.wrong))
+      };
+    });
     const marks = {};
     (next.studyDays || []).forEach(function (d) { marks[d] = 1; });
     (remote.studyDays || []).forEach(function (d) { if (d.zone === 'device-local') marks[d.day] = 1; });
     next.studyDays = Object.keys(marks).sort();
     if (remote.fox) {
-      next.fox = Object.assign({}, next.fox || {}, { food: remote.fox.food, xp: remote.fox.xp, fed: remote.fox.fed, name: remote.fox.name });
+      const lf = next.fox || {};
+      const rf = remote.fox;
+      next.fox = Object.assign({}, lf, {
+        food: Math.max(num(lf.food), num(rf.food)),
+        xp: Math.max(num(lf.xp), num(rf.xp)),
+        fed: Math.max(num(lf.fed), num(rf.fed)),
+        name: (rf.name != null && rf.name !== '') ? rf.name : lf.name
+      });
     }
     return next;
   }
   function onSave(state) {
+    if (opted()) arm();
     if (!opted()) return;
     const clean = sanitize(state);
     let before = null;
@@ -296,16 +690,125 @@
     const ops = diff(before, clean);
     localStorage.setItem(BASE, JSON.stringify(clean));
     if (!ops.length) return;
-    const seq = (Number(localStorage.getItem(SEQ)) || 0) + 1;
     const box = readBox();
-    box.push({ id: 'commit-' + seq, type: 'commit', ops: ops });
-    localStorage.setItem(OUT, JSON.stringify(box));
-    localStorage.setItem(SEQ, String(seq));
+    box.push({ id: nextCommitId(), type: 'commit', ops: ops });
+    writeBox(box);
     flush();
   }
+  async function armTick() {
+    if (!opted()) return;
+    await pull();
+    refreshPending();
+  }
+  function bindVisibility() {
+    if (visBound || !root.document || !root.document.addEventListener) return;
+    visBound = 1;
+    root.document.addEventListener('visibilitychange', function () {
+      if (root.document.visibilityState === 'visible' && opted()) pull();
+    });
+  }
   function arm() {
+    bindVisibility();
     if (timer) return;
-    timer = setInterval(function () { if (opted()) { flush(); pull(); refreshPending(); } }, 5000);
+    intervalMs = failStreak >= 5 ? ARM_SLOW_MS : ARM_FAST_MS;
+    syncDiag.intervalMs = intervalMs;
+    timer = setInterval(armTick, intervalMs);
+  }
+  async function clearJoining(sess) {
+    waitingPair = 0;
+    joining = null;
+    const api = cfg() ? backend() : null;
+    if (api && typeof api.clearPendingPairing === 'function' && sess) {
+      try { await api.clearPendingPairing(sess); } catch (e) { /* keep going */ }
+    }
+  }
+  function remainingSeconds(deadline) {
+    return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  }
+  function startWaitLoop(joiningSession, expiresAt, resumed) {
+    if (waitingPair) return;
+    waitingPair = 1;
+    joining = { session: joiningSession, fingerprint: joiningSession && joiningSession.fingerprint };
+    const deadline = Number(expiresAt) > 0 ? Number(expiresAt) : (Date.now() + PAIR_TTL_MS);
+    const tick = async function () {
+      if (!joining || !waitingPair) return;
+      const left = remainingSeconds(deadline);
+      if (left <= 0) {
+        const sess = joining.session;
+        await clearJoining(sess);
+        statusText = '';
+        errorText = '配对已过期，请重新生成配对码';
+        paint();
+        return;
+      }
+      if (resumed) {
+        statusText = '上次配对未完成，正在继续（还剩 ' + left + ' 秒）';
+        errorText = '';
+        paint();
+      }
+      try {
+        session = await backend().claimPairing(joining.session);
+        await clearJoining(session);
+        localStorage.setItem(ON, '1');
+        blurPairingFields();
+      } catch (e) {
+        const err = e && e.data && e.data.error;
+        if (err === 'pair-expired') {
+          const sess = joining && joining.session;
+          await clearJoining(sess);
+          statusText = '';
+          errorText = '配对已过期，请重新生成配对码';
+          paint();
+          return;
+        }
+        if (err === 'pair-not-confirmed' || err === 'nonce-replay') {
+          setTimeout(tick, 700);
+          return;
+        }
+        const sess = joining && joining.session;
+        await clearJoining(sess);
+        errorText = '配对没有成功';
+        paint();
+        return;
+      }
+      try {
+        const remote = await backend().pull(session);
+        finishRemoteApply(remote, '已连接');
+      } catch (e) {
+        statusText = '已连上，但这次拉取失败：暂时连不上同步';
+        errorText = '';
+        paint();
+      }
+      arm();
+    };
+    setTimeout(tick, 700);
+  }
+  async function resumePendingPairing() {
+    if (waitingPair || (session && session.refreshToken)) return false;
+    const c = cfg();
+    if (!c) return false;
+    const api = backend();
+    if (!api || typeof api.resumePendingPairing !== 'function') return false;
+    const pending = await api.resumePendingPairing({ storage: sync.idbStorage() });
+    if (!pending || !pending.session) return false;
+    const left = remainingSeconds(pending.expiresAt || 0);
+    if (left <= 0) {
+      await api.clearPendingPairing(pending.session);
+      statusText = '';
+      errorText = '配对已过期，请重新生成配对码';
+      paint();
+      return false;
+    }
+    statusText = '上次配对未完成，正在继续（还剩 ' + left + ' 秒）';
+    errorText = '';
+    paint();
+    startWaitLoop(pending.session, pending.expiresAt, true);
+    return true;
+  }
+  function boot() {
+    bindVisibility();
+    if (opted()) arm();
+    resumePendingPairing().catch(function () {});
   }
   async function recoverWithSecret() {
     const input = document.getElementById('sync-recover');
@@ -370,21 +873,8 @@
       joining = await backend().submitPairing({ payload: payload, deviceName: '新设备', storage: sync.idbStorage() });
       statusText = '已提交，等原来的那台确认指纹 ' + joining.fingerprint.slice(0, 8);
       paint();
-      const wait = async function () {
-        if (!joining) return;
-        try {
-          session = await backend().claimPairing(joining.session);
-          localStorage.setItem(ON, '1');
-          blurPairingFields();
-          const remote = await backend().pull(session);
-          finishRemoteApply(remote, '已连接');
-          arm();
-        } catch (e) {
-          if (e && e.data && (e.data.error === 'pair-not-confirmed' || e.data.error === 'nonce-replay')) setTimeout(wait, 700);
-          else { errorText = '配对没有成功'; paint(); }
-        }
-      };
-      setTimeout(wait, 700);
+      const expiresAt = (joining.session && joining.session.pendingPairingExpiresAt) || joining.expiresAt;
+      startWaitLoop(joining.session, expiresAt, false);
     } catch (e) { errorText = '配对码无效或已过期'; paint(); }
   }
   async function refreshPending() {
@@ -432,10 +922,11 @@
     const slot = document.getElementById('sync-slot');
     if (!slot) return;
     if (!cfg()) {
-      slot.innerHTML = '<div class="card"><div class="ctitle">跨设备同步</div><div class="hint">配对码同步还没接通。接通后，学习进度、复习计划、生词和自助词书会在这台手机、Windows 和 Mac 的同一个网页之间自动同步。手动导出不能代替自动同步。请先在 Supabase 控制台按 docs/supabase-sync.md 做完迁移和函数，再把 Project Settings → API 里的 anon/public 密钥填进 sync-config.js（不要把 service_role 或数据库密码写进仓库或聊天）。</div></div>';
+      slot.innerHTML = '<div class="card"><div id="sync-build" class="hint"></div><div class="ctitle">跨设备同步</div><div class="hint">配对码同步还没接通。接通后，学习进度、复习计划、生词和自助词书会在这台手机、Windows 和 Mac 的同一个网页之间自动同步。手动导出不能代替自动同步。请先在 Supabase 控制台按 docs/supabase-sync.md 做完迁移和函数，再把 Project Settings → API 里的 anon/public 密钥填进 sync-config.js（不要把 service_role 或数据库密码写进仓库或聊天）。</div></div>';
+      paintStamp();
       return;
     }
-    slot.innerHTML = '<div class="card"><div class="ctitle">跨设备同步</div><div class="hint">用配对码连接设备，不用注册学习账号。学习进度、复习计划、生词和自助词书会自动同步。手动导出仍可当备份，但不能代替自动同步。</div><div id="syncstatus" class="hint"></div><div id="sync-preview" class="hint"></div><div class="row"><button type="button" class="primary" id="sync-enable">在这台开启</button><button type="button" class="ghost" id="sync-go">确认备份并上传</button></div><label class="field">恢复码（只显示这一次）<input id="sync-secret" type="text" readonly autocomplete="off"></label><button type="button" class="ghost sm" id="sync-hid">我已保存恢复码</button><label class="field">配对码<input id="sync-code" type="text" readonly autocomplete="off"></label><label class="field">加入另一台<input id="sync-join" type="text" autocomplete="off" spellcheck="false" placeholder="粘贴配对码"></label><button type="button" class="primary" id="sync-submit">提交配对</button><label class="field">用恢复码重新加入<input id="sync-recover" type="text" autocomplete="off" spellcheck="false" placeholder="粘贴恢复码"></label><button type="button" class="ghost" id="sync-recover-go">用恢复码加入</button><div id="sync-pending"></div></div>';
+    slot.innerHTML = '<div class="card"><div id="sync-build" class="hint"></div><div class="ctitle">跨设备同步</div><div class="hint">用配对码连接设备，不用注册学习账号。学习进度、复习计划、生词和自助词书会自动同步。手动导出仍可当备份，但不能代替自动同步。</div><div id="syncstatus" class="hint"></div><div id="sync-preview" class="hint"></div><div class="row"><button type="button" class="primary" id="sync-enable">在这台开启</button><button type="button" class="ghost" id="sync-go">确认备份并上传</button></div><label class="field">恢复码（只显示这一次）<input id="sync-secret" type="text" readonly autocomplete="off"></label><button type="button" class="ghost sm" id="sync-hid">我已保存恢复码</button><label class="field">配对码<input id="sync-code" type="text" readonly autocomplete="off"></label><label class="field">加入另一台<input id="sync-join" type="text" autocomplete="off" spellcheck="false" placeholder="粘贴配对码"></label><button type="button" class="primary" id="sync-submit">提交配对</button><label class="field">用恢复码重新加入<input id="sync-recover" type="text" autocomplete="off" spellcheck="false" placeholder="粘贴恢复码"></label><button type="button" class="ghost" id="sync-recover-go">用恢复码加入</button><div id="sync-pending"></div></div>';
     statusText = opted() ? '已开启' : '还没开启。开启前会先做一份不可覆盖的本机备份。';
     paint();
     document.getElementById('sync-enable').onclick = enableNew;
@@ -460,8 +951,12 @@
   root.DogverbAppSync = {
     mount: mount, flush: flush, pull: pull, join: join, recoverWithSecret: recoverWithSecret,
     finishRemoteApply: finishRemoteApply, retryPendingApply: retryPendingApply, ensureSession: ensureSession,
+    arm: arm, boot: boot, retryDead: retryDead, project: project,
     status: function () { return { statusText: statusText, errorText: errorText }; },
     pending: function () { return pendingRemote; },
+    diag: function () { return recordDiag(); },
+    projectDiag: function () { return projectDiag; },
+    timerInfo: function () { return { intervalMs: intervalMs, failStreak: failStreak, armed: !!timer }; },
     debugServer: function (url) { if (session) session.server = url; if (joining && joining.session) joining.session.server = url; }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
