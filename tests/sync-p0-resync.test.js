@@ -790,8 +790,8 @@ function applyCommitOpsToRemote(remote, events) {
     assert.strictEqual(first.applied, true);
     const daysAfterFirst = env.state.days[day].new;
     const foodAfterFirst = env.state.fox.food;
-    assert.strictEqual(daysAfterFirst, 5);
-    assert.strictEqual(foodAfterFirst, 6);
+    assert.strictEqual(daysAfterFirst, 3);
+    assert.strictEqual(foodAfterFirst, 4);
     const second = env.ctx.DogverbAppSync.finishRemoteApply({ state: remote }, '已连接');
     assert.strictEqual(second.applied, true);
     assert.strictEqual(env.state.days[day].new, daysAfterFirst, 'second gap-fill/apply must not double day counts');
@@ -809,8 +809,8 @@ function applyCommitOpsToRemote(remote, events) {
   }
   await testGapFillTwiceDoesNotDoubleDaysOrFox();
 
-  // Independent unit test 3: same-day learns of 3 and 2 merge to 5.
-  function testSameDayLearnsSumToFive() {
+  // Independent unit test 3: same-day learns of 3 and 2 keep the larger side.
+  function testSameDayLearnsTakesTheLargerSide() {
     const day = '2026-11-21';
     const local = {
       v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
@@ -829,12 +829,12 @@ function applyCommitOpsToRemote(remote, events) {
     const env = boot({ syncOn: true, focus: 'body', state: local, remote: { state: remote } });
     const ret = env.ctx.DogverbAppSync.finishRemoteApply({ state: remote }, '已连接');
     assert.strictEqual(ret.applied, true);
-    assert.strictEqual(env.state.days[day].new, 5, 'same-day 3 and 2 must sum to 5');
+    assert.strictEqual(env.state.days[day].new, 3, 'same-day 3 and 2 must keep the larger side');
   }
-  testSameDayLearnsSumToFive();
+  testSameDayLearnsTakesTheLargerSide();
 
-  // Independent unit test 4: running the same-day sum merge again stays 5, not 8.
-  function testSameDayMergeAgainStaysFiveNotEight() {
+  // Independent unit test 4: running the same-day max merge again stays at the larger side, not inflated.
+  function testSameDayMergeAgainStaysStableNotEight() {
     const day = '2026-11-21';
     const local = {
       v: 2, bookId: BOOK, settings: { dailyNew: 20, autoPlay: true, bookId: BOOK },
@@ -852,12 +852,12 @@ function applyCommitOpsToRemote(remote, events) {
     };
     const env = boot({ syncOn: true, focus: 'body', state: local, remote: { state: remote } });
     assert.strictEqual(env.ctx.DogverbAppSync.finishRemoteApply({ state: remote }, '已连接').applied, true);
-    assert.strictEqual(env.state.days[day].new, 5);
+    assert.strictEqual(env.state.days[day].new, 3);
     assert.strictEqual(env.ctx.DogverbAppSync.finishRemoteApply({ state: remote }, '已连接').applied, true);
-    assert.strictEqual(env.state.days[day].new, 5, 'merging again must stay 5, not 8');
-    assert.strictEqual(env.state.fox.food, 5);
+    assert.strictEqual(env.state.days[day].new, 3, 'merging again must stay at the larger side, not inflate');
+    assert.strictEqual(env.state.fox.food, 3);
   }
-  testSameDayMergeAgainStaysFiveNotEight();
+  testSameDayMergeAgainStaysStableNotEight();
 
   // Adapter P0-4: submitPairing persists immediately with pendingPairing=1 and pairingId.
   const store = Object.create(null);

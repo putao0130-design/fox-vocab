@@ -11,7 +11,6 @@
   const OUT = 'foxVocab.syncOutbox';
   const REV = 'foxVocab.syncSettingsRev';
   const DEAD = 'foxVocab.syncDead';
-  const REMOTE_BASE = 'foxVocab.syncRemoteBase';
   const PAIR_TTL_MS = 5 * 60 * 1000;
   const ARM_FAST_MS = 5000;
   const ARM_SLOW_MS = 30000;
@@ -118,15 +117,6 @@
     const ht = reviewTime(have && have.last_review);
     if (it !== ht) return it > ht;
     return num(incoming && incoming.reps) > num(have && have.reps);
-  }
-  function readRemoteBase() {
-    try { return JSON.parse(localStorage.getItem(REMOTE_BASE) || 'null'); } catch (e) { return null; }
-  }
-  function writeRemoteBase(snap) {
-    localStorage.setItem(REMOTE_BASE, JSON.stringify({ days: (snap && snap.days) || {}, fox: (snap && snap.fox) || {} }));
-  }
-  function sumField(local, remote, prev) {
-    return Math.max(0, num(local) + num(remote) - num(prev));
   }
   function sanitize(state) {
     const s = clone(state);
@@ -324,8 +314,6 @@
       pendingRemote = null;
       localStorage.setItem(REV, String(remote.state.settingsRev || 0));
       localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
-      const remoteSnap = project(remote.state, blankState(), { record: false });
-      if (remoteSnap) writeRemoteBase({ days: remoteSnap.days || {}, fox: remoteSnap.fox || {} });
       statusText = connectedText || '已连接';
       errorText = '';
       refreshPreview(true);
@@ -607,8 +595,6 @@
       cur.new += num(row.new); cur.review += num(row.review); cur.correct += num(row.correct); cur.wrong += num(row.wrong);
       sums[row.day] = cur;
     });
-    const base = (opts && opts.record === false) ? null : readRemoteBase();
-    const baseDays = (base && base.days) || {};
     next.days = next.days || {};
     const dayKeys = {};
     Object.keys(next.days).forEach(function (day) { dayKeys[day] = 1; });
@@ -616,12 +602,11 @@
     Object.keys(dayKeys).forEach(function (day) {
       const loc = next.days[day] || {};
       const rem = sums[day] || {};
-      const prev = baseDays[day] || {};
       next.days[day] = {
-        new: sumField(loc.new, rem.new, prev.new),
-        review: sumField(loc.review, rem.review, prev.review),
-        correct: sumField(loc.correct, rem.correct, prev.correct),
-        wrong: sumField(loc.wrong, rem.wrong, prev.wrong)
+        new: Math.max(num(loc.new), num(rem.new)),
+        review: Math.max(num(loc.review), num(rem.review)),
+        correct: Math.max(num(loc.correct), num(rem.correct)),
+        wrong: Math.max(num(loc.wrong), num(rem.wrong))
       };
     });
     const marks = {};
@@ -631,11 +616,10 @@
     if (remote.fox) {
       const lf = next.fox || {};
       const rf = remote.fox;
-      const bf = (base && base.fox) || {};
       next.fox = Object.assign({}, lf, {
-        food: sumField(lf.food, rf.food, bf.food),
-        xp: sumField(lf.xp, rf.xp, bf.xp),
-        fed: sumField(lf.fed, rf.fed, bf.fed),
+        food: Math.max(num(lf.food), num(rf.food)),
+        xp: Math.max(num(lf.xp), num(rf.xp)),
+        fed: Math.max(num(lf.fed), num(rf.fed)),
         name: (rf.name != null && rf.name !== '') ? rf.name : lf.name
       });
     }
