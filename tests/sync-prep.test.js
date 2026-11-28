@@ -324,11 +324,11 @@ const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 assert.ok(!appJs.includes('foxVocab.precloud'));
 assert.ok(appJs.includes("localStorage.setItem(KEY, JSON.stringify(S))"));
-assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v34'"));
-assert.ok(html.includes('app.js?v=33') && html.includes('sw.js?v=34') && html.includes('sync-app.js?v=34'));
+assert.ok(sw.includes("const CACHE = 'dog-verb-shell-v35'"));
+assert.ok(html.includes('app.js?v=35') && html.includes('sw.js?v=35') && html.includes('sync-app.js?v=35'));
 assert.ok(html.includes('data/etymology.js?v=31') && html.includes('data/senses.js?v=32') && html.includes('data/t2s.js?v=22'));
 assert.ok(html.includes('style.css?v=32') && html.includes('core.js?v=32'));
-assert.ok(sw.includes('sync-app.js?v=34'));
+assert.ok(sw.includes('sync-app.js?v=35'));
 assert.ok(sw.includes("etymology.js?v=31") && sw.includes("senses.js?v=32"));
 
 console.log('sync-prep tests ok');

@@ -16,6 +16,8 @@
   let statusText = '';
   let errorText = '';
   let recoveryOnce = '';
+  let pendingRemote = null;
+  let pendingBound = 0;
 
   function cfg() {
     const c = root.DOGVERB_SYNC_CONFIG;
@@ -125,9 +127,63 @@
     return { cards: cards, custom: (state.customBooks || []).length, days: (state.studyDays || []).length };
   }
   async function ensureSession() {
-    if (session && session.accessToken) return session;
-    session = await backend().resume({ storage: sync.idbStorage() });
+    const store = sync.idbStorage();
+    const api = backend();
+    if (session && session.accessToken) {
+      if (!api.accessExpired || !api.accessExpired(session)) return session;
+      try {
+        if (api.refreshSession) {
+          session = await api.refreshSession(session);
+          return session;
+        }
+      } catch (e) {
+        session = null;
+      }
+    }
+    session = await api.resume({ storage: store });
     return session;
+  }
+  function blurPairingFields() {
+    ['sync-join', 'sync-recover', 'sync-code', 'sync-secret'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el && document.activeElement === el && typeof el.blur === 'function') el.blur();
+    });
+  }
+  function retryPendingApply() {
+    if (!pendingRemote) return;
+    finishRemoteApply(pendingRemote.remote, pendingRemote.connectedText);
+  }
+  function listenForPendingApply() {
+    if (pendingBound) return;
+    pendingBound = 1;
+    document.addEventListener('focusout', retryPendingApply);
+    document.addEventListener('visibilitychange', retryPendingApply);
+  }
+  function finishRemoteApply(remote, connectedText) {
+    if (!remote || !remote.state) return { skipped: true };
+    const next = project(remote.state, root.__dogverbReadState());
+    if (!next) {
+      pendingRemote = null;
+      localStorage.setItem(REV, String(remote.state.settingsRev || 0));
+      localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
+      statusText = connectedText || '已连接';
+      errorText = '';
+      paint();
+      return { applied: true, skippedMerge: true };
+    }
+    const applied = root.__dogverbApplyRemote(next);
+    if (applied && applied.applied) {
+      pendingRemote = null;
+      localStorage.setItem(REV, String(remote.state.settingsRev || 0));
+      localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
+      statusText = connectedText || '已连接';
+      errorText = '';
+      paint();
+      return { applied: true };
+    }
+    pendingRemote = { remote: remote, connectedText: connectedText || '已连接' };
+    listenForPendingApply();
+    return applied || { deferred: true };
   }
   async function flush() {
     if (!opted()) return { skipped: true };
@@ -158,18 +214,7 @@
       if (!session) return;
       const remote = await backend().pull(session);
       if (readBox().length) return;
-      if (root.__dogverbFieldBusy && root.__dogverbFieldBusy()) return;
-      const local = root.__dogverbReadState();
-      const next = project(remote.state, local);
-      if (!next) return;
-      const applied = root.__dogverbApplyRemote(next);
-      if (applied && applied.applied) {
-        localStorage.setItem(REV, String(remote.state.settingsRev || 0));
-        localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
-        statusText = '已连接';
-        errorText = '';
-        paint();
-      }
+      return finishRemoteApply(remote, '已连接');
     } catch (e) {
       if (e && e.data && e.data.error === 'unauthorized') { errorText = '这台设备已退出同步'; statusText = ''; }
       else errorText = '暂时连不上同步';
@@ -273,14 +318,9 @@
       const made = await backend().recover({ recoverySecret: secret, deviceName: '这台设备', storage: sync.idbStorage() });
       session = made.session;
       localStorage.setItem(ON, '1');
+      blurPairingFields();
       const remote = await backend().pull(session);
-      const next = project(remote.state, root.__dogverbReadState());
-      if (next) root.__dogverbApplyRemote(next);
-      localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
-      localStorage.setItem(REV, String((remote.state && remote.state.settingsRev) || 0));
-      statusText = '已用恢复码连接';
-      errorText = '';
-      paint();
+      finishRemoteApply(remote, '已用恢复码连接');
       arm();
     } catch (e) { errorText = '恢复码无效'; paint(); }
   }
@@ -335,14 +375,9 @@
         try {
           session = await backend().claimPairing(joining.session);
           localStorage.setItem(ON, '1');
+          blurPairingFields();
           const remote = await backend().pull(session);
-          const next = project(remote.state, root.__dogverbReadState());
-          if (next) root.__dogverbApplyRemote(next);
-          localStorage.setItem(BASE, JSON.stringify(sanitize(root.__dogverbReadState())));
-          localStorage.setItem(REV, String(remote.state.settingsRev || 0));
-          statusText = '已连接';
-          errorText = '';
-          paint();
+          finishRemoteApply(remote, '已连接');
           arm();
         } catch (e) {
           if (e && e.data && (e.data.error === 'pair-not-confirmed' || e.data.error === 'nonce-replay')) setTimeout(wait, 700);
@@ -413,17 +448,20 @@
     };
     const pendingBox = document.getElementById('sync-pending');
     if (opted()) {
-      ensureSession().then(function () {
+      ensureSession().then(function () { return pull(); }).then(function () {
         arm();
         const code = document.getElementById('sync-code');
         if (session && code && !code.value) backend().mintPairing(session).then(function (minted) { code.value = minted.payload; refreshPending(); }).catch(function () { errorText = '配对码没有生成'; paint(); });
-      });
+      }).catch(function () { arm(); });
     }
     if (pendingBox) pendingBox.addEventListener('click', function () {});
   }
   root.__dogverbAfterSave = onSave;
   root.DogverbAppSync = {
-    mount: mount, flush: flush, pull: pull, diff: diff,
+    mount: mount, flush: flush, pull: pull, join: join, recoverWithSecret: recoverWithSecret,
+    finishRemoteApply: finishRemoteApply, retryPendingApply: retryPendingApply, ensureSession: ensureSession,
+    status: function () { return { statusText: statusText, errorText: errorText }; },
+    pending: function () { return pendingRemote; },
     debugServer: function (url) { if (session) session.server = url; if (joining && joining.session) joining.session.server = url; }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
